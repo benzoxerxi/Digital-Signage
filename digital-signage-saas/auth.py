@@ -55,25 +55,26 @@ def register():
         db.session.add(user)
         db.session.commit()
         
-        # Create tenant folder structure
-        tenant_id = user.get_tenant_id()
-        tenant_path = os.path.join('data/tenants', tenant_id)
-        os.makedirs(os.path.join(tenant_path, 'content'), exist_ok=True)
-        
-        # Initialize tenant data files
-        import json
-        default_files = {
-            'devices.json': {},
-            'playlists.json': {'playlists': []},
-            'schedules.json': {'schedules': []},
-            'groups.json': {'groups': []},
-            'analytics.json': {'events': [], 'stats': {}}
-        }
-        
-        for filename, content in default_files.items():
-            filepath = os.path.join(tenant_path, filename)
-            with open(filepath, 'w') as f:
-                json.dump(content, f, indent=2)
+        # Create tenant folder structure (may fail on read-only filesystem e.g. some PaaS)
+        try:
+            import json
+            tenant_id = user.get_tenant_id()
+            tenant_path = os.path.join('data', 'tenants', tenant_id)
+            os.makedirs(os.path.join(tenant_path, 'content'), exist_ok=True)
+            default_files = {
+                'devices.json': {},
+                'playlists.json': {'playlists': []},
+                'schedules.json': {'schedules': []},
+                'groups.json': {'groups': []},
+                'analytics.json': {'events': [], 'stats': {}}
+            }
+            for filename, content in default_files.items():
+                filepath = os.path.join(tenant_path, filename)
+                with open(filepath, 'w') as f:
+                    json.dump(content, f, indent=2)
+        except Exception as e:
+            import logging
+            logging.warning(f"Tenant folder creation skipped (e.g. ephemeral filesystem): {e}")
         
         # Log in user
         login_user(user)

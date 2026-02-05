@@ -127,18 +127,8 @@
             </div>
             <button type="submit" class="btn-submit">Sign in</button>
         </form>
-        {% if unverified_email %}
-        <div class="resend-verification" style="margin-top: 1rem; padding: 1rem; background: #fef3c7; border-radius: 10px; font-size: 0.875rem;">
-            <p style="margin: 0 0 0.5rem 0; color: #92400e;">Verify your email to sign in.</p>
-            <form method="POST" action="{{ url_for('auth.resend_verification') }}" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <input type="hidden" name="email" value="{{ unverified_email }}">
-                <button type="submit" class="btn-submit" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Resend verification email</button>
-            </form>
-        </div>
-        {% endif %}
         <div class="auth-links">
-            Don't have an account? <a href="{{ url_for('auth.register') }}">Sign up</a><br>
-            Didn't get the verification email? <a href="{{ url_for('auth.resend_verification') }}">Resend</a>
+            Don't have an account? <a href="{{ url_for('auth.register') }}">Sign up</a>
         </div>
     </div>
 </div>

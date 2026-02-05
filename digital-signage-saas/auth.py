@@ -1,5 +1,5 @@
 """
-Authentication routes - Login, Registration, Logout, Email verification
+Authentication routes - Login, Registration, Logout
 """
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required, current_user
@@ -12,7 +12,7 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    """User registration (no plan selection; email verification required)"""
+    """User registration (no plan selection; no email verification)"""
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
     
@@ -48,11 +48,10 @@ def register():
             plan='free',
             subscription_status='trial',
             trial_ends_at=datetime.utcnow() + timedelta(days=7),
-            email_verified=False
+            email_verified=True
         )
         user.set_password(password)
         user.ensure_connection_code()
-        user.set_email_verify_token()
         
         db.session.add(user)
         db.session.commit()
@@ -78,10 +77,9 @@ def register():
             import logging
             logging.warning(f"Tenant folder creation skipped (e.g. ephemeral filesystem): {e}")
         
-        # Send verification email and show "check your email" page (do not log in yet)
-        verify_url = url_for('auth.verify_email', token=user.email_verify_token, _external=True)
-        sent = send_verification_email(user.email, user.username, verify_url)
-        return redirect(url_for('auth.verification_sent', email=user.email, sent=sent))
+        login_user(user)
+        flash(f'Welcome {username}! Your 7-day free trial has started.', 'success')
+        return redirect(url_for('main.dashboard'))
     
     return render_template('register.html')
 
@@ -154,9 +152,6 @@ def login():
             if not user.is_active:
                 flash('Your account has been deactivated. Contact support.', 'error')
                 return render_template('login.html')
-            if not getattr(user, 'email_verified', True):  # default True for existing users without the column
-                flash('Please verify your email first. Check your inbox or request a new link below.', 'error')
-                return render_template('login.html', unverified_email=user.email)
             
             login_user(user, remember=remember)
             

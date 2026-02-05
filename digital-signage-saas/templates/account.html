@@ -43,15 +43,13 @@
     </div>
     
     <div style="background: #E3F2FD; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #0066FF; margin: 2rem 0;">
-        <h3 style="margin-bottom: 0.5rem;">📱 For Android APK Configuration</h3>
-        <p style="margin-bottom: 1rem;">Enter your <strong>9-digit connection code</strong> in the APK settings: <code style="font-size: 1.1rem; font-weight: bold;">{{ user.connection_code or '—' }}</code></p>
-        <p style="margin-bottom: 0.5rem;">Or use this full URL (with server address):</p>
-        <code style="display: block; background: white; padding: 1rem; border-radius: 4px; font-family: monospace; word-break: break-all;">
-            http://YOUR_SERVER_IP:5000/api/playback/state?code={{ user.connection_code or '' }}
+        <h3 style="margin-bottom: 0.5rem;">📱 Android APK configuration</h3>
+        <p style="margin-bottom: 0.75rem;">The app connects to the cloud automatically. Open the APK and enter <strong>only your 9-digit code</strong>:</p>
+        <p style="margin-bottom: 1rem;"><code style="font-size: 1.25rem; font-weight: bold; letter-spacing: 0.15em;">{{ user.connection_code or '—' }}</code></p>
+        <p style="margin-bottom: 0.5rem; font-size: 0.9rem; color: #555;">API URL (for reference):</p>
+        <code style="display: block; background: white; padding: 0.75rem 1rem; border-radius: 6px; font-family: monospace; font-size: 0.875rem; word-break: break-all;">
+            {{ request.url_root.rstrip('/') }}/api/playback/state?code={{ user.connection_code or '' }}
         </code>
-        <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
-            Replace <strong>YOUR_SERVER_IP</strong> with your server's IP or domain (e.g., 192.168.1.100 or signage.example.com)
-        </p>
     </div>
     
     {% if payments %}

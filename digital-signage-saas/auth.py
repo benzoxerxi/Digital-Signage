@@ -1,17 +1,18 @@
 """
-Authentication routes - Login, Registration, Logout
+Authentication routes - Login, Registration, Logout, Email verification
 """
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from models import db, User
 from datetime import datetime, timedelta
+from utils import send_verification_email
 import os
 
 auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    """User registration"""
+    """User registration (no plan selection; email verification required)"""
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
     
@@ -20,7 +21,6 @@ def register():
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
         company_name = request.form.get('company_name', '').strip()
-        plan = request.form.get('plan', 'free')
         
         # Validation
         if not username or not email or not password:
@@ -40,17 +40,19 @@ def register():
             flash('Email already registered', 'error')
             return render_template('register.html')
         
-        # Create user
+        # Create user (plan defaults to free; upgrade via Subscriptions)
         user = User(
             username=username,
             email=email,
             company_name=company_name,
-            plan=plan,
+            plan='free',
             subscription_status='trial',
-            trial_ends_at=datetime.utcnow() + timedelta(days=7)
+            trial_ends_at=datetime.utcnow() + timedelta(days=7),
+            email_verified=False
         )
         user.set_password(password)
-        user.ensure_connection_code()  # 9-digit unique code for APK connection
+        user.ensure_connection_code()
+        user.set_email_verify_token()
         
         db.session.add(user)
         db.session.commit()
@@ -76,12 +78,63 @@ def register():
             import logging
             logging.warning(f"Tenant folder creation skipped (e.g. ephemeral filesystem): {e}")
         
-        # Log in user
-        login_user(user)
-        flash(f'Welcome {username}! Your 7-day free trial has started.', 'success')
-        return redirect(url_for('main.dashboard'))
+        # Send verification email and show "check your email" page (do not log in yet)
+        verify_url = url_for('auth.verify_email', token=user.email_verify_token, _external=True)
+        sent = send_verification_email(user.email, user.username, verify_url)
+        return redirect(url_for('auth.verification_sent', email=user.email, sent=sent))
     
     return render_template('register.html')
+
+
+@auth_bp.route('/verification-sent')
+def verification_sent():
+    """Show 'check your email' after registration."""
+    email = request.args.get('email', '')
+    sent = request.args.get('sent', 'true').lower() == 'true'
+    return render_template('verification_sent.html', email=email, sent=sent)
+
+
+@auth_bp.route('/verify-email')
+def verify_email():
+    """Verify email via token link; then log user in and redirect to dashboard."""
+    token = request.args.get('token', '')
+    if not token:
+        flash('Invalid or missing verification link.', 'error')
+        return redirect(url_for('auth.login'))
+    user = User.query.filter_by(email_verify_token=token).first()
+    if not user:
+        flash('Invalid or expired verification link. Request a new one from the login page.', 'error')
+        return redirect(url_for('auth.login'))
+    if user.email_verify_expires and datetime.utcnow() > user.email_verify_expires:
+        flash('Verification link has expired. Request a new one from the login page.', 'error')
+        return redirect(url_for('auth.login'))
+    user.email_verified = True
+    user.email_verify_token = None
+    user.email_verify_expires = None
+    db.session.commit()
+    login_user(user)
+    flash('Your email is verified. Welcome!', 'success')
+    return redirect(url_for('main.dashboard'))
+
+
+@auth_bp.route('/resend-verification', methods=['GET', 'POST'])
+def resend_verification():
+    """Resend verification email by email address."""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        user = User.query.filter_by(email=email).first() if email else None
+        if user and not getattr(user, 'email_verified', True):
+            user.set_email_verify_token()
+            db.session.commit()
+            verify_url = url_for('auth.verify_email', token=user.email_verify_token, _external=True)
+            if send_verification_email(user.email, user.username, verify_url):
+                flash('Verification email sent. Check your inbox.', 'success')
+            else:
+                flash('We could not send the email. Make sure the server has email configured.', 'error')
+        else:
+            flash('No unverified account found for that email.', 'error')
+        return redirect(url_for('auth.login'))
+    return render_template('resend_verification.html')
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -101,6 +154,9 @@ def login():
             if not user.is_active:
                 flash('Your account has been deactivated. Contact support.', 'error')
                 return render_template('login.html')
+            if not getattr(user, 'email_verified', True):  # default True for existing users without the column
+                flash('Please verify your email first. Check your inbox or request a new link below.', 'error')
+                return render_template('login.html', unverified_email=user.email)
             
             login_user(user, remember=remember)
             

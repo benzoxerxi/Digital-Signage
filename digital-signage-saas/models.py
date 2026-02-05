@@ -6,6 +6,7 @@ from flask_login import UserMixin
 from datetime import datetime, timedelta
 import bcrypt
 import random
+import secrets
 
 db = SQLAlchemy()
 
@@ -36,6 +37,9 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
     is_admin = db.Column(db.Boolean, default=False)
+    email_verified = db.Column(db.Boolean, default=False)
+    email_verify_token = db.Column(db.String(64), nullable=True)
+    email_verify_expires = db.Column(db.DateTime, nullable=True)
     
     # Subscription
     plan = db.Column(db.String(50), default='free')
@@ -62,6 +66,12 @@ class User(UserMixin, db.Model):
             return self.connection_code
         self.connection_code = _generate_unique_connection_code()
         return self.connection_code
+
+    def set_email_verify_token(self):
+        """Generate and set email verification token (expires in 24h). Returns token."""
+        self.email_verify_token = secrets.token_urlsafe(32)
+        self.email_verify_expires = datetime.utcnow() + timedelta(hours=24)
+        return self.email_verify_token
     
     @classmethod
     def get_by_connection_code(cls, code):

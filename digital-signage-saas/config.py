@@ -8,8 +8,15 @@ class Config:
     # Flask settings
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
-    # Database
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///signage.db'
+    # Database: use DATABASE_URL in production so users/data persist across deploys (e.g. Render Postgres)
+    _database_url = os.environ.get('DATABASE_URL')
+    if _database_url:
+        # Some hosts (e.g. Render) give postgres://; SQLAlchemy expects postgresql://
+        if _database_url.startswith('postgres://'):
+            _database_url = 'postgresql://' + _database_url[9:]
+        SQLALCHEMY_DATABASE_URI = _database_url
+    else:
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///signage.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Session
@@ -23,6 +30,14 @@ class Config:
     # Device settings
     DEVICE_TIMEOUT = 15  # seconds
     
+    # Email (for verification, etc.)
+    MAIL_SERVER = os.environ.get('MAIL_SERVER')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'true').lower() in ('1', 'true', 'yes')
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER') or MAIL_USERNAME
+
     # Stripe (add your keys later)
     STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY') or 'pk_test_...'
     STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY') or 'sk_test_...'

@@ -21,19 +21,35 @@ import mimetypes
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Use absolute path for SQLite so it works when CWD differs (e.g. on Render)
+# Use absolute path for SQLite when DATABASE_URL not set (e.g. local dev)
 if not os.environ.get('DATABASE_URL'):
     db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'signage.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
+    # On Render/Heroku the filesystem is ephemeral: SQLite would be wiped every deploy
+    if os.environ.get('RENDER') or os.environ.get('DYNO'):
+        print('WARNING: DATABASE_URL is not set. Users and data will be LOST on each deploy. Add a persistent database (e.g. Render PostgreSQL) and set DATABASE_URL.')
 
 CORS(app)
 
 # Initialize extensions
 db.init_app(app)
 
-# Ensure tables exist when app is loaded (e.g. under gunicorn), not only when run as __main__
+# Ensure tables exist and migrations run when app is loaded (e.g. under gunicorn)
 with app.app_context():
     db.create_all()
+    # Add new columns if missing (e.g. email verification)
+    for col, sql in [
+        ('email_verified', 'ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT 1'),
+        ('email_verify_token', 'ALTER TABLE users ADD COLUMN email_verify_token VARCHAR(64)'),
+        ('email_verify_expires', 'ALTER TABLE users ADD COLUMN email_verify_expires DATETIME'),
+    ]:
+        try:
+            db.session.execute(text(sql))
+            db.session.commit()
+        except Exception as e:
+            if 'duplicate column' not in str(e).lower() and 'already exists' not in str(e).lower():
+                print(f"Migration note ({col}): {e}")
+            db.session.rollback()
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'auth.login'

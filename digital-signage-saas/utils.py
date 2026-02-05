@@ -206,3 +206,29 @@ def play_video_to_devices(filename, device_ids, user_id):
         'filename': filename,
         'device_count': len(device_ids) if device_ids else len(devices)
     }, user_id)
+
+
+def send_verification_email(to_email, username, verify_url):
+    """Send email verification link. Returns True if sent, False if mail not configured or failed."""
+    if not Config.MAIL_SERVER or not Config.MAIL_USERNAME or not Config.MAIL_PASSWORD:
+        return False
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'Verify your email - Digital Signage'
+        msg['From'] = Config.MAIL_DEFAULT_SENDER or Config.MAIL_USERNAME
+        msg['To'] = to_email
+        text = f"Hi {username},\n\nPlease verify your email by opening this link:\n{verify_url}\n\nThis link expires in 24 hours.\n\n— Digital Signage"
+        html = f"""<p>Hi {username},</p><p>Please verify your email by clicking the link below:</p><p><a href="{verify_url}">{verify_url}</a></p><p>This link expires in 24 hours.</p><p>— Digital Signage</p>"""
+        msg.attach(MIMEText(text, 'plain'))
+        msg.attach(MIMEText(html, 'html'))
+        with smtplib.SMTP(Config.MAIL_SERVER, Config.MAIL_PORT) as server:
+            if Config.MAIL_USE_TLS:
+                server.starttls()
+            server.login(Config.MAIL_USERNAME, Config.MAIL_PASSWORD)
+            server.sendmail(msg['From'], to_email, msg.as_string())
+        return True
+    except Exception:
+        return False

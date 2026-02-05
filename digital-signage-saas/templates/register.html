@@ -4,132 +4,157 @@
 
 {% block extra_css %}
 <style>
-    .auth-container {
-        max-width: 450px;
-        margin: 4rem auto;
-        padding: 2rem;
+    body { min-height: 100vh; display: flex; flex-direction: column; }
+    .auth-page {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: calc(100vh - 80px);
+        padding: 2rem 1rem;
+        background: linear-gradient(160deg, #f0f4ff 0%, #e8eeff 50%, #f5f7fa 100%);
     }
-    
-    .auth-card {
-        background: white;
-        padding: 3rem;
-        border-radius: 12px;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    .auth-popup {
+        width: 100%;
+        max-width: 420px;
+        background: #fff;
+        border-radius: 20px;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
+        padding: 2.5rem 2rem;
+        animation: authPop 0.35s ease-out;
     }
-    
-    .auth-card h1 {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
+    @keyframes authPop {
+        from { opacity: 0; transform: scale(0.96) translateY(-8px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .auth-popup .trial-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #00E676 0%, #00C853 100%);
+        color: #fff;
+        padding: 0.4rem 1rem;
+        border-radius: 999px;
+        font-size: 0.8125rem;
+        font-weight: 600;
         text-align: center;
+        margin-bottom: 1.25rem;
+        width: 100%;
     }
-    
-    .auth-card p {
+    .auth-popup h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1a1a2e;
         text-align: center;
-        color: #666;
-        margin-bottom: 2rem;
+        margin-bottom: 0.35rem;
     }
-    
-    .form-group {
+    .auth-popup .subtitle {
+        text-align: center;
+        color: #64748b;
+        font-size: 0.9375rem;
         margin-bottom: 1.5rem;
     }
-    
-    .form-group label {
+    .auth-popup .form-group {
+        margin-bottom: 1.1rem;
+    }
+    .auth-popup .form-group label {
         display: block;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.4rem;
         font-weight: 600;
-        color: #333;
+        font-size: 0.875rem;
+        color: #334155;
     }
-    
-    .form-group input, .form-group select {
+    .auth-popup .form-group input,
+    .auth-popup .form-group select {
         width: 100%;
-        padding: 0.75rem;
-        border: 2px solid #e0e0e0;
-        border-radius: 6px;
+        max-width: 100%;
+        padding: 0.7rem 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
         font-size: 1rem;
-        transition: border-color 0.3s;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        background: #fafafa;
     }
-    
-    .form-group input:focus, .form-group select:focus {
+    .auth-popup .form-group input:focus,
+    .auth-popup .form-group select:focus {
         outline: none;
         border-color: var(--primary);
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.12);
     }
-    
-    .btn-full {
+    .auth-popup .form-group small {
+        display: block;
+        margin-top: 0.35rem;
+        font-size: 0.8125rem;
+        color: #64748b;
+    }
+    .auth-popup .btn-submit {
         width: 100%;
-        padding: 1rem;
+        padding: 0.875rem 1.25rem;
         font-size: 1rem;
+        font-weight: 600;
+        border-radius: 10px;
+        border: none;
+        background: var(--primary);
+        color: #fff;
+        cursor: pointer;
+        margin-top: 0.25rem;
+        transition: background 0.2s, transform 0.1s;
     }
-    
-    .auth-links {
+    .auth-popup .btn-submit:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+    }
+    .auth-popup .auth-links {
         text-align: center;
         margin-top: 1.5rem;
-        color: #666;
+        padding-top: 1.25rem;
+        border-top: 1px solid #f1f5f9;
+        font-size: 0.9375rem;
+        color: #64748b;
     }
-    
-    .auth-links a {
+    .auth-popup .auth-links a {
         color: var(--primary);
         text-decoration: none;
         font-weight: 600;
     }
-    
-    .auth-links a:hover {
-        text-decoration: underline;
-    }
-    
-    .trial-badge {
-        background: var(--success);
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        text-align: center;
-        margin-bottom: 1.5rem;
-        font-weight: 600;
-    }
+    .auth-popup .auth-links a:hover { text-decoration: underline; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="auth-container">
-    <div class="auth-card">
-        <div class="trial-badge">🎉 7-Day Free Trial</div>
-        <h1>Get Started</h1>
-        <p>Create your account and start managing displays</p>
-        
+<div class="auth-page">
+    <div class="auth-popup">
+        <div class="trial-badge">7-day free trial</div>
+        <h1>Get started</h1>
+        <p class="subtitle">Create your account and manage your displays</p>
         <form method="POST" action="{{ url_for('auth.register') }}">
             <div class="form-group">
                 <label for="username">Username</label>
-                <input type="text" id="username" name="username" required autofocus>
+                <input type="text" id="username" name="username" required autofocus placeholder="Choose a username">
             </div>
-            
             <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" id="email" name="email" required>
+                <input type="email" id="email" name="email" required placeholder="you@example.com">
             </div>
-            
             <div class="form-group">
-                <label for="company_name">Company Name (Optional)</label>
-                <input type="text" id="company_name" name="company_name">
+                <label for="company_name">Company (optional)</label>
+                <input type="text" id="company_name" name="company_name" placeholder="Your company">
             </div>
-            
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" required minlength="6">
-                <small style="color: #666;">At least 6 characters</small>
+                <input type="password" id="password" name="password" required minlength="6" placeholder="••••••••">
+                <small>At least 6 characters</small>
             </div>
-            
             <div class="form-group">
-                <label for="plan">Select Plan</label>
+                <label for="plan">Plan</label>
                 <select id="plan" name="plan">
-                    <option value="free">Free Trial (7 days)</option>
-                    <option value="starter">Starter - $29/month</option>
-                    <option value="professional" selected>Professional - $79/month (Recommended)</option>
-                    <option value="enterprise">Enterprise - $199/month</option>
+                    <option value="free">Free trial (7 days)</option>
+                    <option value="starter">Starter — $29/mo</option>
+                    <option value="professional" selected>Professional — $79/mo</option>
+                    <option value="enterprise">Enterprise — $199/mo</option>
                 </select>
             </div>
-            
-            <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+            <button type="submit" class="btn-submit">Create account</button>
         </form>
-        
         <div class="auth-links">
             Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a>
         </div>

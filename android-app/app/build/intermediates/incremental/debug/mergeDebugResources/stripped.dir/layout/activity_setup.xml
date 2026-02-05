@@ -47,36 +47,44 @@
             android:orientation="vertical"
             android:padding="24dp">
 
-            <TextView
+            <LinearLayout
+                android:id="@+id/server_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Server Address"
-                android:textSize="14sp"
-                android:textColor="#666666"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp"
-                android:gravity="center" />
+                android:orientation="vertical"
+                android:visibility="gone">
 
-            <EditText
-                android:id="@+id/server_input"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:hint="192.168.1.100:5000"
-                android:inputType="textUri"
-                android:padding="16dp"
-                android:background="@drawable/input_background"
-                android:textSize="16sp"
-                android:textColor="#000000"
-                android:gravity="center" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Server Address"
+                    android:textSize="14sp"
+                    android:textColor="#666666"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp"
+                    android:gravity="center" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Enter the IP address and port of your server"
-                android:textSize="12sp"
-                android:textColor="#999999"
-                android:layout_marginTop="8dp"
-                android:gravity="center" />
+                <EditText
+                    android:id="@+id/server_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:hint="192.168.1.100:5000"
+                    android:inputType="textUri"
+                    android:padding="16dp"
+                    android:background="@drawable/input_background"
+                    android:textSize="16sp"
+                    android:textColor="#000000"
+                    android:gravity="center" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Enter the IP address and port of your server"
+                    android:textSize="12sp"
+                    android:textColor="#999999"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center" />
+            </LinearLayout>
 
             <TextView
                 android:layout_width="match_parent"
@@ -128,7 +136,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Make sure the server is running on your PC"
+        android:text="Connected to cloud. Get your code from Account on the website."
         android:textSize="12sp"
         android:textColor="#000000"
         android:layout_marginTop="20dp"

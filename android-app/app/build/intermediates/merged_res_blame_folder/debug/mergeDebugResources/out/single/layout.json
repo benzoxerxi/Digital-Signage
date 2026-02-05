@@ -1,7 +1,11 @@
 [
     {
-        "merged": "com.signage.player.app-mergeDebugResources-3:/layout/activity_main.xml",
-        "source": "com.signage.player.app-main-6:/layout/activity_main.xml"
+        "merged": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-mergeDebugResources-3:\\layout\\activity_main.xml",
+        "source": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-main-6:\\layout\\activity_main.xml"
+    },
+    {
+        "merged": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-mergeDebugResources-3:\\layout\\activity_setup.xml",
+        "source": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-main-6:\\layout\\activity_setup.xml"
     },
     {
         "merged": "com.signage.player.app-mergeDebugResources-3:/layout/activity_setup.xml",

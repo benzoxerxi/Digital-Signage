@@ -17,6 +17,7 @@ id logo_view
 id player_view
 id screensaver_view
 id server_input
+id server_section
 layout activity_main
 layout activity_setup
 mipmap ic_launcher

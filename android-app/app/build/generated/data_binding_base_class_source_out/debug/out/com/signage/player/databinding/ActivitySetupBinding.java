@@ -33,14 +33,18 @@ public final class ActivitySetupBinding implements ViewBinding {
   @NonNull
   public final EditText serverInput;
 
+  @NonNull
+  public final LinearLayout serverSection;
+
   private ActivitySetupBinding(@NonNull LinearLayout rootView, @NonNull Button connectButton,
       @NonNull EditText connectionCodeInput, @NonNull ImageView logoView,
-      @NonNull EditText serverInput) {
+      @NonNull EditText serverInput, @NonNull LinearLayout serverSection) {
     this.rootView = rootView;
     this.connectButton = connectButton;
     this.connectionCodeInput = connectionCodeInput;
     this.logoView = logoView;
     this.serverInput = serverInput;
+    this.serverSection = serverSection;
   }
 
   @Override
@@ -94,8 +98,14 @@ public final class ActivitySetupBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.server_section;
+      LinearLayout serverSection = ViewBindings.findChildViewById(rootView, id);
+      if (serverSection == null) {
+        break missingId;
+      }
+
       return new ActivitySetupBinding((LinearLayout) rootView, connectButton, connectionCodeInput,
-          logoView, serverInput);
+          logoView, serverInput, serverSection);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

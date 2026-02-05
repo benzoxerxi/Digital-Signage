@@ -20,10 +20,20 @@ import mimetypes
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Use absolute path for SQLite so it works when CWD differs (e.g. on Render)
+if not os.environ.get('DATABASE_URL'):
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'signage.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
+
 CORS(app)
 
 # Initialize extensions
 db.init_app(app)
+
+# Ensure tables exist when app is loaded (e.g. under gunicorn), not only when run as __main__
+with app.app_context():
+    db.create_all()
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'auth.login'

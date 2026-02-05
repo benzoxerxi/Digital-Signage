@@ -6,29 +6,42 @@
 <style>
     .landing-page { max-width: 1120px; margin: 0 auto; padding: 0 1.5rem; }
     
-    .hero {
+    /* Full-page animated pixel background (blurred so content stays clear) */
+    .landing-wrap {
         position: relative;
-        background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 50%, #0c4a6e 100%);
-        color: white;
-        padding: 6rem 1.5rem;
-        text-align: center;
-        overflow: hidden;
+        min-height: 100vh;
     }
-    .hero-pixel-bg {
-        position: absolute;
+    .landing-pixel-bg {
+        position: fixed;
         inset: 0;
         z-index: 0;
-        opacity: 0.7;
+        opacity: 0.5;
+        filter: blur(10px);
+        pointer-events: none;
     }
-    .hero-pixel-bg canvas {
+    .landing-pixel-bg canvas {
         display: block;
         width: 100%;
         height: 100%;
         object-fit: cover;
     }
-    .hero .container {
+    .landing-wrap .hero,
+    .landing-wrap .features,
+    .landing-wrap .pricing,
+    .landing-wrap .cta-section,
+    .landing-wrap .landing-footer {
         position: relative;
         z-index: 1;
+    }
+    
+    .hero {
+        background: linear-gradient(160deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 58, 95, 0.92) 50%, rgba(12, 74, 110, 0.92) 100%);
+        color: white;
+        padding: 6rem 1.5rem;
+        text-align: center;
+        overflow: hidden;
+    }
+    .hero .container {
         max-width: 640px;
         margin: 0 auto;
     }
@@ -60,7 +73,7 @@
     
     .features {
         padding: 5rem 1.5rem;
-        background: #f8fafc;
+        background: rgba(248, 250, 252, 0.94);
     }
     .features .container {
         max-width: 1120px;
@@ -109,6 +122,7 @@
     
     .pricing {
         padding: 5rem 1.5rem;
+        background: rgba(255, 255, 255, 0.7);
     }
     .pricing .container {
         max-width: 1120px;
@@ -200,7 +214,7 @@
     }
     
     .cta-section {
-        background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%);
+        background: linear-gradient(160deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 58, 95, 0.95) 100%);
         color: white;
         padding: 4.5rem 1.5rem;
         text-align: center;
@@ -227,7 +241,7 @@
     }
     
     .landing-footer {
-        background: #0f172a;
+        background: rgba(15, 23, 42, 0.98);
         color: #94a3b8;
         padding: 1.75rem 1.5rem;
         text-align: center;
@@ -239,20 +253,18 @@
 {% block extra_js %}
 <script>
 (function() {
-    var canvas = document.getElementById('hero-pixel-canvas');
+    var canvas = document.getElementById('landing-pixel-canvas');
     if (!canvas) return;
     var ctx = canvas.getContext('2d');
     var width = 0, height = 0;
-    var cell = 14;
+    var cell = 16;
     var cols = 0, rows = 0;
     var phases = [];
     var start = null;
 
     function resize() {
-        var section = canvas.closest('.hero');
-        if (!section) return;
-        width = section.offsetWidth;
-        height = section.offsetHeight;
+        width = window.innerWidth;
+        height = window.innerHeight;
         canvas.width = width;
         canvas.height = height;
         cols = Math.ceil(width / cell) + 2;
@@ -288,11 +300,12 @@
 {% endblock %}
 
 {% block content %}
+<div class="landing-wrap">
+<div class="landing-pixel-bg" aria-hidden="true">
+    <canvas id="landing-pixel-canvas"></canvas>
+</div>
 <!-- Hero Section -->
 <section class="hero">
-    <div class="hero-pixel-bg" aria-hidden="true">
-        <canvas id="hero-pixel-canvas"></canvas>
-    </div>
     <div class="container">
         <h1>Professional digital signage, simplified</h1>
         <p>Manage and distribute content to unlimited displays from one dashboard. Built for businesses, retail, and venues.</p>
@@ -383,4 +396,5 @@
 <footer class="landing-footer">
     <p>&copy; 2024 Digital Signage SaaS. All rights reserved.</p>
 </footer>
+</div>
 {% endblock %}

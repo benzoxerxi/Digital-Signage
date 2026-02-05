@@ -60,6 +60,8 @@ class MainActivity : AppCompatActivity() {
         private const val UPDATE_INTERVAL = 3000L
         private const val SCREENSAVER_URL = "https://karchershop.ge/cdn/shop/files/logo_karcher_2015.svg?v=1683099671&width=600"
         private const val LOGO_URL = "https://images.seeklogo.com/logo-png/43/2/karcher-logo-png_seeklogo-437949.png"
+        /** Default server URL – no server input needed; user only enters 9-digit code */
+        private const val DEFAULT_SERVER_URL = "https://digitalsignage-gits.onrender.com"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,6 +85,7 @@ class MainActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         serverUrl = prefs.getString(KEY_SERVER_URL, "") ?: ""
+        if (serverUrl.isEmpty()) serverUrl = DEFAULT_SERVER_URL
         connectionCode = prefs.getString(KEY_CONNECTION_CODE, "") ?: ""
         deviceId = prefs.getString(KEY_DEVICE_ID, "") ?: ""
         deviceName = prefs.getString(KEY_DEVICE_NAME, "") ?: ""
@@ -98,9 +101,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         Log.d(TAG, "Device ID: $deviceId")
+        Log.d(TAG, "Server: $serverUrl")
         Log.d(TAG, "Connection code: ${if (connectionCode.isEmpty()) "not set" else "set"}")
 
-        if (serverUrl.isEmpty() || connectionCode.isEmpty()) {
+        if (connectionCode.isEmpty()) {
             showSetupScreen()
         } else {
             initializePlayer()
@@ -118,13 +122,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSetupScreen() {
         setContentView(R.layout.activity_setup)
-        val serverInput = findViewById<android.widget.EditText>(R.id.server_input)
         val codeInput = findViewById<android.widget.EditText>(R.id.connection_code_input)
         val connectButton = findViewById<android.widget.Button>(R.id.connect_button)
         val logoView = findViewById<ImageView>(R.id.logo_view)
 
-        // Pre-fill saved values if any
-        if (serverUrl.isNotEmpty()) serverInput.setText(serverUrl.replace(Regex("^https?://"), ""))
+        serverUrl = DEFAULT_SERVER_URL
         if (connectionCode.isNotEmpty()) codeInput.setText(connectionCode)
 
         val imageLoader = ImageLoader.Builder(this).build()
@@ -135,13 +137,10 @@ class MainActivity : AppCompatActivity() {
         imageLoader.enqueue(request)
 
         connectButton.setOnClickListener {
-            val url = serverInput.text.toString().trim()
             val code = codeInput.text.toString().trim().replace(Regex("[^0-9]"), "")
             when {
-                url.isEmpty() -> Toast.makeText(this, "Please enter server address", Toast.LENGTH_SHORT).show()
                 code.length != 9 -> Toast.makeText(this, "Please enter your 9-digit connection code", Toast.LENGTH_SHORT).show()
                 else -> {
-                    serverUrl = if (!url.startsWith("http")) "http://$url" else url
                     connectionCode = code
                     getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         .edit()

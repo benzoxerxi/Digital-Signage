@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<div style="max-width: 1200px; margin: 2rem auto; padding: 2rem;">
+    <h1>Admin Dashboard</h1>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 2rem 0;">
+        <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3>Total Users</h3>
+            <p style="font-size: 2rem; color: #0066FF;">{{ total_users }}</p>
+        </div>
+        <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3>Active Subscriptions</h3>
+            <p style="font-size: 2rem; color: #00E676;">{{ active_subscriptions }}</p>
+        </div>
+        <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3>Trial Users</h3>
+            <p style="font-size: 2rem; color: #FFB300;">{{ trial_users }}</p>
+        </div>
+        <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3>Monthly Revenue</h3>
+            <p style="font-size: 2rem; color: #0066FF;">${{ monthly_revenue|round(2) }}</p>
+        </div>
+    </div>
+    <h2>Recent Users</h2>
+    <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px;">
+        <thead>
+            <tr style="background: #f8f9fa;">
+                <th style="padding: 1rem; text-align: left;">User ID</th>
+                <th style="padding: 1rem; text-align: left;">Username</th>
+                <th style="padding: 1rem; text-align: left;">Email</th>
+                <th style="padding: 1rem; text-align: left;">Plan</th>
+                <th style="padding: 1rem; text-align: left;">Status</th>
+                <th style="padding: 1rem; text-align: left;">Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in recent_users %}
+            <tr style="border-top: 1px solid #e0e0e0;">
+                <td style="padding: 1rem;"><strong style="color: #0066FF; font-family: monospace;">{{ user.id }}</strong></td>
+                <td style="padding: 1rem;">{{ user.username }}</td>
+                <td style="padding: 1rem;">{{ user.email }}</td>
+                <td style="padding: 1rem;">{{ user.plan }}</td>
+                <td style="padding: 1rem;">{{ user.subscription_status }}</td>
+                <td style="padding: 1rem;">{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

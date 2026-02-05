@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Subscription Expired{% endblock %}
+{% block content %}
+<div style="max-width: 600px; margin: 4rem auto; padding: 2rem; text-align: center;">
+    <h1>Subscription Expired</h1>
+    <p>Your subscription has expired. Please renew to continue using the service.</p>
+    <a href="{{ url_for('main.account') }}" class="btn btn-primary">Renew Subscription</a>
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Account Settings{% endblock %}
+{% block content %}
+<div style="max-width: 800px; margin: 2rem auto; padding: 2rem;">
+    <h1>Account Settings</h1>
+    
+    <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2 style="margin-bottom: 1.5rem;">Account Information</h2>
+        
+        <div style="display: grid; gap: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); border-radius: 8px; border: 2px solid #4CAF50;">
+                <strong>Connection Code (for APK):</strong>
+                <span style="font-family: monospace; font-size: 1.5rem; font-weight: bold; letter-spacing: 0.2em; color: #1B5E20;">{{ user.connection_code or '—' }}</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; padding: 0.75rem;">
+                <strong>Username:</strong>
+                <span>{{ user.username }}</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; padding: 0.75rem; background: #f8f9fa; border-radius: 4px;">
+                <strong>Email:</strong>
+                <span>{{ user.email }}</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; padding: 0.75rem;">
+                <strong>Company:</strong>
+                <span>{{ user.company_name or 'Not set' }}</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; padding: 0.75rem; background: #f8f9fa; border-radius: 4px;">
+                <strong>Plan:</strong>
+                <span style="text-transform: capitalize;">{{ user.plan }}</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; padding: 0.75rem;">
+                <strong>Status:</strong>
+                <span style="text-transform: capitalize; color: {% if user.subscription_status == 'active' %}#00E676{% elif user.subscription_status == 'trial' %}#FFB300{% else %}#FF3D00{% endif %}; font-weight: bold;">
+                    {{ user.subscription_status }}
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <div style="background: #E3F2FD; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #0066FF; margin: 2rem 0;">
+        <h3 style="margin-bottom: 0.5rem;">📱 For Android APK Configuration</h3>
+        <p style="margin-bottom: 1rem;">Enter your <strong>9-digit connection code</strong> in the APK settings: <code style="font-size: 1.1rem; font-weight: bold;">{{ user.connection_code or '—' }}</code></p>
+        <p style="margin-bottom: 0.5rem;">Or use this full URL (with server address):</p>
+        <code style="display: block; background: white; padding: 1rem; border-radius: 4px; font-family: monospace; word-break: break-all;">
+            http://YOUR_SERVER_IP:5000/api/playback/state?code={{ user.connection_code or '' }}
+        </code>
+        <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+            Replace <strong>YOUR_SERVER_IP</strong> with your server's IP or domain (e.g., 192.168.1.100 or signage.example.com)
+        </p>
+    </div>
+    
+    {% if payments %}
+    <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2 style="margin-bottom: 1.5rem;">Recent Payments</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 2px solid #e0e0e0;">
+                    <th style="padding: 0.75rem; text-align: left;">Date</th>
+                    <th style="padding: 0.75rem; text-align: left;">Amount</th>
+                    <th style="padding: 0.75rem; text-align: left;">Plan</th>
+                    <th style="padding: 0.75rem; text-align: left;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in payments %}
+                <tr style="border-bottom: 1px solid #f0f0f0;">
+                    <td style="padding: 0.75rem;">{{ payment.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td style="padding: 0.75rem;">${{ payment.amount }}</td>
+                    <td style="padding: 0.75rem;">{{ payment.plan }}</td>
+                    <td style="padding: 0.75rem;">{{ payment.status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

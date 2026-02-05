@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Subscriptions{% endblock %}
+
+{% block extra_css %}
+<style>
+    .subs-page { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+    .subs-page h1 { margin-bottom: 0.5rem; font-size: 1.75rem; }
+    .subs-page .subtitle { color: #666; margin-bottom: 2rem; }
+    .current-plan-card {
+        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+        border: 2px solid #4CAF50;
+        border-radius: 12px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .current-plan-card.expired {
+        background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+        border-color: #f44336;
+    }
+    .current-plan-card .plan-name { font-size: 1.25rem; font-weight: 700; color: #1B5E20; }
+    .current-plan-card.expired .plan-name { color: #b71c1c; }
+    .current-plan-card .status {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    .current-plan-card .status.active { background: #4CAF50; color: white; }
+    .current-plan-card .status.trial { background: #FFB300; color: #333; }
+    .current-plan-card .status.expired { background: #f44336; color: white; }
+    .plans-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.5rem;
+    }
+    .plan-card {
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.2s;
+    }
+    .plan-card:hover { border-color: var(--primary); box-shadow: 0 6px 20px rgba(0,102,255,0.15); }
+    .plan-card.current { border-color: var(--primary); background: #E3F2FD; }
+    .plan-card h3 { margin-bottom: 0.5rem; font-size: 1.25rem; }
+    .plan-card .price { font-size: 2rem; font-weight: 700; color: var(--primary); }
+    .plan-card .price span { font-size: 1rem; color: #666; font-weight: 400; }
+    .plan-card .features-list { list-style: none; padding: 1rem 0; text-align: left; margin: 0; }
+    .plan-card .features-list li { padding: 0.35rem 0; color: #555; font-size: 0.9rem; }
+    .plan-card .features-list li::before { content: '✓ '; color: var(--success); font-weight: bold; margin-right: 0.35rem; }
+    .plan-card .btn { margin-top: 0.5rem; width: 100%; }
+    .plan-card .btn:disabled { opacity: 0.7; cursor: not-allowed; }
+    .payment-message { background: #FFF3E0; border-left: 4px solid #FF9800; padding: 1rem 1.25rem; border-radius: 8px; margin-bottom: 2rem; font-size: 0.95rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="subs-page">
+    <h1>Subscriptions</h1>
+    <p class="subtitle">Manage your plan and activate a subscription after payment.</p>
+
+    <div class="current-plan-card {% if not user.is_subscription_active() %}expired{% endif %}">
+        <div>
+            <span class="plan-name">{{ plans.get(user.plan, {}).name|default(user.plan) }}</span>
+            <span class="status {% if user.subscription_status == 'active' %}active{% elif user.subscription_status == 'trial' %}trial{% else %}expired{% endif %}">
+                {{ user.subscription_status }}
+            </span>
+        </div>
+        <div>
+            {% if user.plan != 'free' %}
+                <strong>{{ plans.get(user.plan, {}).name|default(user.plan) }}</strong> &middot;
+                ${{ plans.get(user.plan, {}).price|default(0) }}/month
+            {% else %}
+                Free Trial &middot; {{ plans.free.max_displays }} displays, {{ plans.free.max_storage_gb }}GB storage
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not user.is_subscription_active() %}
+    <div class="payment-message">
+        Your trial has ended or your subscription is inactive. Choose a plan below and complete payment to continue using the dashboard and displays.
+    </div>
+    {% endif %}
+
+    <h2 style="margin-bottom: 1rem;">Plans</h2>
+    <div class="plans-grid">
+        {% for plan_key, plan in plans.items() %}
+        <div class="plan-card {% if plan_key == user.plan %}current{% endif %}">
+            <h3>{{ plan.name }}</h3>
+            <div class="price">
+                ${{ plan.price }}<span>/month</span>
+            </div>
+            <ul class="features-list">
+                {% for feature in plan.features %}
+                <li>{{ feature }}</li>
+                {% endfor %}
+            </ul>
+            {% if plan_key == user.plan and user.is_subscription_active() %}
+                <button class="btn btn-secondary" disabled>Current plan</button>
+            {% elif plan_key == 'free' %}
+                <span style="color:#666; font-size:0.9rem;">Default for new accounts</span>
+            {% else %}
+                <button type="button" class="btn btn-primary plan-subscribe-btn" data-plan="{{ plan_key }}" data-name="{{ plan.name }}">
+                    {{ 'Upgrade' if user.plan != 'free' else 'Subscribe' }} to {{ plan.name }}
+                </button>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.plan-subscribe-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var plan = this.getAttribute('data-plan');
+        var name = this.getAttribute('data-name');
+        this.disabled = true;
+        this.textContent = 'Redirecting...';
+        fetch('{{ url_for("main.create_checkout_session") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ plan: plan })
+        })
+        .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+        .then(function(result) {
+            if (result.ok && result.data.url) {
+                window.location.href = result.data.url;
+            } else {
+                alert(result.data.message || result.data.error || 'Could not start checkout. Set STRIPE_SECRET_KEY and STRIPE_PUBLIC_KEY in .env to enable payments.');
+                btn.disabled = false;
+                btn.textContent = 'Subscribe to ' + name;
+            }
+        })
+        .catch(function() {
+            alert('Network error. Try again.');
+            btn.disabled = false;
+            btn.textContent = 'Subscribe to ' + name;
+        });
+    });
+});
+</script>
+{% endblock %}

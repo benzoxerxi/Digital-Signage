@@ -1,0 +1,3103 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Digital Signage{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #0066FF;
+            --primary-dark: #0052CC;
+            --secondary: #00D9FF;
+            --success: #00E676;
+            --warning: #FFB300;
+            --danger: #FF3D00;
+            --dark: #0A0E27;
+            --dark-2: #141B3D;
+            --dark-3: #1E2749;
+            --dark-4: #2A3459;
+            --text: #E4E7EB;
+            --text-muted: #8B92A8;
+            --border: #2A3459;
+        }
+        
+        body {
+            font-family: 'Instrument Sans', -apple-system, sans-serif;
+            background: var(--dark);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+        
+        /* Animated background */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.3;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding: 24px;
+            background: linear-gradient(135deg, var(--dark-2) 0%, var(--dark-3) 100%);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            /* Animation removed */
+        }
+        
+        @keyframes slideRight {
+            0%, 100% { transform: translateX(-100%); }
+            50% { transform: translateX(100%); }
+        }
+        
+        .header-left h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header-left p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        
+        .header-stats {
+            display: flex;
+            gap: 24px;
+        }
+        
+        .stat {
+            text-align: center;
+            padding: 12px 20px;
+            background: var(--dark-3);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 8px;
+            background: var(--dark-2);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .tab:hover {
+            color: var(--text);
+            background: var(--dark-3);
+        }
+        
+        .tab.active {
+            color: white;
+            background: var(--primary);
+            box-shadow: 0 4px 16px rgba(0, 102, 255, 0.4);
+        }
+        
+        /* Tab content */
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Grid layout */
+        .grid {
+            display: grid;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .grid-2 { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+        .grid-3 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+        
+        /* Card */
+        .card {
+            background: var(--dark-2);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            padding: 24px;
+            transition: all 0.3s;
+        }
+        
+        .card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 8px 32px rgba(0, 102, 255, 0.1);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .card-badge {
+            padding: 4px 12px;
+            background: var(--dark-3);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        
+        /* Device cards */
+        .device-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        
+        .device-card {
+            background: var(--dark-3);
+            border-radius: 12px;
+            border: 2px solid var(--border);
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .device-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--text-muted);
+            transition: all 0.3s;
+        }
+        
+        .device-card.online::before {
+            background: var(--success);
+        }
+        
+        .device-card.selected {
+            border-color: var(--primary);
+            background: var(--dark-4);
+            box-shadow: 0 4px 16px rgba(0, 102, 255, 0.3);
+        }
+        
+        .device-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary);
+        }
+        
+        .device-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .device-card.online .status-dot {
+            background: var(--success);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.95); }
+        }
+        
+        .device-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+            cursor: text;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .device-name:hover {
+            background: var(--dark-4);
+        }
+        
+        .device-name-input {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+            background: var(--dark-4);
+            border: 2px solid var(--primary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            width: 100%;
+            font-family: inherit;
+            outline: none;
+        }
+        
+        .device-id {
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        
+        .device-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+        
+        .info-label {
+            color: var(--text-muted);
+        }
+        
+        .info-value {
+            color: var(--text);
+            font-weight: 500;
+        }
+        
+        /* Video list */
+        .video-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .video-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--dark-3);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+        }
+        
+        .video-item:hover {
+            border-color: var(--primary);
+            transform: translateX(4px);
+        }
+        
+        .video-item.playing {
+            border-color: var(--success);
+            background: rgba(0, 230, 118, 0.1);
+        }
+        
+        .video-thumb {
+            width: 80px;
+            height: 45px;
+            background: var(--dark-4);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .video-info {
+            flex: 1;
+        }
+        
+        .video-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        
+        .video-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        
+        .video-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            box-shadow: 0 4px 16px rgba(0, 102, 255, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: var(--dark);
+        }
+        
+        .btn-success:hover {
+            background: #00C767;
+            box-shadow: 0 4px 16px rgba(0, 230, 118, 0.4);
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #E63300;
+        }
+        
+        .btn-secondary {
+            background: var(--dark-3);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--dark-4);
+            border-color: var(--primary);
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Upload area */
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 48px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: var(--dark-3);
+        }
+        
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: var(--dark-4);
+        }
+        
+        .upload-area.dragover {
+            border-color: var(--primary);
+            background: rgba(0, 102, 255, 0.1);
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        input[type="file"] { display: none; }
+        
+        /* Form elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--dark-3);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+        
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
+        }
+        
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 14, 39, 0.9);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--dark-2);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            padding: 32px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        
+        .modal-title {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: var(--dark-3);
+            color: var(--text);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.3s;
+        }
+        
+        .modal-close:hover {
+            background: var(--danger);
+            color: white;
+        }
+        
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            padding: 16px 24px;
+            background: var(--dark-2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 2000;
+            display: none;
+            animation: slideInRight 0.3s;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .toast.success {
+            border-left: 4px solid var(--success);
+        }
+        
+        .toast.error {
+            border-left: 4px solid var(--danger);
+        }
+        
+        .toast.show {
+            display: block;
+        }
+        
+        /* Selection info */
+        .selection-bar {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 50px;
+            font-weight: 600;
+            box-shadow: 0 8px 32px rgba(0, 102, 255, 0.5);
+            display: none;
+            animation: slideUp 0.3s;
+            z-index: 100;
+        }
+        
+        .selection-bar.active {
+            display: block;
+        }
+        
+        /* Playlist builder */
+        .playlist-videos {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 200px;
+            padding: 16px;
+            background: var(--dark-3);
+            border-radius: 12px;
+            border: 2px dashed var(--border);
+        }
+        
+        .playlist-video {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--dark-4);
+            border-radius: 8px;
+            cursor: move;
+        }
+        
+        .drag-handle {
+            color: var(--text-muted);
+            cursor: grab;
+        }
+        
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        
+        /* Schedule calendar */
+        .schedule-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--dark-3);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 12px;
+        }
+        
+        .schedule-time {
+            font-size: 18px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--primary);
+            min-width: 80px;
+        }
+        
+        .schedule-content {
+            flex: 1;
+        }
+        
+        .schedule-days {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        
+        .day-badge {
+            padding: 4px 8px;
+            background: var(--dark-4);
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        /* Analytics */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .metric-card {
+            background: var(--dark-3);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        
+        .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .metric-trend {
+            font-size: 12px;
+            margin-top: 8px;
+            color: var(--success);
+        }
+        
+        /* Device groups */
+        .group-card {
+            background: var(--dark-3);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 12px;
+        }
+        
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .group-name {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .group-count {
+            padding: 4px 12px;
+            background: var(--dark-4);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .group-devices {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .group-device-badge {
+            padding: 6px 12px;
+            background: var(--dark-4);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        
+        /* Loading spinner */
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--dark-3);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        
+        .empty-icon {
+            font-size: 64px;
+            opacity: 0.3;
+            margin-bottom: 16px;
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--dark-2);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--dark-4);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .header-stats {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .stat {
+                width: 100%;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .grid-2, .grid-3, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+        }
+    
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="bg-grid"></div>
+    
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <h1>🎬 Digital Signage Control Center</h1>
+                <p>Enterprise content management and distribution platform</p>
+            </div>
+            <div class="header-stats">
+                <div class="stat">
+                    <div class="stat-value" id="deviceCount">0</div>
+                    <div class="stat-label">Displays</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="videoCount">0</div>
+                    <div class="stat-label">Videos</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="playlistCount">0</div>
+                    <div class="stat-label">Playlists</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('devices')">🖥️ Devices</button>
+            <button class="tab" onclick="switchTab('content')">📹 Content</button>
+            <button class="tab" onclick="switchTab('playlists')">📋 Playlists</button>
+            <button class="tab" onclick="switchTab('schedules')">⏰ Schedules</button>
+            <button class="tab" onclick="switchTab('groups')">👥 Groups</button>
+            <button class="tab" onclick="switchTab('analytics')">📊 Analytics</button>
+        </div>
+        
+        <!-- Devices Tab -->
+        <div id="devicesTab" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Connected Displays</h2>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary btn-small" onclick="selectAllDevices()">Select All</button>
+                        <button class="btn btn-secondary btn-small" onclick="deselectAllDevices()">Clear</button>
+                        <button class="btn btn-secondary btn-small" onclick="selectOnlineDevices()">Online Only</button>
+                        <button class="btn btn-danger btn-small" onclick="formatSelectedDisplays()">🔄 Format Cache</button>
+                        <button class="btn btn-primary btn-small" onclick="refreshDevices()">Refresh</button>
+                    </div>
+                </div>
+                <div id="deviceGrid" class="device-grid"></div>
+            </div>
+        </div>
+        
+        <!-- Content Tab -->
+        <div id="contentTab" class="tab-content">
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Upload Content</h2>
+                    </div>
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="fileInput" accept="video/*,image/*" multiple>
+                        <div class="upload-icon">⬆️</div>
+                        <h3>Click or drag files to upload</h3>
+                        <p style="color: var(--text-muted); margin-top: 8px;">
+                            Supports: MP4, AVI, MKV, MOV, WEBM, JPG, PNG, GIF
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Quick Actions</h2>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button class="btn btn-secondary" onclick="stopAllPlayback()">
+                            ⏹️ Stop All Playback
+                        </button>
+                        <button class="btn btn-secondary" onclick="openScheduleModal()">
+                            ⏰ Schedule Content
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card" style="margin-top: 24px;">
+                <div class="card-header">
+                    <h2 class="card-title">Video Library</h2>
+                    <div class="card-badge" id="videoBadge">0 videos</div>
+                </div>
+                <div id="videoList" class="video-list"></div>
+            </div>
+        </div>
+        
+        <!-- Playlists Tab -->
+        <div id="playlistsTab" class="tab-content">
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Playlists</h2>
+                        <button class="btn btn-primary btn-small" onclick="openCreatePlaylistModal()">
+                            + Create
+                        </button>
+                    </div>
+                    <div id="playlistList"></div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Playlist Preview</h2>
+                    </div>
+                    <div id="playlistPreview" class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <p>Select a playlist to preview</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Schedules Tab -->
+        <div id="schedulesTab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Content Schedule</h2>
+                    <button class="btn btn-primary btn-small" onclick="openScheduleModal()">
+                        + Add Schedule
+                    </button>
+                </div>
+                <div id="scheduleList"></div>
+            </div>
+        </div>
+        
+        <!-- Groups Tab -->
+        <div id="groupsTab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Device Groups</h2>
+                    <button class="btn btn-primary btn-small" onclick="openCreateGroupModal()">
+                        + Create Group
+                    </button>
+                </div>
+                <div id="groupList"></div>
+            </div>
+        </div>
+        
+        <!-- Analytics Tab -->
+        <div id="analyticsTab" class="tab-content">
+            <div class="analytics-grid">
+                <div class="metric-card">
+                    <div class="metric-value" id="totalPlays">0</div>
+                    <div class="metric-label">Total Plays</div>
+                    <div class="metric-trend">📈 +12% this week</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="avgUptime">98%</div>
+                    <div class="metric-label">Avg Uptime</div>
+                    <div class="metric-trend">✅ Excellent</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="contentSize">0 GB</div>
+                    <div class="metric-label">Content Size</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="activeDevices">0</div>
+                    <div class="metric-label">Active Now</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Recent Activity</h2>
+                </div>
+                <div id="activityLog"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Selection Bar -->
+    <div class="selection-bar" id="selectionBar">
+        <span id="selectionText">0 displays selected</span>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+    
+    <!-- Modals -->
+    <div class="modal" id="scheduleModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Schedule Content</h3>
+                <button class="modal-close" onclick="closeModal('scheduleModal')">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Select Content</label>
+                <select class="form-select" id="scheduleContent"></select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Time</label>
+                <input type="time" class="form-input" id="scheduleTime">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Days</label>
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;">
+                    <button class="btn btn-secondary btn-small schedule-day" data-day="Monday">Mon</button>
+                    <button class="btn btn-secondary btn-small schedule-day" data-day="Tuesday">Tue</button>
+                    <button class="btn btn-secondary btn-small schedule-day" data-day="Wednesday">Wed</button>
+                    <button class="btn btn-secondary btn-small schedule-day" data-day="Thursday">Thu</button>
+                    <button class="btn btn-secondary btn-small schedule-day" data-day="Friday">Fri</button>
+                    <button class="btn btn-secondary btn-small schedule-day" data-day="Saturday">Sat</button>
+                    <button class="btn btn-secondary btn-small schedule-day" data-day="Sunday">Sun</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Target Devices</label>
+                <select class="form-select" id="scheduleDevices" multiple></select>
+            </div>
+            <button class="btn btn-primary" onclick="saveSchedule()">Create Schedule</button>
+        </div>
+    </div>
+    
+    <div class="modal" id="createPlaylistModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Create Playlist</h3>
+                <button class="modal-close" onclick="closeModal('createPlaylistModal')">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Playlist Name</label>
+                <input type="text" class="form-input" id="playlistName" placeholder="e.g., Morning Rotation">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Add Videos</label>
+                <select class="form-select" id="playlistVideos" multiple size="8"></select>
+            </div>
+            <button class="btn btn-primary" onclick="savePlaylist()">Create Playlist</button>
+        </div>
+    </div>
+    
+    <div class="modal" id="createGroupModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Create Device Group</h3>
+                <button class="modal-close" onclick="closeModal('createGroupModal')">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Group Name</label>
+                <input type="text" class="form-input" id="groupName" placeholder="e.g., Main Floor Displays">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Select Devices</label>
+                <select class="form-select" id="groupDevices" multiple size="8"></select>
+            </div>
+            <button class="btn btn-primary" onclick="saveGroup()">Create Group</button>
+        </div>
+    </div>
+    
+    <div class="modal" id="screenshotModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="screenshotTitle">Display Screenshot</h3>
+                <button class="modal-close" onclick="closeModal('screenshotModal')">×</button>
+            </div>
+            <div id="screenshotContent" style="text-align: center;">
+                <div class="spinner"></div>
+                <p style="color: var(--text-muted); margin-top: 16px;">Requesting screenshot from display...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let selectedDevices = [];
+        let allDevices = [];
+        let allVideos = [];
+        let allPlaylists = [];
+        let allSchedules = [];
+        let selectedScheduleDays = [];
+        let editingDeviceId = null;
+        
+        // Initialize
+        async function init() {
+            await loadAll();
+            setInterval(loadAll, 3000);
+        }
+        
+        async function loadAll() {
+            await Promise.all([
+                loadDevices(),
+                loadVideos(),
+                loadPlaylists(),
+                loadSchedules(),
+                loadGroups(),
+                loadAnalytics()
+            ]);
+            updateStats();
+        }
+        
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+        
+        // Load devices
+        async function loadDevices() {
+            try {
+                const response = await fetch('/api/devices');
+                const data = await response.json();
+                allDevices = data.devices;
+                
+                const grid = document.getElementById('deviceGrid');
+                
+                if (allDevices.length === 0) {
+                    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No displays connected yet</p></div>';
+                    return;
+                }
+                
+                // Don't update the grid if we're currently editing a device name
+                if (editingDeviceId) {
+                    return;
+                }
+                
+                grid.innerHTML = allDevices.map(device => `
+                    <div class="device-card ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
+                         onclick="toggleDevice('${device.id}', event)">
+                        <div class="device-status">
+                            <div class="status-dot"></div>
+                            <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
+                                ${device.online ? 'ONLINE' : 'OFFLINE'}
+                            </span>
+                        </div>
+                        <div class="device-name" 
+                             id="deviceName_${device.id}" 
+                             onclick="editDeviceName('${device.id}', event)"
+                             title="Click to rename">
+                            ${device.name}
+                        </div>
+                        <div class="device-id">${device.id}</div>
+                        <div class="device-info">
+                            <div class="info-row">
+                                <span class="info-label">Current Video:</span>
+                                <span class="info-value">${device.current_video || 'None'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Last Seen:</span>
+                                <span class="info-value">${device.online ? device.last_seen_ago + 's ago' : 'Offline'}</span>
+                            </div>
+                            <button class="btn btn-secondary btn-small" style="margin-top: 8px; width: 100%;" 
+                                    onclick="requestScreenshot('${device.id}', event)">
+                                📸 Screenshot
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                updateSelectionBar();
+            } catch (error) {
+                console.error('Error loading devices:', error);
+            }
+        }
+        
+        function toggleDevice(deviceId, event) {
+            // Don't toggle if clicking on the name to edit
+            if (event.target.classList.contains('device-name') || 
+                event.target.classList.contains('device-name-input')) {
+                return;
+            }
+            
+            const index = selectedDevices.indexOf(deviceId);
+            if (index > -1) {
+                selectedDevices.splice(index, 1);
+            } else {
+                selectedDevices.push(deviceId);
+            }
+            loadDevices();
+        }
+        
+        function editDeviceName(deviceId, event) {
+            event.stopPropagation();
+            
+            // If already editing, return
+            if (editingDeviceId === deviceId) {
+                return;
+            }
+            
+            editingDeviceId = deviceId;
+            const device = allDevices.find(d => d.id === deviceId);
+            const nameElement = document.getElementById(`deviceName_${deviceId}`);
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'device-name-input';
+            input.value = device.name;
+            input.onclick = (e) => e.stopPropagation();
+            
+            input.onblur = () => saveDeviceName(deviceId, input.value);
+            input.onkeydown = (e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                    input.blur();
+                } else if (e.key === 'Escape') {
+                    editingDeviceId = null;
+                    loadDevices();
+                }
+            };
+            
+            nameElement.replaceWith(input);
+            input.focus();
+            input.select();
+        }
+        
+        async function saveDeviceName(deviceId, newName) {
+            editingDeviceId = null;
+            
+            if (!newName || newName.trim() === '') {
+                loadDevices();
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/devices/${deviceId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name: newName.trim() })
+                });
+                
+                if (response.ok) {
+                    showToast(`Display renamed to "${newName.trim()}"`, 'success');
+                    await loadDevices();
+                } else {
+                    showToast('Failed to rename display', 'error');
+                    await loadDevices();
+                }
+            } catch (error) {
+                showToast('Failed to rename display', 'error');
+                await loadDevices();
+            }
+        }
+        
+        function selectAllDevices() {
+            selectedDevices = allDevices.map(d => d.id);
+            loadDevices();
+        }
+        
+        function deselectAllDevices() {
+            selectedDevices = [];
+            loadDevices();
+        }
+        
+        function selectOnlineDevices() {
+            selectedDevices = allDevices.filter(d => d.online).map(d => d.id);
+            loadDevices();
+        }
+        
+        function updateSelectionBar() {
+            const bar = document.getElementById('selectionBar');
+            const text = document.getElementById('selectionText');
+            
+            if (selectedDevices.length > 0) {
+                text.textContent = `${selectedDevices.length} display(s) selected`;
+                bar.classList.add('active');
+            } else {
+                bar.classList.remove('active');
+            }
+        }
+        
+        async function refreshDevices() {
+            await loadDevices();
+            showToast('Devices refreshed', 'success');
+        }
+        
+        // Load videos
+        async function loadVideos() {
+            try {
+                const response = await fetch('/api/playlist');
+                const data = await response.json();
+                allVideos = data.videos;
+                
+                const list = document.getElementById('videoList');
+                document.getElementById('videoBadge').textContent = `${allVideos.length} videos`;
+                
+                if (allVideos.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📹</div><p>No videos uploaded yet</p></div>';
+                    return;
+                }
+                
+                list.innerHTML = allVideos.map(video => `
+                    <div class="video-item">
+                        <div class="video-thumb">🎬</div>
+                        <div class="video-info">
+                            <div class="video-name">${video.name}</div>
+                            <div class="video-meta">${video.size} • Uploaded ${new Date(video.added).toLocaleDateString()}</div>
+                        </div>
+                        <div class="video-actions">
+                            <span class="info-label" style="font-size: 11px; margin-right: 12px;">
+                                📋 Use playlists to play
+                            </span>
+                            <button class="btn btn-danger btn-small" onclick="deleteVideo('${video.filename}')">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading videos:', error);
+            }
+        }
+        
+        async function playVideo(filename, fromPlaylist = false) {
+            // Block direct video playback - only allow from playlists
+            if (!fromPlaylist) {
+                showToast('❌ Videos can only be played from playlists. Go to Playlists tab.', 'error');
+                return;
+            }
+            
+            try {
+                const payload = {filename: filename};
+                if (selectedDevices.length > 0) {
+                    payload.device_ids = selectedDevices;
+                }
+                
+                const response = await fetch('/api/playback/play', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showToast(`Playing "${filename}" on ${result.target === 'all' ? 'all' : result.devices_updated} display(s)`, 'success');
+                    await loadDevices();
+                }
+            } catch (error) {
+                showToast('Failed to play video', 'error');
+            }
+        }
+        
+        async function deleteVideo(filename) {
+            if (!confirm(`Delete "${filename}"?`)) return;
+            
+            try {
+                const response = await fetch(`/api/video/${filename}`, {method: 'DELETE'});
+                if (response.ok) {
+                    showToast('Video deleted', 'success');
+                    await loadVideos();
+                }
+            } catch (error) {
+                showToast('Failed to delete video', 'error');
+            }
+        }
+        
+        // File upload
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        
+        uploadArea.onclick = () => fileInput.click();
+        
+        uploadArea.ondragover = (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        };
+        
+        uploadArea.ondragleave = () => {
+            uploadArea.classList.remove('dragover');
+        };
+        
+        uploadArea.ondrop = (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        };
+        
+        fileInput.onchange = (e) => handleFiles(e.target.files);
+        
+        async function handleFiles(files) {
+            for (let file of files) {
+                await uploadFile(file);
+            }
+            await loadVideos();
+        }
+        
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                showToast(`Uploading ${file.name}...`, 'success');
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showToast(`✓ ${file.name} uploaded`, 'success');
+                }
+            } catch (error) {
+                showToast(`Failed to upload ${file.name}`, 'error');
+            }
+        }
+        
+        // Playlists
+        async function loadPlaylists() {
+            try {
+                const response = await fetch('/api/playlists');
+                const data = await response.json();
+                allPlaylists = data.playlists;
+                
+                const list = document.getElementById('playlistList');
+                
+                if (allPlaylists.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No playlists created yet</p></div>';
+                    return;
+                }
+                
+                list.innerHTML = allPlaylists.map(playlist => `
+                    <div class="group-card">
+                        <div class="group-header">
+                            <div class="group-name">${playlist.name}</div>
+                            <div class="group-count">${playlist.videos.length} videos</div>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button class="btn btn-success btn-small" onclick="playPlaylist('${playlist.id}')">
+                                ▶️ Play
+                            </button>
+                            <button class="btn btn-secondary btn-small" onclick="previewPlaylist('${playlist.id}')">
+                                👁️ Preview
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="deletePlaylist('${playlist.id}')">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading playlists:', error);
+            }
+        }
+        
+        function openCreatePlaylistModal() {
+            const select = document.getElementById('playlistVideos');
+            select.innerHTML = allVideos.map(v => 
+                `<option value="${v.filename}">${v.name}</option>`
+            ).join('');
+            openModal('createPlaylistModal');
+        }
+        
+        async function savePlaylist() {
+            const name = document.getElementById('playlistName').value;
+            const select = document.getElementById('playlistVideos');
+            const videos = Array.from(select.selectedOptions).map(o => o.value);
+            
+            if (!name || videos.length === 0) {
+                showToast('Please enter a name and select videos', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/playlists', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, videos})
+                });
+                
+                if (response.ok) {
+                    showToast('Playlist created', 'success');
+                    closeModal('createPlaylistModal');
+                    await loadPlaylists();
+                }
+            } catch (error) {
+                showToast('Failed to create playlist', 'error');
+            }
+        }
+        
+        async function playPlaylist(playlistId) {
+            const playlist = allPlaylists.find(p => p.id === playlistId);
+            if (!playlist || playlist.videos.length === 0) {
+                showToast('Playlist is empty', 'error');
+                return;
+            }
+            
+            try {
+                // Activate this playlist first (copies to playlist.json for Android)
+                const response = await fetch(`/api/playlists/${playlistId}/activate`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showToast(`✅ Activated: ${result.playlist_name} (${result.video_count} videos)`, 'success');
+                    // Pass TRUE to allow playback from playlist
+                    const firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : playlist.videos[0];
+                    console.log("Playing first video:", firstVideo);
+                    await playVideo(firstVideo, true);
+                } else {
+                    showToast('Failed to activate playlist', 'error');
+                }
+            } catch (error) {
+                console.error('Activation error:', error);
+                showToast('Failed to activate playlist', 'error');
+            }
+        }
+        
+        function previewPlaylist(playlistId) {
+            const playlist = allPlaylists.find(p => p.id === playlistId);
+            if (playlist) {
+                const preview = document.getElementById('playlistPreview');
+                preview.innerHTML = `
+                    <h3 style="margin-bottom: 16px;">${playlist.name}</h3>
+                    <div class="video-list">
+                        ${playlist.videos.map((v, i) => `
+                            <div class="video-item">
+                                <div style="font-weight: 600; color: var(--primary); width: 30px;">${i + 1}</div>
+                                <div class="video-info">
+                                    <div class="video-name">${v}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
+        
+        async function deletePlaylist(playlistId) {
+            if (!confirm('Delete this playlist?')) return;
+            
+            try {
+                const response = await fetch(`/api/playlists/${playlistId}`, {method: 'DELETE'});
+                if (response.ok) {
+                    showToast('Playlist deleted', 'success');
+                    await loadPlaylists();
+                }
+            } catch (error) {
+                showToast('Failed to delete playlist', 'error');
+            }
+        }
+        
+        // Schedules
+        async function loadSchedules() {
+            try {
+                const response = await fetch('/api/schedules');
+                const data = await response.json();
+                allSchedules = data.schedules;
+                
+                const list = document.getElementById('scheduleList');
+                
+                if (allSchedules.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-icon">⏰</div><p>No schedules created yet</p></div>';
+                    return;
+                }
+                
+                list.innerHTML = allSchedules.map(schedule => `
+                    <div class="schedule-item">
+                        <div class="schedule-time">${schedule.time}</div>
+                        <div class="schedule-content">
+                            <div style="font-weight: 600; margin-bottom: 4px;">${schedule.content.filename || 'Unknown'}</div>
+                            <div class="schedule-days">
+                                ${schedule.days.map(d => `<div class="day-badge">${d.substr(0, 3)}</div>`).join('')}
+                            </div>
+                        </div>
+                        <button class="btn btn-danger btn-small" onclick="deleteSchedule('${schedule.id}')">🗑️</button>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading schedules:', error);
+            }
+        }
+        
+        function openScheduleModal() {
+            if (allVideos.length === 0) {
+                showToast('No videos available. Please upload videos first.', 'error');
+                return;
+            }
+            
+            if (allDevices.length === 0) {
+                showToast('No displays connected. Please connect displays first.', 'error');
+                return;
+            }
+            
+            const contentSelect = document.getElementById('scheduleContent');
+            contentSelect.innerHTML = allVideos.map(v => 
+                `<option value="${v.filename}">${v.name}</option>`
+            ).join('');
+            
+            const devicesSelect = document.getElementById('scheduleDevices');
+            devicesSelect.innerHTML = allDevices.map(d => 
+                `<option value="${d.id}">${d.name}</option>`
+            ).join('');
+            
+            selectedScheduleDays = [];
+            document.querySelectorAll('.schedule-day').forEach(btn => {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+            });
+            
+            openModal('scheduleModal');
+        }
+        
+        document.querySelectorAll('.schedule-day').forEach(btn => {
+            btn.onclick = function() {
+                const day = this.dataset.day;
+                if (selectedScheduleDays.includes(day)) {
+                    selectedScheduleDays = selectedScheduleDays.filter(d => d !== day);
+                    this.classList.remove('btn-primary');
+                    this.classList.add('btn-secondary');
+                } else {
+                    selectedScheduleDays.push(day);
+                    this.classList.remove('btn-secondary');
+                    this.classList.add('btn-primary');
+                }
+            };
+        });
+        
+        async function saveSchedule() {
+            const content = document.getElementById('scheduleContent').value;
+            const time = document.getElementById('scheduleTime').value;
+            const devicesSelect = document.getElementById('scheduleDevices');
+            const devices = Array.from(devicesSelect.selectedOptions).map(o => o.value);
+            
+            if (!content || !time || selectedScheduleDays.length === 0) {
+                showToast('Please fill all fields', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/schedules', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        content: {type: 'video', filename: content},
+                        time,
+                        days: selectedScheduleDays,
+                        device_ids: devices,
+                        enabled: true
+                    })
+                });
+                
+                if (response.ok) {
+                    showToast('Schedule created', 'success');
+                    closeModal('scheduleModal');
+                    await loadSchedules();
+                }
+            } catch (error) {
+                showToast('Failed to create schedule', 'error');
+            }
+        }
+        
+        async function deleteSchedule(scheduleId) {
+            if (!confirm('Delete this schedule?')) return;
+            
+            try {
+                const response = await fetch(`/api/schedules/${scheduleId}`, {method: 'DELETE'});
+                if (response.ok) {
+                    showToast('Schedule deleted', 'success');
+                    await loadSchedules();
+                }
+            } catch (error) {
+                showToast('Failed to delete schedule', 'error');
+            }
+        }
+        
+        // Groups
+        async function loadGroups() {
+            try {
+                const response = await fetch('/api/groups');
+                const data = await response.json();
+                const groups = data.groups;
+                
+                const list = document.getElementById('groupList');
+                
+                if (groups.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>No groups created yet</p></div>';
+                    return;
+                }
+                
+                list.innerHTML = groups.map(group => `
+                    <div class="group-card">
+                        <div class="group-header">
+                            <div class="group-name">${group.name}</div>
+                            <div class="group-count">${group.device_ids.length} displays</div>
+                        </div>
+                        <div class="group-devices">
+                            ${group.device_ids.map(id => {
+                                const device = allDevices.find(d => d.id === id);
+                                return `<div class="group-device-badge">${device ? device.name : id}</div>`;
+                            }).join('')}
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button class="btn btn-success btn-small" onclick="selectGroup('${group.id}')">
+                                ✓ Select Group
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="deleteGroup('${group.id}')">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading groups:', error);
+            }
+        }
+        
+        function openCreateGroupModal() {
+            const select = document.getElementById('groupDevices');
+            select.innerHTML = allDevices.map(d => 
+                `<option value="${d.id}">${d.name}</option>`
+            ).join('');
+            openModal('createGroupModal');
+        }
+        
+        async function saveGroup() {
+            const name = document.getElementById('groupName').value;
+            const select = document.getElementById('groupDevices');
+            const devices = Array.from(select.selectedOptions).map(o => o.value);
+            
+            if (!name || devices.length === 0) {
+                showToast('Please enter a name and select devices', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/groups', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, device_ids: devices})
+                });
+                
+                if (response.ok) {
+                    showToast('Group created', 'success');
+                    closeModal('createGroupModal');
+                    await loadGroups();
+                }
+            } catch (error) {
+                showToast('Failed to create group', 'error');
+            }
+        }
+        
+        async function selectGroup(groupId) {
+            const response = await fetch('/api/groups');
+            const data = await response.json();
+            const group = data.groups.find(g => g.id === groupId);
+            
+            if (group) {
+                selectedDevices = group.device_ids;
+                switchTab('devices');
+                await loadDevices();
+                showToast(`Selected ${group.name}`, 'success');
+            }
+        }
+        
+        async function deleteGroup(groupId) {
+            if (!confirm('Delete this group?')) return;
+            
+            try {
+                const response = await fetch(`/api/groups/${groupId}`, {method: 'DELETE'});
+                if (response.ok) {
+                    showToast('Group deleted', 'success');
+                    await loadGroups();
+                }
+            } catch (error) {
+                showToast('Failed to delete group', 'error');
+            }
+        }
+        
+        // Screenshot functions
+        async function requestScreenshot(deviceId, event) {
+            event.stopPropagation();
+            
+            const device = allDevices.find(d => d.id === deviceId);
+            if (!device) return;
+            
+            if (!device.online) {
+                showToast('Display is offline', 'error');
+                return;
+            }
+            
+            // Open modal with loading state
+            document.getElementById('screenshotTitle').textContent = `Screenshot - ${device.name}`;
+            document.getElementById('screenshotContent').innerHTML = `
+                <div class="spinner"></div>
+                <p style="color: var(--text-muted); margin-top: 16px;">Requesting screenshot from display...</p>
+                <p style="color: var(--text-muted); font-size: 12px; margin-top: 8px;">Waiting for ${device.name} to respond...</p>
+            `;
+            openModal('screenshotModal');
+            
+            try {
+                // Request screenshot from device
+                const response = await fetch(`/api/devices/${deviceId}/screenshot/request`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to request screenshot');
+                }
+                
+                showToast('Screenshot request sent to display', 'success');
+                
+                // Poll for screenshot (max 30 seconds)
+                let attempts = 0;
+                const maxAttempts = 60; // 60 * 500ms = 30 seconds
+                
+                const pollInterval = setInterval(async () => {
+                    attempts++;
+                    
+                    // Update progress
+                    const elapsed = Math.floor(attempts * 0.5);
+                    document.getElementById('screenshotContent').innerHTML = `
+                        <div class="spinner"></div>
+                        <p style="color: var(--text-muted); margin-top: 16px;">Waiting for screenshot...</p>
+                        <p style="color: var(--text-muted); font-size: 12px; margin-top: 8px;">${elapsed}s elapsed (timeout in ${30 - elapsed}s)</p>
+                    `;
+                    
+                    try {
+                        const screenshotResponse = await fetch(`/api/devices/${deviceId}/screenshot`);
+                        
+                        if (screenshotResponse.ok) {
+                            const data = await screenshotResponse.json();
+                            
+                            if (data.success && data.screenshot) {
+                                clearInterval(pollInterval);
+                                displayScreenshot(data.screenshot, data.timestamp);
+                                showToast('Screenshot received!', 'success');
+                                return;
+                            }
+                        }
+                        
+                        if (attempts >= maxAttempts) {
+                            clearInterval(pollInterval);
+                            document.getElementById('screenshotContent').innerHTML = `
+                                <div class="empty-state">
+                                    <div class="empty-icon">⏱️</div>
+                                    <p>Screenshot request timed out</p>
+                                    <p style="font-size: 12px; margin-top: 8px; color: var(--text-muted);">
+                                        The display (${device.name}) did not respond within 30 seconds.
+                                    </p>
+                                    <div style="margin-top: 16px; padding: 12px; background: var(--dark-4); border-radius: 8px; font-size: 12px; text-align: left;">
+                                        <strong>Possible reasons:</strong><br>
+                                        • Display doesn't support screenshots<br>
+                                        • Display client not checking for screenshot requests<br>
+                                        • Network issues between display and server<br>
+                                        • Display is busy or frozen
+                                    </div>
+                                    <button class="btn btn-secondary" style="margin-top: 16px;" onclick="requestScreenshot('${deviceId}', event)">
+                                        🔄 Try Again
+                                    </button>
+                                </div>
+                            `;
+                        }
+                    } catch (error) {
+                        console.error('Error polling for screenshot:', error);
+                    }
+                }, 500);
+                
+            } catch (error) {
+                showToast('Failed to request screenshot', 'error');
+                closeModal('screenshotModal');
+            }
+        }
+        
+        function displayScreenshot(screenshotData, timestamp) {
+            const timeStr = timestamp ? new Date(timestamp).toLocaleString() : 'Unknown';
+            
+            document.getElementById('screenshotContent').innerHTML = `
+                <img src="${screenshotData}" 
+                     style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); cursor: zoom-in;" 
+                     alt="Display Screenshot"
+                     onclick="window.open('${screenshotData}', '_blank')">
+                <p style="color: var(--text-muted); margin-top: 12px; font-size: 12px;">
+                    📅 Captured: ${timeStr}<br>
+                    <span style="font-size: 11px;">Click image to view full size</span>
+                </p>
+                <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: center;">
+                    <button class="btn btn-primary" onclick="downloadScreenshot('${screenshotData}')">
+                        💾 Download
+                    </button>
+                    <button class="btn btn-secondary" onclick="copyScreenshotToClipboard('${screenshotData}')">
+                        📋 Copy to Clipboard
+                    </button>
+                </div>
+            `;
+        }
+        
+        function downloadScreenshot(screenshotData) {
+            const link = document.createElement('a');
+            link.href = screenshotData;
+            link.download = `display-screenshot-${Date.now()}.png`;
+            link.click();
+            showToast('Screenshot downloaded', 'success');
+        }
+        
+        async function copyScreenshotToClipboard(screenshotData) {
+            try {
+                const response = await fetch(screenshotData);
+                const blob = await response.blob();
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'image/png': blob })
+                ]);
+                showToast('Screenshot copied to clipboard', 'success');
+            } catch (error) {
+                showToast('Failed to copy to clipboard', 'error');
+            }
+        }
+        
+        // Analytics
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('/api/analytics');
+                if (!response.ok) throw new Error('Analytics failed');
+                const data = await response.json();
+                const stats = data.stats || {};
+                const events = data.events || [];
+
+                document.getElementById('totalPlays').textContent = stats.total_plays ?? 0;
+                document.getElementById('activeDevices').textContent = stats.active_devices ?? 0;
+                const contentGb = stats.content_size_gb ?? stats.storage_used_gb ?? 0;
+                document.getElementById('contentSize').textContent = contentGb.toFixed(2) + ' GB';
+
+                const uptime = stats.avg_uptime_percent ?? 98;
+                document.getElementById('avgUptime').textContent = uptime + '%';
+                const uptimeTrend = document.querySelector('#analyticsTab .metric-card:nth-child(2) .metric-trend');
+                if (uptimeTrend) uptimeTrend.textContent = uptime >= 95 ? '✅ Excellent' : (uptime >= 80 ? '⚠️ Good' : '❌ Low');
+
+                // Activity log (newest first, show up to 20)
+                const activityLog = document.getElementById('activityLog');
+                if (events.length === 0) {
+                    activityLog.innerHTML = '<div class="empty-state"><p>No recent activity</p></div>';
+                } else {
+                    const slice = events.slice(0, 20);
+                    activityLog.innerHTML = slice.map(event => {
+                        const time = new Date(event.timestamp).toLocaleTimeString();
+                        const dataStr = JSON.stringify(event.data || {});
+                        const short = dataStr.length > 60 ? dataStr.substring(0, 60) + '…' : dataStr;
+                        return `<div class="info-row" style="padding: 12px; border-bottom: 1px solid var(--border);">
+                            <span class="info-label">${time}</span>
+                            <span class="info-value">${event.type}: ${short}</span>
+                        </div>`;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                document.getElementById('totalPlays').textContent = '—';
+                document.getElementById('activeDevices').textContent = '—';
+                document.getElementById('contentSize').textContent = '— GB';
+                document.getElementById('activityLog').innerHTML = '<div class="empty-state"><p>Failed to load analytics</p></div>';
+            }
+        }
+        
+        // Update stats
+        function updateStats() {
+            document.getElementById('deviceCount').textContent = allDevices.filter(d => d.online).length;
+            document.getElementById('videoCount').textContent = allVideos.length;
+            document.getElementById('playlistCount').textContent = allPlaylists.length;
+        }
+        
+        // Modal functions
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+        
+        // Toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        // Quick actions
+
+        
+        async function stopAllPlayback() {
+            try {
+                const payload = {};
+                // If devices are selected, only stop those
+                if (selectedDevices.length > 0) {
+                    payload.device_ids = selectedDevices;
+                }
+                
+                const response = await fetch('/api/playback/stop', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    const target = result.target === 'all' ? 'all displays' : `${result.devices_updated} display(s)`;
+                    showToast(`Playback stopped on ${target}`, 'success');
+                    await loadDevices();
+                }
+            } catch (error) {
+                showToast('Failed to stop playback', 'error');
+            }
+        }
+        
+        async function formatSelectedDisplays() {
+            if (selectedDevices.length === 0) {
+                showToast('Please select displays to format', 'error');
+                return;
+            }
+            
+            const deviceNames = allDevices
+                .filter(d => selectedDevices.includes(d.id))
+                .map(d => d.name)
+                .join(', ');
+            
+            if (!confirm(`⚠️ Format Cache for ${selectedDevices.length} display(s)?\n\n${deviceNames}\n\nThis will:\n• Stop all playback\n• Clear video cache\n• Reset device to idle state\n\nContinue?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/devices/format', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ device_ids: selectedDevices })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showToast(`✅ Formatted ${result.formatted_count} display(s) - Cache cleared & playback stopped`, 'success');
+                    selectedDevices = [];
+                    await loadDevices();
+                }
+            } catch (error) {
+                showToast('Failed to format displays', 'error');
+            }
+        }
+        
+        // Initialize on load
+        init();
+    </script>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+
+        let selectedDevices = [];
+        let allDevices = [];
+        let allVideos = [];
+        let allPlaylists = [];
+        let allSchedules = [];
+        let selectedScheduleDays = [];
+        let editingDeviceId = null;
+        
+        // Initialize
+        async function init() {
+            await loadAll();
+            setInterval(loadAll, 3000);
+        }
+        
+        async function loadAll() {
+            await Promise.all([
+                loadDevices(),
+                loadVideos(),
+                loadPlaylists(),
+                loadSchedules(),
+                loadGroups(),
+                loadAnalytics()
+            ]);
+            updateStats();
+        }
+        
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+        
+        // Load devices
+        async function loadDevices() {
+            try {
+                const response = await fetch('/api/devices');
+                const data = await response.json();
+                allDevices = data.devices;
+                
+                const grid = document.getElementById('deviceGrid');
+                
+                if (allDevices.length === 0) {
+                    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No displays connected yet</p></div>';
+                    return;
+                }
+                
+                // Don't update the grid if we're currently editing a device name
+                if (editingDeviceId) {
+                    return;
+                }
+                
+                grid.innerHTML = allDevices.map(device => `
+                    <div class="device-card ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
+                         onclick="toggleDevice('${device.id}', event)">
+                        <div class="device-status">
+                            <div class="status-dot"></div>
+                            <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
+                                ${device.online ? 'ONLINE' : 'OFFLINE'}
+                            </span>
+                        </div>
+                        <div class="device-name" 
+                             id="deviceName_${device.id}" 
+                             onclick="editDeviceName('${device.id}', event)"
+                             title="Click to rename">
+                            ${device.name}
+                        </div>
+                        <div class="device-id">${device.id}</div>
+                        <div class="device-info">
+                            <div class="info-row">
+                                <span class="info-label">Current Video:</span>
+                                <span class="info-value">${device.current_video || 'None'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Last Seen:</span>
+                                <span class="info-value">${device.online ? device.last_seen_ago + 's ago' : 'Offline'}</span>
+                            </div>
+                            <button class="btn btn-secondary btn-small" style="margin-top: 8px; width: 100%;" 
+                                    onclick="requestScreenshot('${device.id}', event)">
+                                📸 Screenshot
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                updateSelectionBar();
+            } catch (error) {
+                console.error('Error loading devices:', error);
+            }
+        }
+        
+        function toggleDevice(deviceId, event) {
+            // Don't toggle if clicking on the name to edit
+            if (event.target.classList.contains('device-name') || 
+                event.target.classList.contains('device-name-input')) {
+                return;
+            }
+            
+            const index = selectedDevices.indexOf(deviceId);
+            if (index > -1) {
+                selectedDevices.splice(index, 1);
+            } else {
+                selectedDevices.push(deviceId);
+            }
+            loadDevices();
+        }
+        
+        function editDeviceName(deviceId, event) {
+            event.stopPropagation();
+            
+            // If already editing, return
+            if (editingDeviceId === deviceId) {
+                return;
+            }
+            
+            editingDeviceId = deviceId;
+            const device = allDevices.find(d => d.id === deviceId);
+            const nameElement = document.getElementById(`deviceName_${deviceId}`);
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'device-name-input';
+            input.value = device.name;
+            input.onclick = (e) => e.stopPropagation();
+            
+            input.onblur = () => saveDeviceName(deviceId, input.value);
+            input.onkeydown = (e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                    input.blur();
+                } else if (e.key === 'Escape') {
+                    editingDeviceId = null;
+                    loadDevices();
+                }
+            };
+            
+            nameElement.replaceWith(input);
+            input.focus();
+            input.select();
+        }
+        
+        async function saveDeviceName(deviceId, newName) {
+            editingDeviceId = null;
+            
+            if (!newName || newName.trim() === '') {
+                loadDevices();
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/devices/${deviceId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name: newName.trim() })
+                });
+                
+                if (response.ok) {
+                    showToast(`Display renamed to "${newName.trim()}"`, 'success');
+                    await loadDevices();
+                } else {
+                    showToast('Failed to rename display', 'error');
+                    await loadDevices();
+                }
+            } catch (error) {
+                showToast('Failed to rename display', 'error');
+                await loadDevices();
+            }
+        }
+        
+        function selectAllDevices() {
+            selectedDevices = allDevices.map(d => d.id);
+            loadDevices();
+        }
+        
+        function deselectAllDevices() {
+            selectedDevices = [];
+            loadDevices();
+        }
+        
+        function selectOnlineDevices() {
+            selectedDevices = allDevices.filter(d => d.online).map(d => d.id);
+            loadDevices();
+        }
+        
+        function updateSelectionBar() {
+            const bar = document.getElementById('selectionBar');
+            const text = document.getElementById('selectionText');
+            
+            if (selectedDevices.length > 0) {
+                text.textContent = `${selectedDevices.length} display(s) selected`;
+                bar.classList.add('active');
+            } else {
+                bar.classList.remove('active');
+            }
+        }
+        
+        async function refreshDevices() {
+            await loadDevices();
+            showToast('Devices refreshed', 'success');
+        }
+        
+        // Load videos
+        async function loadVideos() {
+            try {
+                const response = await fetch('/api/playlist');
+                const data = await response.json();
+                allVideos = data.videos;
+                
+                const list = document.getElementById('videoList');
+                document.getElementById('videoBadge').textContent = `${allVideos.length} videos`;
+                
+                if (allVideos.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📹</div><p>No videos uploaded yet</p></div>';
+                    return;
+                }
+                
+                list.innerHTML = allVideos.map(video => `
+                    <div class="video-item">
+                        <div class="video-thumb">🎬</div>
+                        <div class="video-info">
+                            <div class="video-name">${video.name}</div>
+                            <div class="video-meta">${video.size} • Uploaded ${new Date(video.added).toLocaleDateString()}</div>
+                        </div>
+                        <div class="video-actions">
+                            <span class="info-label" style="font-size: 11px; margin-right: 12px;">
+                                📋 Use playlists to play
+                            </span>
+                            <button class="btn btn-danger btn-small" onclick="deleteVideo('${video.filename}')">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading videos:', error);
+            }
+        }
+        
+        async function playVideo(filename, fromPlaylist = false) {
+            // Block direct video playback - only allow from playlists
+            if (!fromPlaylist) {
+                showToast('❌ Videos can only be played from playlists. Go to Playlists tab.', 'error');
+                return;
+            }
+            
+            try {
+                const payload = {filename: filename};
+                if (selectedDevices.length > 0) {
+                    payload.device_ids = selectedDevices;
+                }
+                
+                const response = await fetch('/api/playback/play', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showToast(`Playing "${filename}" on ${result.target === 'all' ? 'all' : result.devices_updated} display(s)`, 'success');
+                    await loadDevices();
+                }
+            } catch (error) {
+                showToast('Failed to play video', 'error');
+            }
+        }
+        
+        async function deleteVideo(filename) {
+            if (!confirm(`Delete "${filename}"?`)) return;
+            
+            try {
+                const response = await fetch(`/api/video/${filename}`, {method: 'DELETE'});
+                if (response.ok) {
+                    showToast('Video deleted', 'success');
+                    await loadVideos();
+                }
+            } catch (error) {
+                showToast('Failed to delete video', 'error');
+            }
+        }
+        
+        // File upload
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        
+        uploadArea.onclick = () => fileInput.click();
+        
+        uploadArea.ondragover = (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        };
+        
+        uploadArea.ondragleave = () => {
+            uploadArea.classList.remove('dragover');
+        };
+        
+        uploadArea.ondrop = (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        };
+        
+        fileInput.onchange = (e) => handleFiles(e.target.files);
+        
+        async function handleFiles(files) {
+            for (let file of files) {
+                await uploadFile(file);
+            }
+            await loadVideos();
+        }
+        
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                showToast(`Uploading ${file.name}...`, 'success');
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showToast(`✓ ${file.name} uploaded`, 'success');
+                }
+            } catch (error) {
+                showToast(`Failed to upload ${file.name}`, 'error');
+            }
+        }
+        
+        // Playlists
+        async function loadPlaylists() {
+            try {
+                const response = await fetch('/api/playlists');
+                const data = await response.json();
+                allPlaylists = data.playlists;
+                
+                const list = document.getElementById('playlistList');
+                
+                if (allPlaylists.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No playlists created yet</p></div>';
+                    return;
+                }
+                
+                list.innerHTML = allPlaylists.map(playlist => `
+                    <div class="group-card">
+                        <div class="group-header">
+                            <div class="group-name">${playlist.name}</div>
+                            <div class="group-count">${playlist.videos.length} videos</div>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button class="btn btn-success btn-small" onclick="playPlaylist('${playlist.id}')">
+                                ▶️ Play
+                            </button>
+                            <button class="btn btn-secondary btn-small" onclick="previewPlaylist('${playlist.id}')">
+                                👁️ Preview
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="deletePlaylist('${playlist.id}')">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading playlists:', error);
+            }
+        }
+        
+        function openCreatePlaylistModal() {
+            const select = document.getElementById('playlistVideos');
+            select.innerHTML = allVideos.map(v => 
+                `<option value="${v.filename}">${v.name}</option>`
+            ).join('');
+            openModal('createPlaylistModal');
+        }
+        
+        async function savePlaylist() {
+            const name = document.getElementById('playlistName').value;
+            const select = document.getElementById('playlistVideos');
+            const videos = Array.from(select.selectedOptions).map(o => o.value);
+            
+            if (!name || videos.length === 0) {
+                showToast('Please enter a name and select videos', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/playlists', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, videos})
+                });
+                
+                if (response.ok) {
+                    showToast('Playlist created', 'success');
+                    closeModal('createPlaylistModal');
+                    await loadPlaylists();
+                }
+            } catch (error) {
+                showToast('Failed to create playlist', 'error');
+            }
+        }
+        
+        async function playPlaylist(playlistId) {
+            const playlist = allPlaylists.find(p => p.id === playlistId);
+            if (!playlist || playlist.videos.length === 0) {
+                showToast('Playlist is empty', 'error');
+                return;
+            }
+            
+            try {
+                // Activate this playlist first (copies to playlist.json for Android)
+                const response = await fetch(`/api/playlists/${playlistId}/activate`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showToast(`✅ Activated: ${result.playlist_name} (${result.video_count} videos)`, 'success');
+                    // Pass TRUE to allow playback from playlist
+                    const firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : playlist.videos[0];
+                    console.log("Playing first video:", firstVideo);
+                    await playVideo(firstVideo, true);
+                } else {
+                    showToast('Failed to activate playlist', 'error');
+                }
+            } catch (error) {
+                console.error('Activation error:', error);
+                showToast('Failed to activate playlist', 'error');
+            }
+        }
+        
+        function previewPlaylist(playlistId) {
+            const playlist = allPlaylists.find(p => p.id === playlistId);
+            if (playlist) {
+                const preview = document.getElementById('playlistPreview');
+                preview.innerHTML = `
+                    <h3 style="margin-bottom: 16px;">${playlist.name}</h3>
+                    <div class="video-list">
+                        ${playlist.videos.map((v, i) => `
+                            <div class="video-item">
+                                <div style="font-weight: 600; color: var(--primary); width: 30px;">${i + 1}</div>
+                                <div class="video-info">
+                                    <div class="video-name">${v}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
+        
+        async function deletePlaylist(playlistId) {
+            if (!confirm('Delete this playlist?')) return;
+            
+            try {
+                const response = await fetch(`/api/playlists/${playlistId}`, {method: 'DELETE'});
+                if (response.ok) {
+                    showToast('Playlist deleted', 'success');
+                    await loadPlaylists();
+                }
+            } catch (error) {
+                showToast('Failed to delete playlist', 'error');
+            }
+        }
+        
+        // Schedules
+        async function loadSchedules() {
+            try {
+                const response = await fetch('/api/schedules');
+                const data = await response.json();
+                allSchedules = data.schedules;
+                
+                const list = document.getElementById('scheduleList');
+                
+                if (allSchedules.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-icon">⏰</div><p>No schedules created yet</p></div>';
+                    return;
+                }
+                
+                list.innerHTML = allSchedules.map(schedule => `
+                    <div class="schedule-item">
+                        <div class="schedule-time">${schedule.time}</div>
+                        <div class="schedule-content">
+                            <div style="font-weight: 600; margin-bottom: 4px;">${schedule.content.filename || 'Unknown'}</div>
+                            <div class="schedule-days">
+                                ${schedule.days.map(d => `<div class="day-badge">${d.substr(0, 3)}</div>`).join('')}
+                            </div>
+                        </div>
+                        <button class="btn btn-danger btn-small" onclick="deleteSchedule('${schedule.id}')">🗑️</button>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading schedules:', error);
+            }
+        }
+        
+        function openScheduleModal() {
+            if (allVideos.length === 0) {
+                showToast('No videos available. Please upload videos first.', 'error');
+                return;
+            }
+            
+            if (allDevices.length === 0) {
+                showToast('No displays connected. Please connect displays first.', 'error');
+                return;
+            }
+            
+            const contentSelect = document.getElementById('scheduleContent');
+            contentSelect.innerHTML = allVideos.map(v => 
+                `<option value="${v.filename}">${v.name}</option>`
+            ).join('');
+            
+            const devicesSelect = document.getElementById('scheduleDevices');
+            devicesSelect.innerHTML = allDevices.map(d => 
+                `<option value="${d.id}">${d.name}</option>`
+            ).join('');
+            
+            selectedScheduleDays = [];
+            document.querySelectorAll('.schedule-day').forEach(btn => {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+            });
+            
+            openModal('scheduleModal');
+        }
+        
+        document.querySelectorAll('.schedule-day').forEach(btn => {
+            btn.onclick = function() {
+                const day = this.dataset.day;
+                if (selectedScheduleDays.includes(day)) {
+                    selectedScheduleDays = selectedScheduleDays.filter(d => d !== day);
+                    this.classList.remove('btn-primary');
+                    this.classList.add('btn-secondary');
+                } else {
+                    selectedScheduleDays.push(day);
+                    this.classList.remove('btn-secondary');
+                    this.classList.add('btn-primary');
+                }
+            };
+        });
+        
+        async function saveSchedule() {
+            const content = document.getElementById('scheduleContent').value;
+            const time = document.getElementById('scheduleTime').value;
+            const devicesSelect = document.getElementById('scheduleDevices');
+            const devices = Array.from(devicesSelect.selectedOptions).map(o => o.value);
+            
+            if (!content || !time || selectedScheduleDays.length === 0) {
+                showToast('Please fill all fields', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/schedules', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        content: {type: 'video', filename: content},
+                        time,
+                        days: selectedScheduleDays,
+                        device_ids: devices,
+                        enabled: true
+                    })
+                });
+                
+                if (response.ok) {
+                    showToast('Schedule created', 'success');
+                    closeModal('scheduleModal');
+                    await loadSchedules();
+                }
+            } catch (error) {
+                showToast('Failed to create schedule', 'error');
+            }
+        }
+        
+        async function deleteSchedule(scheduleId) {
+            if (!confirm('Delete this schedule?')) return;
+            
+            try {
+                const response = await fetch(`/api/schedules/${scheduleId}`, {method: 'DELETE'});
+                if (response.ok) {
+                    showToast('Schedule deleted', 'success');
+                    await loadSchedules();
+                }
+            } catch (error) {
+                showToast('Failed to delete schedule', 'error');
+            }
+        }
+        
+        // Groups
+        async function loadGroups() {
+            try {
+                const response = await fetch('/api/groups');
+                const data = await response.json();
+                const groups = data.groups;
+                
+                const list = document.getElementById('groupList');
+                
+                if (groups.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>No groups created yet</p></div>';
+                    return;
+                }
+                
+                list.innerHTML = groups.map(group => `
+                    <div class="group-card">
+                        <div class="group-header">
+                            <div class="group-name">${group.name}</div>
+                            <div class="group-count">${group.device_ids.length} displays</div>
+                        </div>
+                        <div class="group-devices">
+                            ${group.device_ids.map(id => {
+                                const device = allDevices.find(d => d.id === id);
+                                return `<div class="group-device-badge">${device ? device.name : id}</div>`;
+                            }).join('')}
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button class="btn btn-success btn-small" onclick="selectGroup('${group.id}')">
+                                ✓ Select Group
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="deleteGroup('${group.id}')">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading groups:', error);
+            }
+        }
+        
+        function openCreateGroupModal() {
+            const select = document.getElementById('groupDevices');
+            select.innerHTML = allDevices.map(d => 
+                `<option value="${d.id}">${d.name}</option>`
+            ).join('');
+            openModal('createGroupModal');
+        }
+        
+        async function saveGroup() {
+            const name = document.getElementById('groupName').value;
+            const select = document.getElementById('groupDevices');
+            const devices = Array.from(select.selectedOptions).map(o => o.value);
+            
+            if (!name || devices.length === 0) {
+                showToast('Please enter a name and select devices', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/groups', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, device_ids: devices})
+                });
+                
+                if (response.ok) {
+                    showToast('Group created', 'success');
+                    closeModal('createGroupModal');
+                    await loadGroups();
+                }
+            } catch (error) {
+                showToast('Failed to create group', 'error');
+            }
+        }
+        
+        async function selectGroup(groupId) {
+            const response = await fetch('/api/groups');
+            const data = await response.json();
+            const group = data.groups.find(g => g.id === groupId);
+            
+            if (group) {
+                selectedDevices = group.device_ids;
+                switchTab('devices');
+                await loadDevices();
+                showToast(`Selected ${group.name}`, 'success');
+            }
+        }
+        
+        async function deleteGroup(groupId) {
+            if (!confirm('Delete this group?')) return;
+            
+            try {
+                const response = await fetch(`/api/groups/${groupId}`, {method: 'DELETE'});
+                if (response.ok) {
+                    showToast('Group deleted', 'success');
+                    await loadGroups();
+                }
+            } catch (error) {
+                showToast('Failed to delete group', 'error');
+            }
+        }
+        
+        // Screenshot functions
+        async function requestScreenshot(deviceId, event) {
+            event.stopPropagation();
+            
+            const device = allDevices.find(d => d.id === deviceId);
+            if (!device) return;
+            
+            if (!device.online) {
+                showToast('Display is offline', 'error');
+                return;
+            }
+            
+            // Open modal with loading state
+            document.getElementById('screenshotTitle').textContent = `Screenshot - ${device.name}`;
+            document.getElementById('screenshotContent').innerHTML = `
+                <div class="spinner"></div>
+                <p style="color: var(--text-muted); margin-top: 16px;">Requesting screenshot from display...</p>
+                <p style="color: var(--text-muted); font-size: 12px; margin-top: 8px;">Waiting for ${device.name} to respond...</p>
+            `;
+            openModal('screenshotModal');
+            
+            try {
+                // Request screenshot from device
+                const response = await fetch(`/api/devices/${deviceId}/screenshot/request`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to request screenshot');
+                }
+                
+                showToast('Screenshot request sent to display', 'success');
+                
+                // Poll for screenshot (max 30 seconds)
+                let attempts = 0;
+                const maxAttempts = 60; // 60 * 500ms = 30 seconds
+                
+                const pollInterval = setInterval(async () => {
+                    attempts++;
+                    
+                    // Update progress
+                    const elapsed = Math.floor(attempts * 0.5);
+                    document.getElementById('screenshotContent').innerHTML = `
+                        <div class="spinner"></div>
+                        <p style="color: var(--text-muted); margin-top: 16px;">Waiting for screenshot...</p>
+                        <p style="color: var(--text-muted); font-size: 12px; margin-top: 8px;">${elapsed}s elapsed (timeout in ${30 - elapsed}s)</p>
+                    `;
+                    
+                    try {
+                        const screenshotResponse = await fetch(`/api/devices/${deviceId}/screenshot`);
+                        
+                        if (screenshotResponse.ok) {
+                            const data = await screenshotResponse.json();
+                            
+                            if (data.success && data.screenshot) {
+                                clearInterval(pollInterval);
+                                displayScreenshot(data.screenshot, data.timestamp);
+                                showToast('Screenshot received!', 'success');
+                                return;
+                            }
+                        }
+                        
+                        if (attempts >= maxAttempts) {
+                            clearInterval(pollInterval);
+                            document.getElementById('screenshotContent').innerHTML = `
+                                <div class="empty-state">
+                                    <div class="empty-icon">⏱️</div>
+                                    <p>Screenshot request timed out</p>
+                                    <p style="font-size: 12px; margin-top: 8px; color: var(--text-muted);">
+                                        The display (${device.name}) did not respond within 30 seconds.
+                                    </p>
+                                    <div style="margin-top: 16px; padding: 12px; background: var(--dark-4); border-radius: 8px; font-size: 12px; text-align: left;">
+                                        <strong>Possible reasons:</strong><br>
+                                        • Display doesn't support screenshots<br>
+                                        • Display client not checking for screenshot requests<br>
+                                        • Network issues between display and server<br>
+                                        • Display is busy or frozen
+                                    </div>
+                                    <button class="btn btn-secondary" style="margin-top: 16px;" onclick="requestScreenshot('${deviceId}', event)">
+                                        🔄 Try Again
+                                    </button>
+                                </div>
+                            `;
+                        }
+                    } catch (error) {
+                        console.error('Error polling for screenshot:', error);
+                    }
+                }, 500);
+                
+            } catch (error) {
+                showToast('Failed to request screenshot', 'error');
+                closeModal('screenshotModal');
+            }
+        }
+        
+        function displayScreenshot(screenshotData, timestamp) {
+            const timeStr = timestamp ? new Date(timestamp).toLocaleString() : 'Unknown';
+            
+            document.getElementById('screenshotContent').innerHTML = `
+                <img src="${screenshotData}" 
+                     style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); cursor: zoom-in;" 
+                     alt="Display Screenshot"
+                     onclick="window.open('${screenshotData}', '_blank')">
+                <p style="color: var(--text-muted); margin-top: 12px; font-size: 12px;">
+                    📅 Captured: ${timeStr}<br>
+                    <span style="font-size: 11px;">Click image to view full size</span>
+                </p>
+                <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: center;">
+                    <button class="btn btn-primary" onclick="downloadScreenshot('${screenshotData}')">
+                        💾 Download
+                    </button>
+                    <button class="btn btn-secondary" onclick="copyScreenshotToClipboard('${screenshotData}')">
+                        📋 Copy to Clipboard
+                    </button>
+                </div>
+            `;
+        }
+        
+        function downloadScreenshot(screenshotData) {
+            const link = document.createElement('a');
+            link.href = screenshotData;
+            link.download = `display-screenshot-${Date.now()}.png`;
+            link.click();
+            showToast('Screenshot downloaded', 'success');
+        }
+        
+        async function copyScreenshotToClipboard(screenshotData) {
+            try {
+                const response = await fetch(screenshotData);
+                const blob = await response.blob();
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'image/png': blob })
+                ]);
+                showToast('Screenshot copied to clipboard', 'success');
+            } catch (error) {
+                showToast('Failed to copy to clipboard', 'error');
+            }
+        }
+        
+        // Analytics
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('/api/analytics');
+                if (!response.ok) throw new Error('Analytics failed');
+                const data = await response.json();
+                const stats = data.stats || {};
+                const events = data.events || [];
+
+                document.getElementById('totalPlays').textContent = stats.total_plays ?? 0;
+                document.getElementById('activeDevices').textContent = stats.active_devices ?? 0;
+                const contentGb = stats.content_size_gb ?? stats.storage_used_gb ?? 0;
+                document.getElementById('contentSize').textContent = contentGb.toFixed(2) + ' GB';
+
+                const uptime = stats.avg_uptime_percent ?? 98;
+                document.getElementById('avgUptime').textContent = uptime + '%';
+                const uptimeTrend = document.querySelector('#analyticsTab .metric-card:nth-child(2) .metric-trend');
+                if (uptimeTrend) uptimeTrend.textContent = uptime >= 95 ? '✅ Excellent' : (uptime >= 80 ? '⚠️ Good' : '❌ Low');
+
+                // Activity log (newest first, show up to 20)
+                const activityLog = document.getElementById('activityLog');
+                if (events.length === 0) {
+                    activityLog.innerHTML = '<div class="empty-state"><p>No recent activity</p></div>';
+                } else {
+                    const slice = events.slice(0, 20);
+                    activityLog.innerHTML = slice.map(event => {
+                        const time = new Date(event.timestamp).toLocaleTimeString();
+                        const dataStr = JSON.stringify(event.data || {});
+                        const short = dataStr.length > 60 ? dataStr.substring(0, 60) + '…' : dataStr;
+                        return `<div class="info-row" style="padding: 12px; border-bottom: 1px solid var(--border);">
+                            <span class="info-label">${time}</span>
+                            <span class="info-value">${event.type}: ${short}</span>
+                        </div>`;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                document.getElementById('totalPlays').textContent = '—';
+                document.getElementById('activeDevices').textContent = '—';
+                document.getElementById('contentSize').textContent = '— GB';
+                document.getElementById('activityLog').innerHTML = '<div class="empty-state"><p>Failed to load analytics</p></div>';
+            }
+        }
+        
+        // Update stats
+        function updateStats() {
+            document.getElementById('deviceCount').textContent = allDevices.filter(d => d.online).length;
+            document.getElementById('videoCount').textContent = allVideos.length;
+            document.getElementById('playlistCount').textContent = allPlaylists.length;
+        }
+        
+        // Modal functions
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+        
+        // Toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        // Quick actions
+
+        
+        async function stopAllPlayback() {
+            try {
+                const payload = {};
+                // If devices are selected, only stop those
+                if (selectedDevices.length > 0) {
+                    payload.device_ids = selectedDevices;
+                }
+                
+                const response = await fetch('/api/playback/stop', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    const target = result.target === 'all' ? 'all displays' : `${result.devices_updated} display(s)`;
+                    showToast(`Playback stopped on ${target}`, 'success');
+                    await loadDevices();
+                }
+            } catch (error) {
+                showToast('Failed to stop playback', 'error');
+            }
+        }
+        
+        async function formatSelectedDisplays() {
+            if (selectedDevices.length === 0) {
+                showToast('Please select displays to format', 'error');
+                return;
+            }
+            
+            const deviceNames = allDevices
+                .filter(d => selectedDevices.includes(d.id))
+                .map(d => d.name)
+                .join(', ');
+            
+            if (!confirm(`⚠️ Format Cache for ${selectedDevices.length} display(s)?\n\n${deviceNames}\n\nThis will:\n• Stop all playback\n• Clear video cache\n• Reset device to idle state\n\nContinue?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/devices/format', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ device_ids: selectedDevices })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showToast(`✅ Formatted ${result.formatted_count} display(s) - Cache cleared & playback stopped`, 'success');
+                    selectedDevices = [];
+                    await loadDevices();
+                }
+            } catch (error) {
+                showToast('Failed to format displays', 'error');
+            }
+        }
+        
+        // Initialize on load
+        init();
+    
+</script>
+{% endblock %}

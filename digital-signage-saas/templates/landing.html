@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}Digital Signage SaaS - Professional Content Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 5rem 2rem;
+        text-align: center;
+    }
+    
+    .hero h1 {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        font-weight: 700;
+    }
+    
+    .hero p {
+        font-size: 1.25rem;
+        margin-bottom: 2rem;
+        opacity: 0.9;
+    }
+    
+    .hero .cta-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+    
+    .hero .btn {
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+    }
+    
+    .features {
+        padding: 5rem 2rem;
+        background: #f8f9fa;
+    }
+    
+    .features .container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .features h2 {
+        text-align: center;
+        font-size: 2.5rem;
+        margin-bottom: 3rem;
+    }
+    
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+    }
+    
+    .feature-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .feature-card .icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .feature-card h3 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .feature-card p {
+        color: #666;
+        line-height: 1.6;
+    }
+    
+    .pricing {
+        padding: 5rem 2rem;
+    }
+    
+    .pricing .container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .pricing h2 {
+        text-align: center;
+        font-size: 2.5rem;
+        margin-bottom: 3rem;
+    }
+    
+    .pricing-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 2rem;
+    }
+    
+    .pricing-card {
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s;
+    }
+    
+    .pricing-card:hover {
+        border-color: var(--primary);
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(0, 102, 255, 0.2);
+    }
+    
+    .pricing-card.featured {
+        border-color: var(--primary);
+        border-width: 3px;
+        position: relative;
+    }
+    
+    .pricing-card.featured::before {
+        content: 'POPULAR';
+        position: absolute;
+        top: -15px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--primary);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+    
+    .pricing-card h3 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .pricing-card .price {
+        font-size: 3rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 0.5rem;
+    }
+    
+    .pricing-card .price span {
+        font-size: 1.5rem;
+        color: #666;
+    }
+    
+    .pricing-card .features-list {
+        list-style: none;
+        padding: 2rem 0;
+        text-align: left;
+    }
+    
+    .pricing-card .features-list li {
+        padding: 0.5rem 0;
+        color: #666;
+    }
+    
+    .pricing-card .features-list li::before {
+        content: '✓ ';
+        color: var(--success);
+        font-weight: bold;
+        margin-right: 0.5rem;
+    }
+    
+    .cta-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 4rem 2rem;
+        text-align: center;
+    }
+    
+    .cta-section h2 {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .cta-section p {
+        font-size: 1.25rem;
+        margin-bottom: 2rem;
+        opacity: 0.9;
+    }
+    
+    footer {
+        background: #2d3748;
+        color: white;
+        padding: 2rem;
+        text-align: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="container">
+        <h1>🎬 Professional Digital Signage Management</h1>
+        <p>Manage and distribute content to unlimited displays with ease. Perfect for businesses, restaurants, retail stores, and more.</p>
+        <div class="cta-buttons">
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Start Free Trial</a>
+            <a href="{{ url_for('main.pricing') }}" class="btn btn-secondary">View Pricing</a>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="features">
+    <div class="container">
+        <h2>Everything You Need</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="icon">🖥️</div>
+                <h3>Multi-Display Control</h3>
+                <p>Control unlimited displays from a single dashboard. Group devices, schedule content, and monitor status in real-time.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📅</div>
+                <h3>Smart Scheduling</h3>
+                <p>Schedule content to play at specific times and days. Perfect for daily specials, promotions, and time-based messaging.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📁</div>
+                <h3>Content Library</h3>
+                <p>Upload and manage videos and images. Organize content into playlists for easy rotation and management.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📊</div>
+                <h3>Analytics Dashboard</h3>
+                <p>Track playback history, monitor device status, and gain insights into your content performance.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🔒</div>
+                <h3>Secure & Reliable</h3>
+                <p>Enterprise-grade security with isolated tenant data. Your content is safe and accessible only to you.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">⚡</div>
+                <h3>Easy Setup</h3>
+                <p>Get started in minutes. No technical expertise required. Just sign up, upload content, and go live.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Pricing Section -->
+<section class="pricing">
+    <div class="container">
+        <h2>Simple, Transparent Pricing</h2>
+        <div class="pricing-grid">
+            {% for plan_key, plan in plans.items() %}
+                {% if plan_key != 'free' %}
+                <div class="pricing-card {% if plan_key == 'professional' %}featured{% endif %}">
+                    <h3>{{ plan.name }}</h3>
+                    <div class="price">
+                        ${{ plan.price }}<span>/month</span>
+                    </div>
+                    <ul class="features-list">
+                        {% for feature in plan.features %}
+                            <li>{{ feature }}</li>
+                        {% endfor %}
+                    </ul>
+                    <a href="{{ url_for('auth.register') }}?plan={{ plan_key }}" class="btn btn-primary">Get Started</a>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <p style="text-align: center; margin-top: 2rem; color: #666;">
+            All plans include 7-day free trial. No credit card required.
+        </p>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section">
+    <div class="container">
+        <h2>Ready to Transform Your Displays?</h2>
+        <p>Join hundreds of businesses using our platform to engage their audience.</p>
+        <a href="{{ url_for('auth.register') }}" class="btn btn-primary" style="background: white; color: var(--primary);">Start Your Free Trial</a>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer>
+    <p>&copy; 2024 Digital Signage SaaS. All rights reserved.</p>
+</footer>
+{% endblock %}

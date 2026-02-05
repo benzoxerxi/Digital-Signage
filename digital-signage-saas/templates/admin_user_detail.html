@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}User Details{% endblock %}
+{% block content %}
+<div style="max-width: 1000px; margin: 2rem auto; padding: 2rem;">
+    <h1>User: {{ user.username }}</h1>
+    <p>Email: {{ user.email }}</p>
+    <p>Plan: {{ user.plan }}</p>
+    <p>Connection Code (APK): <strong>{{ user.connection_code or '—' }}</strong></p>
+    <p>Devices: {{ device_count }}</p>
+    <p>Storage Used: {{ storage_used|round(2) }} GB</p>
+</div>
+{% endblock %}

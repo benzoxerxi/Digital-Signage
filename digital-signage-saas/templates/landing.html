@@ -6,40 +6,11 @@
 <style>
     .landing-page { max-width: 1120px; margin: 0 auto; padding: 0 1.5rem; }
     
-    /* Full-page animated pixel background (blurred so content stays clear) */
-    .landing-wrap {
-        position: relative;
-        min-height: 100vh;
-    }
-    .landing-pixel-bg {
-        position: fixed;
-        inset: 0;
-        z-index: 0;
-        opacity: 0.5;
-        filter: blur(10px);
-        pointer-events: none;
-    }
-    .landing-pixel-bg canvas {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-    .landing-wrap .hero,
-    .landing-wrap .features,
-    .landing-wrap .pricing,
-    .landing-wrap .cta-section,
-    .landing-wrap .landing-footer {
-        position: relative;
-        z-index: 1;
-    }
-    
     .hero {
-        background: linear-gradient(160deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 58, 95, 0.92) 50%, rgba(12, 74, 110, 0.92) 100%);
+        background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 50%, #0c4a6e 100%);
         color: white;
         padding: 6rem 1.5rem;
         text-align: center;
-        overflow: hidden;
     }
     .hero .container {
         max-width: 640px;
@@ -73,7 +44,7 @@
     
     .features {
         padding: 5rem 1.5rem;
-        background: rgba(248, 250, 252, 0.94);
+        background: #f8fafc;
     }
     .features .container {
         max-width: 1120px;
@@ -98,11 +69,9 @@
         border-radius: 16px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         border: 1px solid #e2e8f0;
-        transition: box-shadow 0.2s, transform 0.2s;
     }
     .feature-card:hover {
-        box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
     .feature-card .icon {
         font-size: 2.25rem;
@@ -122,7 +91,6 @@
     
     .pricing {
         padding: 5rem 1.5rem;
-        background: rgba(255, 255, 255, 0.7);
     }
     .pricing .container {
         max-width: 1120px;
@@ -157,8 +125,7 @@
     }
     .pricing-card:hover {
         border-color: var(--primary);
-        box-shadow: 0 8px 24px rgba(0, 102, 255, 0.12);
-        transform: translateY(-4px);
+        box-shadow: 0 6px 20px rgba(0, 102, 255, 0.12);
     }
     .pricing-card.featured {
         border-color: var(--primary);
@@ -214,7 +181,7 @@
     }
     
     .cta-section {
-        background: linear-gradient(160deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 58, 95, 0.95) 100%);
+        background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%);
         color: white;
         padding: 4.5rem 1.5rem;
         text-align: center;
@@ -241,7 +208,7 @@
     }
     
     .landing-footer {
-        background: rgba(15, 23, 42, 0.98);
+        background: #0f172a;
         color: #94a3b8;
         padding: 1.75rem 1.5rem;
         text-align: center;
@@ -250,60 +217,7 @@
 </style>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-(function() {
-    var canvas = document.getElementById('landing-pixel-canvas');
-    if (!canvas) return;
-    var ctx = canvas.getContext('2d');
-    var width = 0, height = 0;
-    var cell = 16;
-    var cols = 0, rows = 0;
-    var phases = [];
-    var start = null;
-
-    function resize() {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        canvas.width = width;
-        canvas.height = height;
-        cols = Math.ceil(width / cell) + 2;
-        rows = Math.ceil(height / cell) + 2;
-        phases = [];
-        for (var i = 0; i < cols * rows; i++) {
-            phases.push(Math.random() * Math.PI * 2);
-        }
-    }
-
-    function draw(t) {
-        if (!start) start = t;
-        var elapsed = (t - start) * 0.002;
-        ctx.clearRect(0, 0, width, height);
-        for (var r = 0; r < rows; r++) {
-            for (var c = 0; c < cols; c++) {
-                var i = r * cols + c;
-                var phase = phases[i];
-                var wave = Math.sin(elapsed + phase) * 0.5 + 0.5;
-                var alpha = 0.15 + wave * 0.35;
-                ctx.fillStyle = 'rgba(100, 200, 255, ' + alpha + ')';
-                ctx.fillRect(c * cell, r * cell, cell - 1, cell - 1);
-            }
-        }
-        requestAnimationFrame(draw);
-    }
-
-    resize();
-    window.addEventListener('resize', resize);
-    requestAnimationFrame(draw);
-})();
-</script>
-{% endblock %}
-
 {% block content %}
-<div class="landing-wrap">
-<div class="landing-pixel-bg" aria-hidden="true">
-    <canvas id="landing-pixel-canvas"></canvas>
-</div>
 <!-- Hero Section -->
 <section class="hero">
     <div class="container">
@@ -396,5 +310,4 @@
 <footer class="landing-footer">
     <p>&copy; 2024 Digital Signage SaaS. All rights reserved.</p>
 </footer>
-</div>
 {% endblock %}

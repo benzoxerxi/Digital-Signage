@@ -5,7 +5,6 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from models import db, User
 from datetime import datetime, timedelta
-from utils import send_verification_email
 import os
 
 auth_bp = Blueprint('auth', __name__)
@@ -86,53 +85,20 @@ def register():
 
 @auth_bp.route('/verification-sent')
 def verification_sent():
-    """Show 'check your email' after registration."""
-    email = request.args.get('email', '')
-    sent = request.args.get('sent', 'true').lower() == 'true'
-    return render_template('verification_sent.html', email=email, sent=sent)
+    """Redirect to login (email verification disabled)."""
+    return redirect(url_for('auth.login'))
 
 
 @auth_bp.route('/verify-email')
 def verify_email():
-    """Verify email via token link; then log user in and redirect to dashboard."""
-    token = request.args.get('token', '')
-    if not token:
-        flash('Invalid or missing verification link.', 'error')
-        return redirect(url_for('auth.login'))
-    user = User.query.filter_by(email_verify_token=token).first()
-    if not user:
-        flash('Invalid or expired verification link. Request a new one from the login page.', 'error')
-        return redirect(url_for('auth.login'))
-    if user.email_verify_expires and datetime.utcnow() > user.email_verify_expires:
-        flash('Verification link has expired. Request a new one from the login page.', 'error')
-        return redirect(url_for('auth.login'))
-    user.email_verified = True
-    user.email_verify_token = None
-    user.email_verify_expires = None
-    db.session.commit()
-    login_user(user)
-    flash('Your email is verified. Welcome!', 'success')
-    return redirect(url_for('main.dashboard'))
+    """Redirect to login (email verification disabled)."""
+    return redirect(url_for('auth.login'))
 
 
 @auth_bp.route('/resend-verification', methods=['GET', 'POST'])
 def resend_verification():
-    """Resend verification email by email address."""
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip()
-        user = User.query.filter_by(email=email).first() if email else None
-        if user and not getattr(user, 'email_verified', True):
-            user.set_email_verify_token()
-            db.session.commit()
-            verify_url = url_for('auth.verify_email', token=user.email_verify_token, _external=True)
-            if send_verification_email(user.email, user.username, verify_url):
-                flash('Verification email sent. Check your inbox.', 'success')
-            else:
-                flash('We could not send the email. Make sure the server has email configured.', 'error')
-        else:
-            flash('No unverified account found for that email.', 'error')
-        return redirect(url_for('auth.login'))
-    return render_template('resend_verification.html')
+    """Redirect to login (email verification disabled)."""
+    return redirect(url_for('auth.login'))
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])

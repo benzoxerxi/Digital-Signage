@@ -7,12 +7,28 @@
     .landing-page { max-width: 1120px; margin: 0 auto; padding: 0 1.5rem; }
     
     .hero {
+        position: relative;
         background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 50%, #0c4a6e 100%);
         color: white;
         padding: 6rem 1.5rem;
         text-align: center;
+        overflow: hidden;
+    }
+    .hero-pixel-bg {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        opacity: 0.7;
+    }
+    .hero-pixel-bg canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
     }
     .hero .container {
+        position: relative;
+        z-index: 1;
         max-width: 640px;
         margin: 0 auto;
     }
@@ -220,9 +236,63 @@
 </style>
 {% endblock %}
 
+{% block extra_js %}
+<script>
+(function() {
+    var canvas = document.getElementById('hero-pixel-canvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var width = 0, height = 0;
+    var cell = 14;
+    var cols = 0, rows = 0;
+    var phases = [];
+    var start = null;
+
+    function resize() {
+        var section = canvas.closest('.hero');
+        if (!section) return;
+        width = section.offsetWidth;
+        height = section.offsetHeight;
+        canvas.width = width;
+        canvas.height = height;
+        cols = Math.ceil(width / cell) + 2;
+        rows = Math.ceil(height / cell) + 2;
+        phases = [];
+        for (var i = 0; i < cols * rows; i++) {
+            phases.push(Math.random() * Math.PI * 2);
+        }
+    }
+
+    function draw(t) {
+        if (!start) start = t;
+        var elapsed = (t - start) * 0.002;
+        ctx.clearRect(0, 0, width, height);
+        for (var r = 0; r < rows; r++) {
+            for (var c = 0; c < cols; c++) {
+                var i = r * cols + c;
+                var phase = phases[i];
+                var wave = Math.sin(elapsed + phase) * 0.5 + 0.5;
+                var alpha = 0.15 + wave * 0.35;
+                ctx.fillStyle = 'rgba(100, 200, 255, ' + alpha + ')';
+                ctx.fillRect(c * cell, r * cell, cell - 1, cell - 1);
+            }
+        }
+        requestAnimationFrame(draw);
+    }
+
+    resize();
+    window.addEventListener('resize', resize);
+    requestAnimationFrame(draw);
+})();
+</script>
+{% endblock %}
+
 {% block content %}
 <!-- Hero Section -->
 <section class="hero">
+    <div class="hero-pixel-bg" aria-hidden="true">
+        <canvas id="hero-pixel-canvas"></canvas>
+    </div>
     <div class="container">
         <h1>Professional digital signage, simplified</h1>
         <p>Manage and distribute content to unlimited displays from one dashboard. Built for businesses, retail, and venues.</p>

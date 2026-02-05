@@ -3,60 +3,152 @@
 
 {% block extra_css %}
 <style>
-    .subs-page { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
-    .subs-page h1 { margin-bottom: 0.5rem; font-size: 1.75rem; }
-    .subs-page .subtitle { color: #666; margin-bottom: 2rem; }
+    .subs-page {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2.5rem 1.5rem;
+    }
+    .subs-page h1 {
+        font-size: clamp(1.5rem, 4vw, 2rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: #0f172a;
+        margin-bottom: 0.35rem;
+    }
+    .subs-page .subtitle {
+        color: #64748b;
+        font-size: 1rem;
+        margin-bottom: 2.25rem;
+    }
     .current-plan-card {
-        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
-        border: 2px solid #4CAF50;
-        border-radius: 12px;
-        padding: 1.5rem 2rem;
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        border: 1px solid #a7f3d0;
+        border-radius: 16px;
+        padding: 1.5rem 1.75rem;
         margin-bottom: 2rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
         gap: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
     .current-plan-card.expired {
-        background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
-        border-color: #f44336;
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border-color: #fecaca;
     }
-    .current-plan-card .plan-name { font-size: 1.25rem; font-weight: 700; color: #1B5E20; }
-    .current-plan-card.expired .plan-name { color: #b71c1c; }
+    .current-plan-card .plan-name {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #065f46;
+    }
+    .current-plan-card.expired .plan-name { color: #991b1b; }
     .current-plan-card .status {
         padding: 0.35rem 0.75rem;
-        border-radius: 20px;
-        font-size: 0.9rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
         font-weight: 600;
+        letter-spacing: 0.02em;
     }
-    .current-plan-card .status.active { background: #4CAF50; color: white; }
-    .current-plan-card .status.trial { background: #FFB300; color: #333; }
-    .current-plan-card .status.expired { background: #f44336; color: white; }
+    .current-plan-card .status.active { background: #059669; color: white; }
+    .current-plan-card .status.trial { background: #f59e0b; color: white; }
+    .current-plan-card .status.expired { background: #dc2626; color: white; }
+    .current-plan-card > div:last-child {
+        color: #475569;
+        font-size: 0.95rem;
+    }
+    .subs-section-title {
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 1.25rem;
+    }
     .plans-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.25rem;
+        max-width: 100%;
     }
     .plan-card {
         background: white;
-        border: 2px solid #e0e0e0;
-        border-radius: 12px;
-        padding: 1.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.75rem;
         text-align: center;
-        transition: all 0.2s;
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
-    .plan-card:hover { border-color: var(--primary); box-shadow: 0 6px 20px rgba(0,102,255,0.15); }
-    .plan-card.current { border-color: var(--primary); background: #E3F2FD; }
-    .plan-card h3 { margin-bottom: 0.5rem; font-size: 1.25rem; }
-    .plan-card .price { font-size: 2rem; font-weight: 700; color: var(--primary); }
-    .plan-card .price span { font-size: 1rem; color: #666; font-weight: 400; }
-    .plan-card .features-list { list-style: none; padding: 1rem 0; text-align: left; margin: 0; }
-    .plan-card .features-list li { padding: 0.35rem 0; color: #555; font-size: 0.9rem; }
-    .plan-card .features-list li::before { content: '✓ '; color: var(--success); font-weight: bold; margin-right: 0.35rem; }
-    .plan-card .btn { margin-top: 0.5rem; width: 100%; }
-    .plan-card .btn:disabled { opacity: 0.7; cursor: not-allowed; }
-    .payment-message { background: #FFF3E0; border-left: 4px solid #FF9800; padding: 1rem 1.25rem; border-radius: 8px; margin-bottom: 2rem; font-size: 0.95rem; }
+    .plan-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 8px 24px rgba(0, 102, 255, 0.12);
+        transform: translateY(-2px);
+    }
+    .plan-card.current {
+        border-color: var(--primary);
+        background: #f0f9ff;
+        border-width: 2px;
+    }
+    .plan-card h3 {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 0.5rem;
+    }
+    .plan-card .price {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--primary);
+    }
+    .plan-card .price span {
+        font-size: 0.95rem;
+        color: #64748b;
+        font-weight: 500;
+    }
+    .plan-card .features-list {
+        list-style: none;
+        padding: 1rem 0;
+        text-align: left;
+        margin: 0;
+    }
+    .plan-card .features-list li {
+        padding: 0.35rem 0;
+        color: #475569;
+        font-size: 0.9rem;
+    }
+    .plan-card .features-list li::before {
+        content: '✓ ';
+        color: var(--success);
+        font-weight: bold;
+        margin-right: 0.4rem;
+    }
+    .plan-card .btn {
+        margin-top: 0.75rem;
+        width: 100%;
+        padding: 0.6rem 1rem;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    .plan-card .btn:disabled {
+        opacity: 0.8;
+        cursor: default;
+        background: #cbd5e1;
+        border-color: #cbd5e1;
+        color: #64748b;
+    }
+    .plan-card .plan-default-note {
+        margin-top: 0.75rem;
+        color: #64748b;
+        font-size: 0.875rem;
+    }
+    .payment-message {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 2rem;
+        font-size: 0.95rem;
+        color: #92400e;
+    }
 </style>
 {% endblock %}
 
@@ -88,7 +180,7 @@
     </div>
     {% endif %}
 
-    <h2 style="margin-bottom: 1rem;">Plans</h2>
+    <h2 class="subs-section-title">Plans</h2>
     <div class="plans-grid">
         {% for plan_key, plan in plans.items() %}
         <div class="plan-card {% if plan_key == user.plan %}current{% endif %}">
@@ -104,7 +196,7 @@
             {% if plan_key == user.plan and user.is_subscription_active() %}
                 <button class="btn btn-secondary" disabled>Current plan</button>
             {% elif plan_key == 'free' %}
-                <span style="color:#666; font-size:0.9rem;">Default for new accounts</span>
+                <span class="plan-default-note">Default for new accounts</span>
             {% else %}
                 <button type="button" class="btn btn-primary plan-subscribe-btn" data-plan="{{ plan_key }}" data-name="{{ plan.name }}">
                     {{ 'Upgrade' if user.plan != 'free' else 'Subscribe' }} to {{ plan.name }}

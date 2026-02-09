@@ -108,13 +108,22 @@ def login():
         return redirect(url_for('main.dashboard'))
     
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
+        username_or_email = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         remember = request.form.get('remember', False)
         
-        user = User.query.filter_by(username=username).first()
+        # Allow login with username or email
+        user = User.query.filter_by(username=username_or_email).first()
+        if not user:
+            user = User.query.filter_by(email=username_or_email).first()
         
-        if user and user.check_password(password):
+        password_ok = False
+        if user:
+            try:
+                password_ok = user.check_password(password)
+            except Exception:
+                pass
+        if user and password_ok:
             if not user.is_active:
                 flash('Your account has been deactivated. Contact support.', 'error')
                 return render_template('login.html')

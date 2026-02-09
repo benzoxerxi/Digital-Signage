@@ -1,6 +1,7 @@
 """
 Admin Routes - WordPress-style admin dashboard
 """
+import os
 from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash
 from flask_login import login_required, current_user
 from functools import wraps
@@ -9,6 +10,52 @@ from datetime import datetime, timedelta
 from utils import get_device_count, get_storage_usage
 
 admin_bp = Blueprint('admin', __name__)
+
+
+@admin_bp.route('/bootstrap')
+def admin_bootstrap():
+    """
+    One-time endpoint to create/reset admin user on Render.
+    Requires ?token=YOUR_ADMIN_BOOTSTRAP_TOKEN (set ADMIN_BOOTSTRAP_TOKEN in Render env).
+    Use once, then remove ADMIN_BOOTSTRAP_TOKEN for security.
+    """
+    required_token = os.environ.get('ADMIN_BOOTSTRAP_TOKEN')
+    if not required_token:
+        return jsonify({'error': 'Bootstrap disabled (ADMIN_BOOTSTRAP_TOKEN not set)'}), 404
+    if request.args.get('token') != required_token:
+        return jsonify({'error': 'Invalid token'}), 403
+
+    admin = User.query.filter_by(username='admin').first()
+    if admin:
+        admin.set_password('admin123')
+        admin.email = 'admin@example.com'
+        admin.is_admin = True
+        admin.is_active = True
+        admin.ensure_connection_code()
+        db.session.commit()
+        action = 'reset'
+    else:
+        admin = User(
+            username='admin',
+            email='admin@example.com',
+            company_name='System Administrator',
+            is_admin=True,
+            plan='enterprise',
+            subscription_status='active'
+        )
+        admin.set_password('admin123')
+        admin.ensure_connection_code()
+        db.session.add(admin)
+        db.session.commit()
+        action = 'created'
+
+    return jsonify({
+        'success': True,
+        'action': action,
+        'username': 'admin',
+        'password': 'admin123',
+        'message': 'Admin user ' + action + '. Login at /auth/login. Remove ADMIN_BOOTSTRAP_TOKEN from env for security.'
+    })
 
 
 def admin_required(f):

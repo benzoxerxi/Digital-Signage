@@ -9,7 +9,8 @@ On **Render**, **Heroku**, and similar platforms, the server filesystem is **eph
 **Fix:** Use a **persistent database** and set `DATABASE_URL`:
 
 - **Render:** In the dashboard, add a **PostgreSQL** service, then in your Web Service add the Postgres instance as a "Database" dependency. Render will set `DATABASE_URL` automatically so users and data survive deploys.
-- **Heroku:** Add the Heroku Postgres add-on; `DATABASE_URL` is set automatically.
+
+**First-time admin on Render:** The admin user is not auto-created when using Gunicorn. Add `ADMIN_BOOTSTRAP_TOKEN` (any secret string) to your Render env vars, deploy, then visit `https://your-app.onrender.com/admin/bootstrap?token=YOUR_TOKEN`. This creates admin / admin123. Remove `ADMIN_BOOTSTRAP_TOKEN` afterward for security.
 - **Other hosts:** Create a PostgreSQL (or compatible) database and set the `DATABASE_URL` environment variable to its connection URL (e.g. `postgresql://user:password@host/dbname`).
 
 ## Part 1: Local Testing (Do This First!)

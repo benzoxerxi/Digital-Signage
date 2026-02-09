@@ -1,8 +1,79 @@
-{% extends "base.html" %}
-{% block title %}Manage Users{% endblock %}
+{% extends "admin_base.html" %}
+{% block title %}Users{% endblock %}
 {% block content %}
-<div style="max-width: 1200px; margin: 2rem auto; padding: 2rem;">
-    <h1>All Users</h1>
-    <!-- User list table similar to admin_dashboard.html -->
+<div class="admin-header" style="flex-wrap: wrap; gap: 1rem;">
+    <h1>Users</h1>
+    <a href="{{ url_for('admin.admin_user_add') }}" class="btn btn-primary">Add New User</a>
+</div>
+<div class="admin-card">
+    <div class="admin-card-body">
+        <form method="get" action="{{ url_for('admin.admin_users') }}" style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+            <input type="search" name="s" class="search-box" placeholder="Search users, email, company, or connection code..." value="{{ search or '' }}">
+            <button type="submit" class="btn btn-primary">Search</button>
+            {% if search %}<a href="{{ url_for('admin.admin_users') }}" class="btn btn-secondary">Clear</a>{% endif %}
+        </form>
+    </div>
+</div>
+<div class="admin-card">
+    <div class="admin-card-body" style="padding: 0;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Company</th>
+                    <th>Plan</th>
+                    <th>Status</th>
+                    <th>Connection Code</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users.items %}
+                <tr>
+                    <td><strong>{{ user.id }}</strong></td>
+                    <td><a href="{{ url_for('admin.admin_user_detail', user_id=user.id) }}" style="text-decoration: none; color: #2271b1;">{{ user.username }}</a></td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.company_name or '—' }}</td>
+                    <td>{{ user.plan }}</td>
+                    <td>
+                        <span class="badge {{ 'badge-success' if user.subscription_status == 'active' else ('badge-warning' if user.subscription_status == 'trial' else 'badge-danger') }}">{{ user.subscription_status }}</span>
+                        {% if not user.is_active %}<span class="badge badge-danger">Inactive</span>{% endif %}
+                    </td>
+                    <td><code style="font-size: 0.85rem;">{{ user.connection_code or '—' }}</code></td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <div class="admin-actions">
+                            <a href="{{ url_for('admin.admin_user_detail', user_id=user.id) }}" class="btn btn-secondary btn-sm">Edit</a>
+                            <form method="post" action="{{ url_for('admin.toggle_user_active', user_id=user.id) }}?next={{ url_for('admin.admin_users', page=users.page, s=search or '')|urlencode }}" style="display: inline;">
+                                <button type="submit" class="btn btn-secondary btn-sm">{{ 'Deactivate' if user.is_active else 'Activate' }}</button>
+                            </form>
+                            {% if user.id != current_user.id %}
+                            <form method="post" action="{{ url_for('admin.admin_user_delete', user_id=user.id) }}" style="display: inline;" onsubmit="return confirm('Delete {{ user.username }}? This cannot be undone.');">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" style="padding: 2rem; text-align: center; color: var(--wp-text-light);">No users found</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if users.pages > 1 %}
+        <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--wp-border); display: flex; gap: 0.5rem; align-items: center;">
+            {% if users.has_prev %}
+            <a href="{{ url_for('admin.admin_users', page=users.prev_num, s=search or '') }}" class="btn btn-secondary btn-sm">← Previous</a>
+            {% endif %}
+            <span style="color: var(--wp-text-light);">Page {{ users.page }} of {{ users.pages }}</span>
+            {% if users.has_next %}
+            <a href="{{ url_for('admin.admin_users', page=users.next_num, s=search or '') }}" class="btn btn-secondary btn-sm">Next →</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}

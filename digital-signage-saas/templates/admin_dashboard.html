@@ -1,50 +1,73 @@
-{% extends "base.html" %}
-{% block title %}Admin Dashboard{% endblock %}
+{% extends "admin_base.html" %}
+{% block title %}Dashboard{% endblock %}
 {% block content %}
-<div style="max-width: 1200px; margin: 2rem auto; padding: 2rem;">
-    <h1>Admin Dashboard</h1>
-    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 2rem 0;">
-        <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h3>Total Users</h3>
-            <p style="font-size: 2rem; color: #0066FF;">{{ total_users }}</p>
-        </div>
-        <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h3>Active Subscriptions</h3>
-            <p style="font-size: 2rem; color: #00E676;">{{ active_subscriptions }}</p>
-        </div>
-        <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h3>Trial Users</h3>
-            <p style="font-size: 2rem; color: #FFB300;">{{ trial_users }}</p>
-        </div>
-        <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h3>Monthly Revenue</h3>
-            <p style="font-size: 2rem; color: #0066FF;">${{ monthly_revenue|round(2) }}</p>
+<div class="admin-header">
+    <h1>Dashboard</h1>
+</div>
+<div class="stats-grid" style="margin-bottom: 2rem;">
+    <div class="stat-box">
+        <h3>Total Users</h3>
+        <div class="value primary">{{ total_users }}</div>
+    </div>
+    <div class="stat-box">
+        <h3>Active Subscriptions</h3>
+        <div class="value success">{{ active_subscriptions }}</div>
+    </div>
+    <div class="stat-box">
+        <h3>Trial Users</h3>
+        <div class="value warning">{{ trial_users }}</div>
+    </div>
+    <div class="stat-box">
+        <h3>Revenue (30 days)</h3>
+        <div class="value primary">${{ "%.2f"|format(monthly_revenue) }}</div>
+    </div>
+</div>
+<div class="admin-card">
+    <div class="admin-card-header">Plan Distribution</div>
+    <div class="admin-card-body">
+        <div style="display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+            {% for plan_key, count in plan_stats.items() %}
+            <span>{{ plan_key }}: <strong>{{ count }}</strong></span>
+            {% endfor %}
         </div>
     </div>
-    <h2>Recent Users</h2>
-    <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px;">
-        <thead>
-            <tr style="background: #f8f9fa;">
-                <th style="padding: 1rem; text-align: left;">User ID</th>
-                <th style="padding: 1rem; text-align: left;">Username</th>
-                <th style="padding: 1rem; text-align: left;">Email</th>
-                <th style="padding: 1rem; text-align: left;">Plan</th>
-                <th style="padding: 1rem; text-align: left;">Status</th>
-                <th style="padding: 1rem; text-align: left;">Created</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for user in recent_users %}
-            <tr style="border-top: 1px solid #e0e0e0;">
-                <td style="padding: 1rem;"><strong style="color: #0066FF; font-family: monospace;">{{ user.id }}</strong></td>
-                <td style="padding: 1rem;">{{ user.username }}</td>
-                <td style="padding: 1rem;">{{ user.email }}</td>
-                <td style="padding: 1rem;">{{ user.plan }}</td>
-                <td style="padding: 1rem;">{{ user.subscription_status }}</td>
-                <td style="padding: 1rem;">{{ user.created_at.strftime('%Y-%m-%d') }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+</div>
+<div class="admin-card">
+    <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>Recent Users</span>
+        <a href="{{ url_for('admin.admin_users') }}" class="btn btn-secondary btn-sm">View all</a>
+    </div>
+    <div class="admin-card-body" style="padding: 0;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Plan</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in recent_users %}
+                <tr>
+                    <td><strong>{{ user.id }}</strong></td>
+                    <td><a href="{{ url_for('admin.admin_user_detail', user_id=user.id) }}" style="text-decoration: none; color: #2271b1;">{{ user.username }}</a></td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.plan }}</td>
+                    <td><span class="badge {{ 'badge-success' if user.subscription_status == 'active' else ('badge-warning' if user.subscription_status == 'trial' else 'badge-danger') }}">{{ user.subscription_status }}</span></td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <a href="{{ url_for('admin.admin_user_detail', user_id=user.id) }}" class="btn btn-secondary btn-sm">Edit</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" style="padding: 2rem; text-align: center; color: var(--wp-text-light);">No users yet</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

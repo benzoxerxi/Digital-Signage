@@ -1,0 +1,20 @@
+{% extends "admin_base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="admin-header">
+    <h1>Settings</h1>
+</div>
+<div class="admin-card">
+    <div class="admin-card-header">System Information</div>
+    <div class="admin-card-body">
+        <p>Admin settings can be extended here. Possible options:</p>
+        <ul style="margin: 1rem 0; padding-left: 1.5rem;">
+            <li>Site name / branding</li>
+            <li>Support email</li>
+            <li>Default trial period</li>
+            <li>Maintenance mode</li>
+        </ul>
+        <p style="color: var(--wp-text-light); font-size: 0.9rem;">Currently, configuration is managed via <code>config.py</code> and environment variables.</p>
+    </div>
+</div>
+{% endblock %}

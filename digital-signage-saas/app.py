@@ -37,11 +37,12 @@ db.init_app(app)
 # Ensure tables exist and migrations run when app is loaded (e.g. under gunicorn)
 with app.app_context():
     db.create_all()
-    # Add new columns if missing (e.g. email verification)
+    # Add new columns if missing (e.g. email verification, connection_code)
     for col, sql in [
         ('email_verified', 'ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT 1'),
         ('email_verify_token', 'ALTER TABLE users ADD COLUMN email_verify_token VARCHAR(64)'),
         ('email_verify_expires', 'ALTER TABLE users ADD COLUMN email_verify_expires DATETIME'),
+        ('connection_code', 'ALTER TABLE users ADD COLUMN connection_code VARCHAR(9)'),
     ]:
         try:
             db.session.execute(text(sql))
@@ -50,6 +51,14 @@ with app.app_context():
             if 'duplicate column' not in str(e).lower() and 'already exists' not in str(e).lower():
                 print(f"Migration note ({col}): {e}")
             db.session.rollback()
+    # Ensure all existing users have connection codes
+    for user in User.query.filter(db.or_(User.connection_code.is_(None), User.connection_code == '')).all():
+        user.ensure_connection_code()
+        db.session.add(user)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'auth.login'

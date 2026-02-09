@@ -5,6 +5,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from models import db, User
 from datetime import datetime, timedelta
+from utils import load_admin_settings
 import os
 
 auth_bp = Blueprint('auth', __name__)
@@ -40,13 +41,14 @@ def register():
             return render_template('register.html')
         
         # Create user (plan defaults to free; upgrade via Subscriptions)
+        trial_days = load_admin_settings().get('default_trial_days', 7)
         user = User(
             username=username,
             email=email,
             company_name=company_name,
             plan='free',
             subscription_status='trial',
-            trial_ends_at=datetime.utcnow() + timedelta(days=7),
+            trial_ends_at=datetime.utcnow() + timedelta(days=trial_days),
             email_verified=True
         )
         user.set_password(password)
@@ -77,7 +79,7 @@ def register():
             logging.warning(f"Tenant folder creation skipped (e.g. ephemeral filesystem): {e}")
         
         login_user(user)
-        flash(f'Welcome {username}! Your 7-day free trial has started.', 'success')
+        flash(f'Welcome {username}! Your {trial_days}-day free trial has started.', 'success')
         return redirect(url_for('main.dashboard'))
     
     return render_template('register.html')

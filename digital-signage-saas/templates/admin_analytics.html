@@ -4,6 +4,39 @@
 <div class="admin-header">
     <h1>Analytics</h1>
 </div>
+<div class="stats-grid" style="margin-bottom: 2rem;">
+    <div class="stat-box">
+        <h3>All-time Revenue</h3>
+        <div class="value success">${{ "%.2f"|format(total_revenue) }}</div>
+    </div>
+</div>
+<div class="admin-card">
+    <div class="admin-card-header">Revenue by Plan</div>
+    <div class="admin-card-body">
+        {% if revenue_by_plan %}
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Plan</th>
+                    <th>Transactions</th>
+                    <th>Total Revenue</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in revenue_by_plan %}
+                <tr>
+                    <td>{{ row.plan or '—' }}</td>
+                    <td>{{ row.count }}</td>
+                    <td>${{ "%.2f"|format(row.total or 0) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color: var(--wp-text-light);">No revenue data by plan</p>
+        {% endif %}
+    </div>
+</div>
 <div class="admin-card">
     <div class="admin-card-header">User Signups (Last 30 Days)</div>
     <div class="admin-card-body">

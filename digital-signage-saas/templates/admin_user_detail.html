@@ -81,10 +81,21 @@
     </div>
 </div>
 <div class="admin-card">
-    <div class="admin-card-header">Usage</div>
+    <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>Usage</span>
+        {% if user.subscription_status == 'trial' or user.subscription_status == 'expired' %}
+        <form method="post" action="{{ url_for('admin.extend_user_trial', user_id=user.id) }}" style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="number" name="days" value="7" min="1" max="365" class="form-control" style="max-width: 80px;">
+            <button type="submit" class="btn btn-secondary btn-sm">Extend Trial</button>
+        </form>
+        {% endif %}
+    </div>
     <div class="admin-card-body">
         <p><strong>Devices:</strong> {{ device_count }}</p>
         <p><strong>Storage used:</strong> {{ "%.2f"|format(storage_used) }} GB</p>
+        {% if user.trial_ends_at %}
+        <p><strong>Trial ends:</strong> {{ user.trial_ends_at.strftime('%Y-%m-%d') }}</p>
+        {% endif %}
     </div>
 </div>
 <div class="admin-card">

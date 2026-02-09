@@ -18,8 +18,24 @@
         <div class="value warning">{{ trial_users }}</div>
     </div>
     <div class="stat-box">
+        <h3>Expired / Inactive</h3>
+        <div class="value">{{ expired_users }} / {{ inactive_users }}</div>
+    </div>
+    <div class="stat-box">
         <h3>Revenue (30 days)</h3>
         <div class="value primary">${{ "%.2f"|format(monthly_revenue) }}</div>
+    </div>
+    <div class="stat-box">
+        <h3>All-time Revenue</h3>
+        <div class="value success">${{ "%.2f"|format(total_revenue) }}</div>
+    </div>
+    <div class="stat-box">
+        <h3>Total Devices</h3>
+        <div class="value">{{ total_devices }}</div>
+    </div>
+    <div class="stat-box">
+        <h3>Total Storage</h3>
+        <div class="value">{{ total_storage }} GB</div>
     </div>
 </div>
 <div class="admin-card">
@@ -30,6 +46,38 @@
             <span>{{ plan_key }}: <strong>{{ count }}</strong></span>
             {% endfor %}
         </div>
+    </div>
+</div>
+<div class="admin-card">
+    <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>Recent Payments</span>
+        <a href="{{ url_for('admin.admin_payments') }}" class="btn btn-secondary btn-sm">View all</a>
+    </div>
+    <div class="admin-card-body" style="padding: 0;">
+        {% if recent_payments_list %}
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Amount</th>
+                    <th>Plan</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in recent_payments_list %}
+                <tr>
+                    <td><a href="{{ url_for('admin.admin_user_detail', user_id=p.user_id) }}" style="text-decoration: none; color: #2271b1;">{{ p.user.username if p.user else p.user_id }}</a></td>
+                    <td>${{ "%.2f"|format(p.amount) }}</td>
+                    <td>{{ p.plan or '—' }}</td>
+                    <td>{{ p.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="padding: 1.5rem; color: var(--wp-text-light);">No recent payments</p>
+        {% endif %}
     </div>
 </div>
 <div class="admin-card">
@@ -59,9 +107,7 @@
                     <td>{{ user.plan }}</td>
                     <td><span class="badge {{ 'badge-success' if user.subscription_status == 'active' else ('badge-warning' if user.subscription_status == 'trial' else 'badge-danger') }}">{{ user.subscription_status }}</span></td>
                     <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
-                    <td>
-                        <a href="{{ url_for('admin.admin_user_detail', user_id=user.id) }}" class="btn btn-secondary btn-sm">Edit</a>
-                    </td>
+                    <td><a href="{{ url_for('admin.admin_user_detail', user_id=user.id) }}" class="btn btn-secondary btn-sm">Edit</a></td>
                 </tr>
                 {% else %}
                 <tr><td colspan="7" style="padding: 2rem; text-align: center; color: var(--wp-text-light);">No users yet</td></tr>

@@ -103,6 +103,7 @@
                 <li class="nav-section">Content</li>
                 <li><a href="{{ url_for('admin.admin_payments') }}" class="{% if request.endpoint == 'admin.admin_payments' %}active{% endif %}">Payments</a></li>
                 <li><a href="{{ url_for('admin.admin_analytics') }}" class="{% if request.endpoint == 'admin.admin_analytics' %}active{% endif %}">Analytics</a></li>
+                <li><a href="{{ url_for('admin.admin_activity') }}" class="{% if request.endpoint == 'admin.admin_activity' %}active{% endif %}">Activity Log</a></li>
                 <li class="nav-section">System</li>
                 <li><a href="{{ url_for('admin.admin_settings') }}" class="{% if request.endpoint == 'admin.admin_settings' %}active{% endif %}">Settings</a></li>
             </ul>

@@ -142,6 +142,22 @@ from routes_admin import admin_bp
 app.register_blueprint(admin_bp, url_prefix='/admin')
 
 
+@app.before_request
+def check_maintenance():
+    """Redirect non-admins to maintenance page when maintenance mode is on"""
+    try:
+        settings = load_admin_settings()
+        if not settings.get('maintenance_mode'):
+            return
+    except Exception:
+        return
+    if request.path.startswith('/admin') or request.path.startswith('/auth/login') or request.path.startswith('/auth/logout') or request.path.startswith('/static'):
+        return
+    if current_user.is_authenticated and current_user.is_admin:
+        return
+    return render_template('maintenance.html', settings=settings), 503
+
+
 # ============================================================================
 # DATABASE INITIALIZATION
 # ============================================================================

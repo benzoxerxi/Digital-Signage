@@ -187,6 +187,52 @@ def get_device_count(user_id=None):
     return len(devices)
 
 
+def get_total_devices_all_users():
+    """Get total device count across all tenants (for admin)"""
+    from models import User
+    total = 0
+    for user in User.query.all():
+        total += get_device_count(user.id)
+    return total
+
+
+def get_total_storage_all_users():
+    """Get total storage used across all tenants in GB (for admin)"""
+    from models import User
+    total = 0.0
+    for user in User.query.all():
+        total += get_storage_usage(user.id)
+    return round(total, 2)
+
+
+def load_admin_settings():
+    """Load admin settings from JSON file"""
+    path = os.path.join(Config.UPLOAD_FOLDER, '..', 'admin_settings.json')
+    path = os.path.normpath(path)
+    if not os.path.exists(path):
+        return {
+            'site_name': 'Digital Signage',
+            'support_email': '',
+            'default_trial_days': 7,
+            'maintenance_mode': False,
+        }
+    try:
+        with open(path, 'r') as f:
+            return json.load(f)
+    except Exception:
+        return {'site_name': 'Digital Signage', 'support_email': '', 'default_trial_days': 7, 'maintenance_mode': False}
+
+
+def save_admin_settings(settings):
+    """Save admin settings to JSON file"""
+    data_dir = os.path.join(Config.UPLOAD_FOLDER, '..')
+    data_dir = os.path.normpath(data_dir)
+    os.makedirs(data_dir, exist_ok=True)
+    path = os.path.join(data_dir, 'admin_settings.json')
+    with open(path, 'w') as f:
+        json.dump(settings, f, indent=2)
+
+
 def play_video_to_devices(filename, device_ids, user_id):
     """Play video on specified devices for user"""
     devices = load_json_file('devices.json', {}, user_id)

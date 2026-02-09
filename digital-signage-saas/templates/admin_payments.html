@@ -1,8 +1,23 @@
 {% extends "admin_base.html" %}
 {% block title %}Payments{% endblock %}
 {% block content %}
-<div class="admin-header">
+<div class="admin-header" style="flex-wrap: wrap; gap: 1rem;">
     <h1>Payment History</h1>
+    <a href="{{ url_for('admin.admin_payments', export='csv', status=status_filter) }}" class="btn btn-secondary">Export CSV</a>
+</div>
+<div class="admin-card">
+    <div class="admin-card-body">
+        <form method="get" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <select name="status" class="form-control" style="max-width: 150px;">
+                <option value="">All statuses</option>
+                <option value="succeeded" {% if status_filter == 'succeeded' %}selected{% endif %}>Succeeded</option>
+                <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Failed</option>
+                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+            </select>
+            <button type="submit" class="btn btn-primary">Filter</button>
+        </form>
+        <p style="margin-top: 1rem;"><strong>Total (succeeded):</strong> ${{ "%.2f"|format(total_succeeded) }}</p>
+    </div>
 </div>
 <div class="admin-card">
     <div class="admin-card-body" style="padding: 0;">
@@ -35,11 +50,11 @@
         {% if payments.pages > 1 %}
         <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--wp-border); display: flex; gap: 0.5rem; align-items: center;">
             {% if payments.has_prev %}
-            <a href="{{ url_for('admin.admin_payments', page=payments.prev_num) }}" class="btn btn-secondary btn-sm">← Previous</a>
+            <a href="{{ url_for('admin.admin_payments', page=payments.prev_num, status=status_filter) }}" class="btn btn-secondary btn-sm">← Previous</a>
             {% endif %}
             <span style="color: var(--wp-text-light);">Page {{ payments.page }} of {{ payments.pages }}</span>
             {% if payments.has_next %}
-            <a href="{{ url_for('admin.admin_payments', page=payments.next_num) }}" class="btn btn-secondary btn-sm">Next →</a>
+            <a href="{{ url_for('admin.admin_payments', page=payments.next_num, status=status_filter) }}" class="btn btn-secondary btn-sm">Next →</a>
             {% endif %}
         </div>
         {% endif %}

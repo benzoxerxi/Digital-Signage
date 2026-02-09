@@ -5,16 +5,34 @@
     <h1>Settings</h1>
 </div>
 <div class="admin-card">
+    <div class="admin-card-header">General Settings</div>
+    <div class="admin-card-body">
+        <form method="post" style="max-width: 500px;">
+            <div class="form-group">
+                <label>Site Name</label>
+                <input type="text" name="site_name" class="form-control" value="{{ settings.site_name or 'Digital Signage' }}">
+            </div>
+            <div class="form-group">
+                <label>Support Email</label>
+                <input type="email" name="support_email" class="form-control" value="{{ settings.support_email or '' }}" placeholder="support@example.com">
+            </div>
+            <div class="form-group">
+                <label>Default Trial Days (for new users)</label>
+                <input type="number" name="default_trial_days" class="form-control" value="{{ settings.default_trial_days or 7 }}" min="1" max="365" style="max-width: 100px;">
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" name="maintenance_mode" {% if settings.maintenance_mode %}checked{% endif %}> Maintenance Mode (show maintenance page to non-admins)
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+        </form>
+    </div>
+</div>
+<div class="admin-card">
     <div class="admin-card-header">System Information</div>
     <div class="admin-card-body">
-        <p>Admin settings can be extended here. Possible options:</p>
-        <ul style="margin: 1rem 0; padding-left: 1.5rem;">
-            <li>Site name / branding</li>
-            <li>Support email</li>
-            <li>Default trial period</li>
-            <li>Maintenance mode</li>
-        </ul>
-        <p style="color: var(--wp-text-light); font-size: 0.9rem;">Currently, configuration is managed via <code>config.py</code> and environment variables.</p>
+        <p style="color: var(--wp-text-light); font-size: 0.9rem;">Stripe, email, and database configuration are managed via <code>config.py</code> and environment variables.</p>
     </div>
 </div>
 {% endblock %}

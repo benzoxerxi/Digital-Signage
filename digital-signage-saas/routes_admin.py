@@ -7,7 +7,7 @@ from flask_login import login_required, current_user
 from functools import wraps
 from models import db, User, PaymentHistory, ActivityLog
 from datetime import datetime, timedelta
-from utils import get_device_count, get_storage_usage
+from utils import get_device_count, get_storage_usage, get_total_devices_all_users, get_total_storage_all_users, load_admin_settings, save_admin_settings
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -83,35 +83,48 @@ def get_plan_badge_class(status):
 @admin_required
 def admin_dashboard():
     """Admin dashboard"""
-    # Get stats
+    from config import Config
     total_users = User.query.count()
     active_subscriptions = User.query.filter_by(subscription_status='active').count()
     trial_users = User.query.filter_by(subscription_status='trial').count()
-    
-    # Recent registrations
+    expired_users = User.query.filter(User.subscription_status.in_(['expired', 'canceled'])).count()
+    inactive_users = User.query.filter_by(is_active=False).count()
+
     recent_users = User.query.order_by(User.created_at.desc()).limit(10).all()
-    
-    # Revenue calculation (last 30 days)
+
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
     recent_payments = PaymentHistory.query.filter(
         PaymentHistory.created_at >= thirty_days_ago,
         PaymentHistory.status == 'succeeded'
     ).all()
-    
     monthly_revenue = sum(p.amount for p in recent_payments)
-    
-    # Plan distribution
-    from config import Config
+
+    all_time_payments = PaymentHistory.query.filter_by(status='succeeded').all()
+    total_revenue = sum(p.amount for p in all_time_payments)
+
+    total_devices = get_total_devices_all_users()
+    total_storage = get_total_storage_all_users()
+
     plan_stats = {}
     for plan_key in Config.PLANS.keys():
         plan_stats[plan_key] = User.query.filter_by(plan=plan_key).count()
-    
+
+    recent_payments_list = PaymentHistory.query.order_by(
+        PaymentHistory.created_at.desc()
+    ).limit(5).all()
+
     return render_template('admin_dashboard.html',
         total_users=total_users,
         active_subscriptions=active_subscriptions,
         trial_users=trial_users,
+        expired_users=expired_users,
+        inactive_users=inactive_users,
         monthly_revenue=monthly_revenue,
+        total_revenue=total_revenue,
+        total_devices=total_devices,
+        total_storage=total_storage,
         recent_users=recent_users,
+        recent_payments_list=recent_payments_list,
         plan_stats=plan_stats
     )
 
@@ -120,11 +133,14 @@ def admin_dashboard():
 @login_required
 @admin_required
 def admin_users():
-    """List all users with search"""
+    """List all users with search and filters"""
     page = request.args.get('page', 1, type=int)
     per_page = 25
     search = request.args.get('s', '').strip()
-    
+    plan_filter = request.args.get('plan', '').strip()
+    status_filter = request.args.get('status', '').strip()
+    active_filter = request.args.get('active', '')
+
     query = User.query
     if search:
         search_pattern = f'%{search}%'
@@ -136,11 +152,20 @@ def admin_users():
                 User.connection_code == search
             )
         )
+    if plan_filter:
+        query = query.filter_by(plan=plan_filter)
+    if status_filter:
+        query = query.filter_by(subscription_status=status_filter)
+    if active_filter == '1':
+        query = query.filter_by(is_active=True)
+    elif active_filter == '0':
+        query = query.filter_by(is_active=False)
     users = query.order_by(User.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
-    
-    return render_template('admin_users.html', users=users, search=search)
+    from config import Config
+    return render_template('admin_users.html', users=users, search=search,
+        plan_filter=plan_filter, status_filter=status_filter, active_filter=active_filter, config=Config)
 
 
 @admin_bp.route('/users/add', methods=['GET', 'POST'])
@@ -172,11 +197,12 @@ def admin_user_add():
         if plan not in Config.PLANS:
             plan = 'free'
         
+        trial_days = load_admin_settings().get('default_trial_days', 7)
         user = User(
             username=username, email=email, company_name=company_name,
             plan=plan, is_admin=is_admin,
             subscription_status='trial' if plan == 'free' else 'active',
-            trial_ends_at=datetime.utcnow() + timedelta(days=7) if plan == 'free' else None
+            trial_ends_at=datetime.utcnow() + timedelta(days=trial_days) if plan == 'free' else None
         )
         user.set_password(password)
         user.ensure_connection_code()
@@ -274,6 +300,61 @@ def change_user_plan(user_id):
     return redirect(url_for('admin.admin_user_detail', user_id=user_id))
 
 
+@admin_bp.route('/users/<int:user_id>/extend-trial', methods=['POST'])
+@login_required
+@admin_required
+def extend_user_trial(user_id):
+    """Extend user trial by N days"""
+    user = User.query.get_or_404(user_id)
+    days = int(request.form.get('days', 7))
+    if days < 1:
+        days = 7
+    if user.trial_ends_at and user.trial_ends_at > datetime.utcnow():
+        user.trial_ends_at = user.trial_ends_at + timedelta(days=days)
+    else:
+        user.trial_ends_at = datetime.utcnow() + timedelta(days=days)
+    user.subscription_status = 'trial'
+    db.session.commit()
+    flash(f'Trial extended by {days} days for {user.username}', 'success')
+    return redirect(url_for('admin.admin_user_detail', user_id=user_id))
+
+
+@admin_bp.route('/users/bulk-action', methods=['POST'])
+@login_required
+@admin_required
+def admin_users_bulk_action():
+    """Bulk activate, deactivate, or change plan"""
+    from config import Config
+    action = request.form.get('bulk_action')
+    user_ids = request.form.getlist('user_ids')
+    if not user_ids or not action:
+        flash('No users selected or invalid action', 'error')
+        return redirect(url_for('admin.admin_users'))
+
+    ids = [int(i) for i in user_ids if str(i).isdigit()]
+    users = User.query.filter(User.id.in_(ids)).all()
+    count = 0
+    for user in users:
+        if user.id == current_user.id and action in ('deactivate',):
+            continue
+        if action == 'activate':
+            user.is_active = True
+            count += 1
+        elif action == 'deactivate':
+            user.is_active = False
+            count += 1
+        elif action == 'plan':
+            new_plan = request.form.get('bulk_plan')
+            if new_plan in Config.PLANS:
+                user.plan = new_plan
+                user.subscription_status = 'active'
+                count += 1
+
+    db.session.commit()
+    flash(f'Bulk action completed: {count} user(s) updated', 'success')
+    return redirect(url_for('admin.admin_users'))
+
+
 @admin_bp.route('/users/<int:user_id>/delete', methods=['POST'])
 @login_required
 @admin_required
@@ -290,22 +371,42 @@ def admin_user_delete(user_id):
     return redirect(url_for('admin.admin_users'))
 
 
+@admin_bp.route('/activity')
+@login_required
+@admin_required
+def admin_activity():
+    """System-wide activity log"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    user_filter = request.args.get('user_id', type=int)
+    event_filter = request.args.get('event_type', '').strip()
+
+    query = ActivityLog.query
+    if user_filter:
+        query = query.filter_by(user_id=user_filter)
+    if event_filter:
+        query = query.filter(ActivityLog.event_type.ilike(f'%{event_filter}%'))
+    activities = query.order_by(ActivityLog.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    return render_template('admin_activity.html', activities=activities, users=User.query.order_by(User.username).all(), user_filter=user_filter, event_filter=event_filter)
+
+
 @admin_bp.route('/analytics')
 @login_required
 @admin_required
 def admin_analytics():
     """System-wide analytics"""
-    # User growth over time (last 30 days)
+    from config import Config
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    
+
     daily_signups = db.session.query(
         db.func.date(User.created_at).label('date'),
         db.func.count(User.id).label('count')
     ).filter(User.created_at >= thirty_days_ago)\
      .group_by(db.func.date(User.created_at))\
      .all()
-    
-    # Revenue over time
+
     daily_revenue = db.session.query(
         db.func.date(PaymentHistory.created_at).label('date'),
         db.func.sum(PaymentHistory.amount).label('total')
@@ -314,10 +415,23 @@ def admin_analytics():
         PaymentHistory.status == 'succeeded'
     ).group_by(db.func.date(PaymentHistory.created_at))\
      .all()
-    
+
+    total_revenue = db.session.query(db.func.sum(PaymentHistory.amount)).filter(
+        PaymentHistory.status == 'succeeded'
+    ).scalar() or 0
+
+    revenue_by_plan = db.session.query(
+        PaymentHistory.plan,
+        db.func.sum(PaymentHistory.amount).label('total'),
+        db.func.count(PaymentHistory.id).label('count')
+    ).filter(PaymentHistory.status == 'succeeded')\
+     .group_by(PaymentHistory.plan).all()
+
     return render_template('admin_analytics.html',
         daily_signups=daily_signups,
-        daily_revenue=daily_revenue
+        daily_revenue=daily_revenue,
+        total_revenue=total_revenue,
+        revenue_by_plan=revenue_by_plan
     )
 
 
@@ -327,22 +441,66 @@ def admin_analytics():
 def admin_settings():
     """Admin settings page"""
     if request.method == 'POST':
-        # Placeholder for future settings (e.g. site name, support email)
-        flash('Settings saved (no settings configured yet)', 'success')
+        settings = load_admin_settings()
+        settings['site_name'] = request.form.get('site_name', 'Digital Signage').strip() or 'Digital Signage'
+        settings['support_email'] = request.form.get('support_email', '').strip()
+        settings['default_trial_days'] = int(request.form.get('default_trial_days', 7) or 7)
+        settings['maintenance_mode'] = request.form.get('maintenance_mode') == 'on'
+        save_admin_settings(settings)
+        flash('Settings saved successfully', 'success')
         return redirect(url_for('admin.admin_settings'))
-    return render_template('admin_settings.html')
+    return render_template('admin_settings.html', settings=load_admin_settings())
 
 
 @admin_bp.route('/payments')
 @login_required
 @admin_required
 def admin_payments():
-    """View all payments"""
+    """View all payments with filters and export"""
     page = request.args.get('page', 1, type=int)
     per_page = 50
-    
-    payments = PaymentHistory.query.order_by(PaymentHistory.created_at.desc()).paginate(
+    status_filter = request.args.get('status', '').strip()
+
+    query = PaymentHistory.query
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+    payments = query.order_by(PaymentHistory.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
-    
-    return render_template('admin_payments.html', payments=payments)
+
+    total_succeeded = db.session.query(db.func.sum(PaymentHistory.amount)).filter(
+        PaymentHistory.status == 'succeeded'
+    ).scalar() or 0
+
+    if request.args.get('export') == 'csv':
+        from flask import Response
+        export_query = PaymentHistory.query
+        if status_filter:
+            export_query = export_query.filter_by(status=status_filter)
+        all_payments = export_query.order_by(PaymentHistory.created_at.desc()).limit(5000).all()
+        csv_lines = ['ID,User,Amount,Plan,Status,Date']
+        for p in all_payments:
+            user_name = p.user.username if p.user else str(p.user_id)
+            csv_lines.append(f'{p.id},{user_name},{p.amount},{p.plan or ""},{p.status or ""},{p.created_at}')
+        return Response('\n'.join(csv_lines), mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment;filename=payments.csv'})
+
+    return render_template('admin_payments.html',
+        payments=payments,
+        total_succeeded=total_succeeded,
+        status_filter=status_filter
+    )
+
+
+@admin_bp.route('/users/export')
+@login_required
+@admin_required
+def admin_users_export():
+    """Export users as CSV"""
+    from flask import Response
+    users = User.query.order_by(User.created_at.desc()).all()
+    csv_lines = ['ID,Username,Email,Company,Plan,Status,Connection Code,Created']
+    for u in users:
+        csv_lines.append(f'{u.id},{u.username},{u.email},{u.company_name or ""},{u.plan},{u.subscription_status},{u.connection_code or ""},{u.created_at}')
+    return Response('\n'.join(csv_lines), mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment;filename=users.csv'})

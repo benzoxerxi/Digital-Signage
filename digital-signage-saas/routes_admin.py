@@ -316,8 +316,10 @@ def change_user_plan(user_id):
 def extend_user_trial(user_id):
     """Extend user trial by N days"""
     user = User.query.get_or_404(user_id)
-    days = int(request.form.get('days', 7))
-    if days < 1:
+    try:
+        days = int(request.form.get('days', 7) or 7)
+        days = max(1, min(365, days))
+    except (ValueError, TypeError):
         days = 7
     if user.trial_ends_at and user.trial_ends_at > datetime.utcnow():
         user.trial_ends_at = user.trial_ends_at + timedelta(days=days)

@@ -12,6 +12,16 @@ from utils import get_device_count, get_storage_usage, get_total_devices_all_use
 admin_bp = Blueprint('admin', __name__)
 
 
+def _csv_escape(value):
+    """Escape a value for CSV (RFC 4180): quote and escape if contains comma, quote, or newline"""
+    if value is None:
+        return ''
+    s = str(value)
+    if ',' in s or '"' in s or '\n' in s or '\r' in s:
+        return '"' + s.replace('"', '""') + '"'
+    return s
+
+
 @admin_bp.route('/bootstrap')
 def admin_bootstrap():
     """
@@ -444,7 +454,11 @@ def admin_settings():
         settings = load_admin_settings()
         settings['site_name'] = request.form.get('site_name', 'Digital Signage').strip() or 'Digital Signage'
         settings['support_email'] = request.form.get('support_email', '').strip()
-        settings['default_trial_days'] = int(request.form.get('default_trial_days', 7) or 7)
+        try:
+            trial_days = int(request.form.get('default_trial_days', 7) or 7)
+            settings['default_trial_days'] = max(1, min(365, trial_days))
+        except (ValueError, TypeError):
+            settings['default_trial_days'] = 7
         settings['maintenance_mode'] = request.form.get('maintenance_mode') == 'on'
         save_admin_settings(settings)
         flash('Settings saved successfully', 'success')
@@ -481,7 +495,9 @@ def admin_payments():
         csv_lines = ['ID,User,Amount,Plan,Status,Date']
         for p in all_payments:
             user_name = p.user.username if p.user else str(p.user_id)
-            csv_lines.append(f'{p.id},{user_name},{p.amount},{p.plan or ""},{p.status or ""},{p.created_at}')
+            row = [_csv_escape(p.id), _csv_escape(user_name), _csv_escape(p.amount),
+                   _csv_escape(p.plan), _csv_escape(p.status), _csv_escape(p.created_at)]
+            csv_lines.append(','.join(row))
         return Response('\n'.join(csv_lines), mimetype='text/csv',
             headers={'Content-Disposition': 'attachment;filename=payments.csv'})
 
@@ -501,6 +517,9 @@ def admin_users_export():
     users = User.query.order_by(User.created_at.desc()).all()
     csv_lines = ['ID,Username,Email,Company,Plan,Status,Connection Code,Created']
     for u in users:
-        csv_lines.append(f'{u.id},{u.username},{u.email},{u.company_name or ""},{u.plan},{u.subscription_status},{u.connection_code or ""},{u.created_at}')
+        row = [_csv_escape(u.id), _csv_escape(u.username), _csv_escape(u.email),
+               _csv_escape(u.company_name), _csv_escape(u.plan), _csv_escape(u.subscription_status),
+               _csv_escape(u.connection_code), _csv_escape(u.created_at)]
+        csv_lines.append(','.join(row))
     return Response('\n'.join(csv_lines), mimetype='text/csv',
         headers={'Content-Disposition': 'attachment;filename=users.csv'})

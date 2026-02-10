@@ -18,9 +18,9 @@
     .workspace-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; min-width: 0; background: var(--dark, #0A0E27); }
     .workspace-canvas-wrap { position: relative; width: 100%; height: 100%; max-width: 100%; max-height: 100%; display: flex; align-items: center; justify-content: center; }
     .workspace-canvas { position: relative; width: 100%; max-width: 100%; max-height: 100%; background: #000; border: 2px dashed var(--border); border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-    .workspace-element { position: absolute; border: 2px solid transparent; border-radius: 6px; cursor: move; display: flex; align-items: center; justify-content: center; overflow: hidden; box-sizing: border-box; }
+    .workspace-element { position: absolute; border: 2px solid transparent; border-radius: 6px; cursor: move; overflow: hidden; box-sizing: border-box; background: #000; }
     .workspace-element.selected { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(0,102,255,0.4); }
-    .workspace-element .element-label { font-size: 11px; color: rgba(255,255,255,0.9); text-shadow: 0 1px 2px #000; padding: 4px; text-align: center; pointer-events: none; }
+    .workspace-element .element-label { position: absolute; left: 6px; bottom: 4px; font-size: 11px; color: rgba(255,255,255,0.9); text-shadow: 0 1px 2px #000; padding: 2px 4px; background: rgba(0,0,0,0.4); border-radius: 3px; pointer-events: none; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .workspace-resize-handle { position: absolute; width: 12px; height: 12px; background: var(--primary); border: 2px solid #fff; border-radius: 3px; z-index: 5; }
     .workspace-resize-handle.nw { top: -6px; left: -6px; cursor: nwse-resize; }
     .workspace-resize-handle.ne { top: -6px; right: -6px; cursor: nesw-resize; }
@@ -195,6 +195,9 @@
                     videoEl.loop = true;
                     videoEl.autoplay = true;
                     videoEl.playsInline = true;
+                    videoEl.style.position = 'absolute';
+                    videoEl.style.left = '0';
+                    videoEl.style.top = '0';
                     videoEl.style.width = '100%';
                     videoEl.style.height = '100%';
                     videoEl.style.objectFit = 'cover';

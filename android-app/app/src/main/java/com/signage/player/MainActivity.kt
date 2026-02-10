@@ -56,8 +56,6 @@ class MainActivity : AppCompatActivity() {
     private var deviceId = ""
     private var deviceName = ""
     private var lastCommandId = -1
-    private var screensaverLogoUrl: String? = null
-    private var screensaverBgColor: String = "#000000"
 
     companion object {
         private const val TAG = "SignagePlayer"
@@ -209,25 +207,10 @@ class MainActivity : AppCompatActivity() {
                 playerView = findViewById(R.id.player_view)
                 screensaverView = findViewById(R.id.screensaver_view)
                 hideSystemUI()
+                loadScreensaver()
 
                 initializePlayer()
-
-                // Load branding (logo + background color) once on successful connection
-                scope.launch {
-                    try {
-                        val branding = withContext(Dispatchers.IO) {
-                            apiClient.getBranding()
-                        }
-                        if (branding != null) {
-                            screensaverLogoUrl = branding.logoUrl
-                            screensaverBgColor = branding.backgroundColor
-                        }
-                    } catch (_: Exception) {
-                    } finally {
-                        loadScreensaver()
-                        startDeviceHeartbeat()
-                    }
-                }
+                startDeviceHeartbeat()
             } catch (e: Exception) {
                 Log.e(TAG, "Connection failed", e)
                 val msg = when {
@@ -540,15 +523,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadScreensaver() {
-        // Apply background color if provided
+        // Always use a solid white background for the screensaver
         try {
-            val color = android.graphics.Color.parseColor(screensaverBgColor)
-            window.decorView.setBackgroundColor(color)
+            window.decorView.setBackgroundColor(android.graphics.Color.WHITE)
         } catch (_: IllegalArgumentException) {
-            // Ignore invalid color; keep default
+            // Ignore; default window background will remain
         }
-
-        val logoUrlToUse = screensaverLogoUrl ?: SCREENSAVER_URL
 
         val imageLoader = ImageLoader.Builder(this)
             .components {
@@ -557,7 +537,7 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         val request = ImageRequest.Builder(this)
-            .data(logoUrlToUse)
+            .data(SCREENSAVER_URL)
             .target(screensaverView)
             .build()
 

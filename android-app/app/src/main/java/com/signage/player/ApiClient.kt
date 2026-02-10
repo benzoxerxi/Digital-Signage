@@ -66,11 +66,6 @@ data class LayoutResponse(
     val program: ProgramLayout?
 )
 
-data class BrandingConfig(
-    val logoUrl: String?,
-    val backgroundColor: String
-)
-
 class ApiClient {
     private var baseUrl = ""
     private var connectionCode = ""
@@ -92,36 +87,6 @@ class ApiClient {
     fun setConnectionCode(code: String) {
         connectionCode = code.trim()
         Log.d(TAG, "Connection code set: ${if (connectionCode.isEmpty()) "none" else "***${connectionCode.takeLast(3)}"}")
-    }
-
-    suspend fun getBranding(): BrandingConfig? = withContext(Dispatchers.IO) {
-        if (baseUrl.isEmpty()) return@withContext null
-
-        val codeParam = if (connectionCode.isNotEmpty()) "code=$connectionCode" else ""
-        val query = if (codeParam.isNotEmpty()) "?$codeParam" else ""
-        val url = "$baseUrl/api/branding$query"
-
-        val request = Request.Builder()
-            .url(url)
-            .get()
-            .build()
-
-        try {
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    Log.w(TAG, "branding request failed: ${response.code}")
-                    return@withContext null
-                }
-                val json = JSONObject(response.body?.string() ?: "{}")
-                BrandingConfig(
-                    logoUrl = json.optString("logo_url", null).takeIf { it.isNotBlank() },
-                    backgroundColor = json.optString("background_color", "#000000")
-                )
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to fetch branding", e)
-            null
-        }
     }
 
     /**

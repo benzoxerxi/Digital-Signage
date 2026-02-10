@@ -750,9 +750,11 @@ def handle_playlists():
 @api_bp.route('/program_playlists/<playlist_id>/activate', methods=['POST'])
 @login_required
 def activate_program_playlist(playlist_id):
-    """Activate just the program portion of a playlist for TVs/players that support programs.
+    """Activate just the program portion of a playlist.
 
-    Writes a simple manifest to program_playlist.json with the ordered list of program IDs.
+    1) Writes a simple manifest to program_playlist.json with the ordered list of program IDs.
+    2) Also compiles all video filenames referenced by those programs into playlist.json so
+       existing video-only players (APK) still have something to play.
     """
     playlists_data = load_json_file('playlists.json', {'playlists': []})
     playlist = next((p for p in playlists_data['playlists'] if p['id'] == playlist_id), None)
@@ -767,11 +769,68 @@ def activate_program_playlist(playlist_id):
         'updated_at': datetime.now().isoformat()
     }
     save_json_file('program_playlist.json', manifest)
+
+    # Compile all video filenames used inside the selected programs so the
+    # existing Android player (which only understands videos) can still play them.
+    video_filenames = []
+    if programs:
+        programs_data = load_json_file('programs.json', {'programs': []})
+        for pid in programs:
+            program = next((p for p in programs_data.get('programs', []) if p.get('id') == pid), None)
+            if not program:
+                continue
+            for el in program.get('elements', []):
+                try:
+                    if el.get('type') != 'video':
+                        continue
+                    props = el.get('props') or {}
+                    filename = props.get('filename')
+                    if filename and filename not in video_filenames:
+                        video_filenames.append(filename)
+                except Exception:
+                    continue
+
+    video_count = 0
+    if video_filenames:
+        # Load / build main playlist.json just like activate_playlist()
+        main_playlist = load_json_file('playlist.json', {
+            'videos': [],
+            'settings': {'interval': 30, 'loop': True},
+            'active_playlist_id': None,
+            'active_playlist_name': None
+        })
+        content_folder = get_content_folder()
+        video_objects = []
+        if content_folder:
+            for video_filename in video_filenames:
+                filepath = os.path.join(content_folder, video_filename)
+                if os.path.exists(filepath):
+                    stat = os.stat(filepath)
+                    video_objects.append({
+                        'filename': video_filename,
+                        'name': video_filename,
+                        'added': datetime.now().isoformat(),
+                        'url': f'/api/video/{video_filename}',
+                        'size': f"{stat.st_size / (1024*1024):.1f} MB"
+                    })
+        if video_objects:
+            main_playlist['videos'] = video_objects
+            main_playlist['active_playlist_id'] = playlist_id
+            main_playlist['active_playlist_name'] = playlist.get('name')
+            save_json_file('playlist.json', main_playlist)
+            video_count = len(video_objects)
+
     log_activity('program_playlist_activated', {
         'playlist_id': playlist_id,
-        'program_count': len(programs)
+        'program_count': len(programs),
+        'compiled_videos': video_filenames
     })
-    return jsonify({'success': True, 'program_count': len(programs), 'playlist_name': playlist.get('name')})
+    return jsonify({
+        'success': True,
+        'program_count': len(programs),
+        'video_count': video_count,
+        'playlist_name': playlist.get('name')
+    })
 
 
 @api_bp.route('/playlists/<playlist_id>', methods=['DELETE'])

@@ -1052,7 +1052,23 @@
                 var w = parseInt(document.getElementById('layoutWidth').value, 10) || 1920;
                 var h = parseInt(document.getElementById('layoutHeight').value, 10) || 1080;
                 var canvas = document.getElementById('layoutCanvas');
-                if (canvas) canvas.style.aspectRatio = w + ' / ' + h;
+                if (canvas) {
+                    canvas.style.aspectRatio = w + ' / ' + h;
+                }
+            }
+            function attachLayoutInputListeners() {
+                var lw = document.getElementById('layoutWidth');
+                var lh = document.getElementById('layoutHeight');
+                if (lw && !lw._layoutListener) {
+                    lw._layoutListener = true;
+                    lw.addEventListener('input', updateCanvasAspect);
+                    lw.addEventListener('change', updateCanvasAspect);
+                }
+                if (lh && !lh._layoutListener) {
+                    lh._layoutListener = true;
+                    lh.addEventListener('input', updateCanvasAspect);
+                    lh.addEventListener('change', updateCanvasAspect);
+                }
             }
             window.loadLayout = async function() {
                 try {
@@ -1080,12 +1096,14 @@
                     layoutLayers.sort(function(a, b) { return a.z_index - b.z_index; });
                     renderLayoutCanvas();
                     renderLayoutSidebar();
+                    attachLayoutInputListeners();
                 } catch (e) {
                     console.error('Load layout error:', e);
                     layoutLayers = [];
                     layoutVideos = [];
                     renderLayoutCanvas();
                     renderLayoutSidebar();
+                    attachLayoutInputListeners();
                 }
             };
             function renderLayoutCanvas() {
@@ -1258,6 +1276,7 @@
                     if (typeof showToast === 'function') showToast('Failed to save layout', 'error');
                 }
             };
+            setTimeout(attachLayoutInputListeners, 100);
         })();
         </script>
         

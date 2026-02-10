@@ -1776,6 +1776,7 @@
             
             try {
                 let result = { success: true, playlist_name: playlist.name, video_count: videoCount, videos: [] };
+                let programResult = { success: true, video_count: 0, compiled_videos: [] };
 
                 // If there are any videos, activate the legacy video-based playlist
                 if (videoCount > 0) {
@@ -1789,22 +1790,32 @@
                     }
                 }
 
-                // Always activate the program playlist manifest for program-aware TVs (if any programs)
+                // Activate the program playlist manifest and compile videos (if any programs)
                 if (programCount > 0) {
-                    fetch(`/api/program_playlists/${playlistId}/activate`, {
+                    const resp = await fetch(`/api/program_playlists/${playlistId}/activate`, {
                         method: 'POST'
-                    }).catch(() => {});
+                    });
+                    programResult = await resp.json();
+                    if (!programResult.success) {
+                        showToast('Failed to activate program playlist', 'error');
+                        return;
+                    }
                 }
                 
-                showToast(`✅ Activated: ${playlist.name} (${videoCount} videos, ${programCount} programs)`, 'success');
+                const totalVideos = videoCount > 0 ? result.video_count : programResult.video_count;
+                showToast(`✅ Activated: ${playlist.name} (${totalVideos} videos, ${programCount} programs)`, 'success');
 
-                // If we have at least one video, start playback on devices as before
+                // Decide first video to kick off playback for devices
+                let firstVideo = null;
                 if (videoCount > 0) {
-                    const firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : (playlist.videos[0] || null);
-                    if (firstVideo) {
-                        console.log("Playing first video:", firstVideo);
-                        await playVideo(firstVideo, true);
-                    }
+                    firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : (playlist.videos[0] || null);
+                } else if (programResult.video_count > 0 && Array.isArray(programResult.compiled_videos) && programResult.compiled_videos.length > 0) {
+                    firstVideo = programResult.compiled_videos[0];
+                }
+
+                if (firstVideo) {
+                    console.log("Playing first video:", firstVideo);
+                    await playVideo(firstVideo, true);
                 }
             } catch (error) {
                 console.error('Activation error:', error);

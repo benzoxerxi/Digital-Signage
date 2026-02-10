@@ -829,6 +829,7 @@ def activate_program_playlist(playlist_id):
         'success': True,
         'program_count': len(programs),
         'video_count': video_count,
+        'compiled_videos': video_filenames,
         'playlist_name': playlist.get('name')
     })
 

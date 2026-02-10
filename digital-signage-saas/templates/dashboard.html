@@ -1114,20 +1114,23 @@
                     var res = await fetch('/api/programs');
                     var data = await res.json();
                     var list = document.getElementById('programsList');
-                    if (!list) return;
                     var programs = (data.programs || []);
-                    if (programs.length === 0) {
-                        list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No programs yet. Click "+ Create program" to add one.</p></div>';
-                        return;
+                    // expose for playlists modal
+                    window.allPrograms = programs;
+                    if (list) {
+                        if (programs.length === 0) {
+                            list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No programs yet. Click "+ Create program" to add one.</p></div>';
+                        } else {
+                            list.innerHTML = programs.map(function(p) {
+                                return '<div class="program-card">' +
+                                    '<div><div class="program-card-name">' + (p.name || 'Program') + '</div>' +
+                                    '<div class="program-card-size">' + (p.width || 1920) + ' × ' + (p.height || 1080) + '</div></div>' +
+                                    '<div class="program-card-actions">' +
+                                    '<a href="/dashboard/program/' + p.id + '/edit" class="btn btn-primary btn-small">Edit</a>' +
+                                    '<button type="button" class="btn btn-danger btn-small" onclick="deleteProgram(\'' + p.id + '\')">Delete</button></div></div>';
+                            }).join('');
+                        }
                     }
-                    list.innerHTML = programs.map(function(p) {
-                        return '<div class="program-card">' +
-                            '<div><div class="program-card-name">' + (p.name || 'Program') + '</div>' +
-                            '<div class="program-card-size">' + (p.width || 1920) + ' × ' + (p.height || 1080) + '</div></div>' +
-                            '<div class="program-card-actions">' +
-                            '<a href="/dashboard/program/' + p.id + '/edit" class="btn btn-primary btn-small">Edit</a>' +
-                            '<button type="button" class="btn btn-danger btn-small" onclick="deleteProgram(\'' + p.id + '\')">Delete</button></div></div>';
-                    }).join('');
                 } catch (e) {
                     var list = document.getElementById('programsList');
                     if (list) list.innerHTML = '<div class="empty-state"><p>Failed to load programs.</p></div>';
@@ -1290,7 +1293,14 @@
             </div>
             <div class="form-group">
                 <label class="form-label">Add Videos</label>
-                <select class="form-select" id="playlistVideos" multiple size="8"></select>
+                <select class="form-select" id="playlistVideos" multiple size="6"></select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Add Programs</label>
+                <select class="form-select" id="playlistPrograms" multiple size="6"></select>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
+                    Programs are the layouts you design in the Programs tab. They will be activated for TVs that support programs.
+                </p>
             </div>
             <button class="btn btn-primary" onclick="savePlaylist()">Create Playlist</button>
         </div>
@@ -1332,6 +1342,7 @@
         let allDevices = [];
         let allVideos = [];
         let allPlaylists = [];
+        let allPrograms = [];
         let allSchedules = [];
         let selectedScheduleDays = [];
         let editingDeviceId = null;
@@ -1676,11 +1687,19 @@
                     return;
                 }
                 
-                list.innerHTML = allPlaylists.map(playlist => `
+                list.innerHTML = allPlaylists.map(playlist => {
+                    const programCount = (playlist.programs || []).length;
+                    const videoCount = (playlist.videos || []).length;
+                    const total = videoCount + programCount;
+                    return `
                     <div class="group-card">
                         <div class="group-header">
                             <div class="group-name">${playlist.name}</div>
-                            <div class="group-count">${playlist.videos.length} videos</div>
+                            <div class="group-count">
+                                ${total} item(s)
+                                ${videoCount ? ` • ${videoCount} video(s)` : ''}
+                                ${programCount ? ` • ${programCount} program(s)` : ''}
+                            </div>
                         </div>
                         <div style="display: flex; gap: 8px; margin-top: 12px;">
                             <button class="btn btn-success btn-small" onclick="playPlaylist('${playlist.id}')">
@@ -1694,7 +1713,8 @@
                             </button>
                         </div>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             } catch (error) {
                 console.error('Error loading playlists:', error);
             }
@@ -1705,6 +1725,14 @@
             select.innerHTML = allVideos.map(v => 
                 `<option value="${v.filename}">${v.name}</option>`
             ).join('');
+
+            const progSelect = document.getElementById('playlistPrograms');
+            if (progSelect) {
+                const programs = (window.allPrograms || []);
+                progSelect.innerHTML = programs.map(p =>
+                    `<option value="${p.id}">${p.name} (${p.width}×${p.height})</option>`
+                ).join('');
+            }
             openModal('createPlaylistModal');
         }
         
@@ -1712,9 +1740,11 @@
             const name = document.getElementById('playlistName').value;
             const select = document.getElementById('playlistVideos');
             const videos = Array.from(select.selectedOptions).map(o => o.value);
+            const progSelect = document.getElementById('playlistPrograms');
+            const programs = progSelect ? Array.from(progSelect.selectedOptions).map(o => o.value) : [];
             
-            if (!name || videos.length === 0) {
-                showToast('Please enter a name and select videos', 'error');
+            if (!name || (videos.length === 0 && programs.length === 0)) {
+                showToast('Please enter a name and select at least one video or program', 'error');
                 return;
             }
             
@@ -1722,7 +1752,7 @@
                 const response = await fetch('/api/playlists', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({name, videos})
+                    body: JSON.stringify({name, videos, programs})
                 });
                 
                 if (response.ok) {
@@ -1737,24 +1767,34 @@
         
         async function playPlaylist(playlistId) {
             const playlist = allPlaylists.find(p => p.id === playlistId);
-            if (!playlist || playlist.videos.length === 0) {
+            const videoCount = playlist && playlist.videos ? playlist.videos.length : 0;
+            const programCount = playlist && playlist.programs ? playlist.programs.length : 0;
+            if (!playlist || (videoCount === 0 && programCount === 0)) {
                 showToast('Playlist is empty', 'error');
                 return;
             }
             
             try {
-                // Activate this playlist first (copies to playlist.json for Android)
+                // Activate this playlist for legacy video-based players
                 const response = await fetch(`/api/playlists/${playlistId}/activate`, {
                     method: 'POST'
                 });
-                
                 const result = await response.json();
+
+                // Also activate the program playlist manifest for program-aware TVs
+                if (programCount > 0) {
+                    fetch(`/api/program_playlists/${playlistId}/activate`, {
+                        method: 'POST'
+                    }).catch(() => {});
+                }
+                
                 if (result.success) {
-                    showToast(`✅ Activated: ${result.playlist_name} (${result.video_count} videos)`, 'success');
-                    // Pass TRUE to allow playback from playlist
-                    const firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : playlist.videos[0];
-                    console.log("Playing first video:", firstVideo);
-                    await playVideo(firstVideo, true);
+                    showToast(`✅ Activated: ${result.playlist_name} (${result.video_count} videos, ${programCount} programs)`, 'success');
+                    const firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : (playlist.videos[0] || null);
+                    if (firstVideo) {
+                        console.log("Playing first video:", firstVideo);
+                        await playVideo(firstVideo, true);
+                    }
                 } else {
                     showToast('Failed to activate playlist', 'error');
                 }
@@ -1768,10 +1808,19 @@
             const playlist = allPlaylists.find(p => p.id === playlistId);
             if (playlist) {
                 const preview = document.getElementById('playlistPreview');
+                const programLines = (playlist.programs || []).map((pId, idx) => `
+                    <div class="video-item">
+                        <div style="font-weight: 600; color: var(--secondary); width: 30px;">P${idx + 1}</div>
+                        <div class="video-info">
+                            <div class="video-name">Program: ${pId}</div>
+                        </div>
+                    </div>
+                `).join('');
+
                 preview.innerHTML = `
                     <h3 style="margin-bottom: 16px;">${playlist.name}</h3>
                     <div class="video-list">
-                        ${playlist.videos.map((v, i) => `
+                        ${(playlist.videos || []).map((v, i) => `
                             <div class="video-item">
                                 <div style="font-weight: 600; color: var(--primary); width: 30px;">${i + 1}</div>
                                 <div class="video-info">
@@ -1779,6 +1828,7 @@
                                 </div>
                             </div>
                         `).join('')}
+                        ${programLines}
                     </div>
                 `;
             }

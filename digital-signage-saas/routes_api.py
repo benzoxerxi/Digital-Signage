@@ -716,21 +716,27 @@ def format_devices():
 @api_bp.route('/playlists', methods=['GET', 'POST'])
 @login_required
 def handle_playlists():
-    """Get or create playlists"""
+    """Get or create playlists.
+
+    Playlists can now include both raw videos (filenames) and program IDs.
+    The existing 'videos' field is kept for backwards compatibility, and
+    an optional 'programs' list stores associated program IDs.
+    """
     if request.method == 'GET':
         return jsonify(load_json_file('playlists.json', {'playlists': []}))
     
     if not current_user.is_subscription_active():
         return jsonify({'success': False, 'error': 'Subscription expired'}), 403
     
-    data = request.json
+    data = request.json or {}
     playlists = load_json_file('playlists.json', {'playlists': []})
     
     import time
     new_playlist = {
         'id': f'playlist_{int(time.time())}',
-        'name': data['name'],
-        'videos': data['videos'],
+        'name': data.get('name') or 'Untitled playlist',
+        'videos': data.get('videos') or [],
+        'programs': data.get('programs') or [],
         'created': datetime.now().isoformat()
     }
     
@@ -739,6 +745,33 @@ def handle_playlists():
     log_activity('playlist_created', {'playlist_id': new_playlist['id']})
     
     return jsonify({'success': True, 'playlist': new_playlist})
+
+
+@api_bp.route('/program_playlists/<playlist_id>/activate', methods=['POST'])
+@login_required
+def activate_program_playlist(playlist_id):
+    """Activate just the program portion of a playlist for TVs/players that support programs.
+
+    Writes a simple manifest to program_playlist.json with the ordered list of program IDs.
+    """
+    playlists_data = load_json_file('playlists.json', {'playlists': []})
+    playlist = next((p for p in playlists_data['playlists'] if p['id'] == playlist_id), None)
+    if not playlist:
+        return jsonify({'success': False, 'error': 'Playlist not found'}), 404
+    
+    programs = playlist.get('programs') or []
+    manifest = {
+        'programs': programs,
+        'active_playlist_id': playlist_id,
+        'active_playlist_name': playlist.get('name'),
+        'updated_at': datetime.now().isoformat()
+    }
+    save_json_file('program_playlist.json', manifest)
+    log_activity('program_playlist_activated', {
+        'playlist_id': playlist_id,
+        'program_count': len(programs)
+    })
+    return jsonify({'success': True, 'program_count': len(programs), 'playlist_name': playlist.get('name')})
 
 
 @api_bp.route('/playlists/<playlist_id>', methods=['DELETE'])

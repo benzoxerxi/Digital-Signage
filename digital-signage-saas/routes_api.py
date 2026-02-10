@@ -966,6 +966,90 @@ def save_layout():
 
 
 # ============================================================================
+# PROGRAMS (create program = name + size, then workspace with elements)
+# ============================================================================
+
+import uuid
+
+@api_bp.route('/programs', methods=['GET'])
+@login_required
+def list_programs():
+    """List all programs for current user"""
+    data = load_json_file('programs.json', {'programs': []})
+    return jsonify(data)
+
+
+@api_bp.route('/programs', methods=['POST'])
+@login_required
+def create_program():
+    """Create a new program (name + width, height). Returns the new program with id."""
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    width = int(data.get('width', 1920))
+    height = int(data.get('height', 1080))
+    if not name:
+        return jsonify({'error': 'Name is required'}), 400
+    width = max(320, min(7680, width))
+    height = max(240, min(4320, height))
+    programs_data = load_json_file('programs.json', {'programs': []})
+    program_id = str(uuid.uuid4())[:8]
+    program = {
+        'id': program_id,
+        'name': name,
+        'width': width,
+        'height': height,
+        'elements': []
+    }
+    programs_data['programs'].append(program)
+    save_json_file('programs.json', programs_data)
+    log_activity('program_created', {'program_id': program_id, 'name': name})
+    return jsonify({'success': True, 'program': program})
+
+
+@api_bp.route('/programs/<program_id>')
+@login_required
+def get_program(program_id):
+    """Get one program by id"""
+    data = load_json_file('programs.json', {'programs': []})
+    program = next((p for p in data['programs'] if p['id'] == program_id), None)
+    if not program:
+        return jsonify({'error': 'Program not found'}), 404
+    return jsonify(program)
+
+
+@api_bp.route('/programs/<program_id>', methods=['PUT'])
+@login_required
+def update_program(program_id):
+    """Update program (name, size, elements)"""
+    data = request.get_json() or {}
+    programs_data = load_json_file('programs.json', {'programs': []})
+    program = next((p for p in programs_data['programs'] if p['id'] == program_id), None)
+    if not program:
+        return jsonify({'error': 'Program not found'}), 404
+    if 'name' in data and data['name'] is not None:
+        program['name'] = str(data['name']).strip() or program['name']
+    if 'width' in data:
+        program['width'] = max(320, min(7680, int(data['width'])))
+    if 'height' in data:
+        program['height'] = max(240, min(4320, int(data['height'])))
+    if 'elements' in data:
+        program['elements'] = data['elements']
+    save_json_file('programs.json', programs_data)
+    return jsonify({'success': True, 'program': program})
+
+
+@api_bp.route('/programs/<program_id>', methods=['DELETE'])
+@login_required
+def delete_program(program_id):
+    """Delete a program"""
+    programs_data = load_json_file('programs.json', {'programs': []})
+    programs_data['programs'] = [p for p in programs_data['programs'] if p['id'] != program_id]
+    save_json_file('programs.json', programs_data)
+    log_activity('program_deleted', {'program_id': program_id})
+    return jsonify({'success': True})
+
+
+# ============================================================================
 # ANALYTICS
 # ============================================================================
 

@@ -33,6 +33,19 @@ def dashboard():
     return render_template('dashboard.html', user=current_user)
 
 
+@main_bp.route('/dashboard/program/<program_id>/edit')
+@login_required
+def program_workspace(program_id):
+    """Full-screen program editor workspace (name + size already set)."""
+    from utils import load_json_file
+    data = load_json_file('programs.json', {'programs': []})
+    program = next((p for p in data['programs'] if p['id'] == program_id), None)
+    if not program:
+        flash('Program not found', 'error')
+        return redirect(url_for('main.dashboard'))
+    return render_template('workspace.html', program=program)
+
+
 @main_bp.route('/account')
 @login_required
 def account():

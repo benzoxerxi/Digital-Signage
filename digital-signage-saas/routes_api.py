@@ -189,6 +189,14 @@ def branding_settings():
         'background_color': branding.get('background_color')
     }, current_user.id)
 
+    # If this was a browser form submission (HTML), redirect back to account page
+    accept = (request.headers.get('Accept') or '').lower()
+    if 'text/html' in accept and 'application/json' not in accept:
+        from flask import redirect, url_for, flash
+        flash('Branding updated.', 'success')
+        return redirect(url_for('main.account'))
+
+    # Default: JSON response for API clients
     return jsonify({'success': True, 'branding': branding})
 
 

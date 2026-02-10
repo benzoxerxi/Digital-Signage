@@ -8,12 +8,12 @@
         "source": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-main-6:\\mipmap-xhdpi\\ic_launcher_round.png"
     },
     {
-        "merged": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-debug-4:\\layout_activity_setup.xml.flat",
-        "source": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-main-6:\\layout\\activity_setup.xml"
-    },
-    {
         "merged": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-debug-4:\\mipmap-mdpi_ic_launcher.png.flat",
         "source": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-main-6:\\mipmap-mdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-debug-4:\\layout_activity_setup.xml.flat",
+        "source": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-main-6:\\layout\\activity_setup.xml"
     },
     {
         "merged": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-debug-4:\\mipmap-hdpi_ic_launcher_round.png.flat",
@@ -22,10 +22,6 @@
     {
         "merged": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-debug-4:\\layout_activity_main.xml.flat",
         "source": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-main-6:\\layout\\activity_main.xml"
-    },
-    {
-        "merged": "com.signage.player.app-debug-4:/layout_activity_setup.xml.flat",
-        "source": "com.signage.player.app-main-6:/layout/activity_setup.xml"
     },
     {
         "merged": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-debug-4:\\mipmap-xxxhdpi_ic_launcher_round.png.flat",
@@ -50,6 +46,10 @@
     {
         "merged": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-debug-4:\\drawable_input_background.xml.flat",
         "source": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-main-6:\\drawable\\input_background.xml"
+    },
+    {
+        "merged": "com.signage.player.app-debug-4:/layout_activity_main.xml.flat",
+        "source": "com.signage.player.app-main-6:/layout/activity_main.xml"
     },
     {
         "merged": "C:\\Users\\ekink\\.gradle\\daemon\\9.0-milestone-1\\com.signage.player.app-debug-4:\\drawable_ic_launcher_foreground.xml.flat",

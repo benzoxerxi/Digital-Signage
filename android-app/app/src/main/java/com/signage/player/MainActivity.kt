@@ -14,8 +14,12 @@ import android.util.Log
 import android.view.PixelCopy
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -34,7 +38,9 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var playerView: PlayerView
     private lateinit var screensaverView: ImageView
+    private lateinit var layoutRoot: FrameLayout
     private var player: ExoPlayer? = null
+    private val layoutVideoPlayers = mutableListOf<ExoPlayer>()
     private val apiClient = ApiClient()
     private lateinit var videoCache: VideoCache
 
@@ -50,6 +56,8 @@ class MainActivity : AppCompatActivity() {
     private var deviceId = ""
     private var deviceName = ""
     private var lastCommandId = -1
+    private var screensaverLogoUrl: String? = null
+    private var screensaverBgColor: String = "#000000"
 
     companion object {
         private const val TAG = "SignagePlayer"
@@ -76,6 +84,7 @@ class MainActivity : AppCompatActivity() {
             setContentView(R.layout.activity_main)
             hideSystemUI()
 
+            layoutRoot = findViewById(R.id.layout_root)
             playerView = findViewById(R.id.player_view)
             screensaverView = findViewById(R.id.screensaver_view)
 
@@ -87,8 +96,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        serverUrl = prefs.getString(KEY_SERVER_URL, "") ?: ""
-        if (serverUrl.isEmpty()) serverUrl = DEFAULT_SERVER_URL
+        // Always use the fixed backend URL. We deliberately ignore any stored server_url
+        // so the only thing users ever configure is the 9-digit connection code.
+        serverUrl = DEFAULT_SERVER_URL
         connectionCode = prefs.getString(KEY_CONNECTION_CODE, "") ?: ""
         deviceId = prefs.getString(KEY_DEVICE_ID, "") ?: ""
         deviceName = prefs.getString(KEY_DEVICE_NAME, "") ?: ""
@@ -167,7 +177,6 @@ class MainActivity : AppCompatActivity() {
                     connectionCode = code
                     getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         .edit()
-                        .putString(KEY_SERVER_URL, serverUrl)
                         .putString(KEY_CONNECTION_CODE, connectionCode)
                         .apply()
                     apiClient.setBaseUrl(serverUrl)
@@ -195,14 +204,30 @@ class MainActivity : AppCompatActivity() {
 
                 Toast.makeText(this@MainActivity, "Connected successfully!", Toast.LENGTH_SHORT).show()
 
-                    setContentView(R.layout.activity_main)
-                    playerView = findViewById(R.id.player_view)
-                    screensaverView = findViewById(R.id.screensaver_view)
-                    hideSystemUI()
-                    loadScreensaver()
+                setContentView(R.layout.activity_main)
+                layoutRoot = findViewById(R.id.layout_root)
+                playerView = findViewById(R.id.player_view)
+                screensaverView = findViewById(R.id.screensaver_view)
+                hideSystemUI()
 
-                    initializePlayer()
-                    startDeviceHeartbeat()
+                initializePlayer()
+
+                // Load branding (logo + background color) once on successful connection
+                scope.launch {
+                    try {
+                        val branding = withContext(Dispatchers.IO) {
+                            apiClient.getBranding()
+                        }
+                        if (branding != null) {
+                            screensaverLogoUrl = branding.logoUrl
+                            screensaverBgColor = branding.backgroundColor
+                        }
+                    } catch (_: Exception) {
+                    } finally {
+                        loadScreensaver()
+                        startDeviceHeartbeat()
+                    }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Connection failed", e)
                 val msg = when {
@@ -270,6 +295,19 @@ class MainActivity : AppCompatActivity() {
     private fun sendHeartbeatAndCheckCommands() {
         scope.launch {
             try {
+                // First try layout-based playback using program layouts
+                val layoutResponse = withContext(Dispatchers.IO) {
+                    apiClient.getDeviceLayout(deviceId)
+                }
+
+                if (layoutResponse?.program != null && layoutResponse.program.elements.isNotEmpty()) {
+                    Log.d(TAG, "Layout mode active for device ${layoutResponse.deviceId}")
+                    renderProgramLayout(layoutResponse.program)
+                    // In layout mode we don't use server-issued current_video / playlist commands.
+                    return@launch
+                }
+
+                // Fallback: legacy playback state + playlist behavior
                 val playbackState = withContext(Dispatchers.IO) {
                     apiClient.getPlaybackState(connectionCode, deviceId, deviceName)
                 }
@@ -502,6 +540,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadScreensaver() {
+        // Apply background color if provided
+        try {
+            val color = android.graphics.Color.parseColor(screensaverBgColor)
+            window.decorView.setBackgroundColor(color)
+        } catch (_: IllegalArgumentException) {
+            // Ignore invalid color; keep default
+        }
+
+        val logoUrlToUse = screensaverLogoUrl ?: SCREENSAVER_URL
+
         val imageLoader = ImageLoader.Builder(this)
             .components {
                 add(SvgDecoder.Factory())
@@ -509,7 +557,7 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         val request = ImageRequest.Builder(this)
-            .data(SCREENSAVER_URL)
+            .data(logoUrlToUse)
             .target(screensaverView)
             .build()
 
@@ -845,6 +893,121 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
         scope.cancel()
+        layoutVideoPlayers.forEach { it.release() }
+        layoutVideoPlayers.clear()
         player?.release()
+    }
+
+    // =========================================================================
+    // Layout engine (full program layout driven from admin panel)
+    // =========================================================================
+
+    private fun renderProgramLayout(program: ProgramLayout) {
+        // Clear any existing layout views and associated players
+        layoutRoot.removeAllViews()
+        layoutVideoPlayers.forEach { it.release() }
+        layoutVideoPlayers.clear()
+
+        // When using layout mode, hide legacy full-screen player
+        playerView.visibility = View.GONE
+
+        val rootWidth = layoutRoot.width.takeIf { it > 0 } ?: layoutRoot.measuredWidth
+        val rootHeight = layoutRoot.height.takeIf { it > 0 } ?: layoutRoot.measuredHeight
+
+        if (rootWidth == 0 || rootHeight == 0) {
+            // View not yet measured; retry after layout pass
+            layoutRoot.post { renderProgramLayout(program) }
+            return
+        }
+
+        val scaleX = rootWidth.toFloat() / program.width.toFloat().coerceAtLeast(1f)
+        val scaleY = rootHeight.toFloat() / program.height.toFloat().coerceAtLeast(1f)
+
+        for (element in program.elements.sortedBy { it.zIndex }) {
+            val view = when (element.type) {
+                "video" -> createVideoViewForElement(element)
+                "image" -> createImageViewForElement(element)
+                "text" -> createTextViewForElement(element)
+                "webview" -> createWebViewForElement(element)
+                else -> null
+            } ?: continue
+
+            val lp = FrameLayout.LayoutParams(
+                (element.width * scaleX).toInt().coerceAtLeast(1),
+                (element.height * scaleY).toInt().coerceAtLeast(1)
+            )
+            lp.leftMargin = (element.x * scaleX).toInt()
+            lp.topMargin = (element.y * scaleY).toInt()
+
+            layoutRoot.addView(view, lp)
+        }
+
+        showScreensaver(false)
+    }
+
+    private fun createVideoViewForElement(element: LayoutElement): View? {
+        val url = element.props.optString("url", null) ?: return null
+        val exo = ExoPlayer.Builder(this).build()
+        layoutVideoPlayers.add(exo)
+
+        val pv = PlayerView(this).apply {
+            useController = false
+            player = exo
+        }
+
+        val mediaItem = MediaItem.fromUri(Uri.parse(url))
+        exo.setMediaItem(mediaItem)
+        exo.repeatMode = Player.REPEAT_MODE_ALL
+        exo.prepare()
+        exo.playWhenReady = true
+
+        return pv
+    }
+
+    private fun createImageViewForElement(element: LayoutElement): View? {
+        val url = element.props.optString("url", null) ?: return null
+        val imageView = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+
+        val imageLoader = ImageLoader.Builder(this).build()
+        val request = ImageRequest.Builder(this)
+            .data(url)
+            .target(imageView)
+            .build()
+        imageLoader.enqueue(request)
+
+        return imageView
+    }
+
+    private fun createTextViewForElement(element: LayoutElement): View {
+        val content = element.props.optString("content", "")
+        val fontSize = element.props.optInt("fontSize", 24)
+        val color = element.props.optString("color", "#FFFFFF")
+        val alignment = element.props.optString("alignment", "left")
+
+        val tv = TextView(this).apply {
+            text = content
+            textSize = fontSize.toFloat()
+            setTextColor(android.graphics.Color.parseColor(color))
+        }
+
+        when (alignment) {
+            "center" -> tv.textAlignment = View.TEXT_ALIGNMENT_CENTER
+            "right" -> tv.textAlignment = View.TEXT_ALIGNMENT_VIEW_END
+            else -> tv.textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+        }
+
+        return tv
+    }
+
+    private fun createWebViewForElement(element: LayoutElement): View? {
+        val url = element.props.optString("url", null) ?: return null
+        val webView = WebView(this).apply {
+            settings.javaScriptEnabled = true
+            webViewClient = WebViewClient()
+            loadUrl(url)
+        }
+        return webView
     }
 }

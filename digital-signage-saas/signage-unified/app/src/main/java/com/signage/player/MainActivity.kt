@@ -17,10 +17,14 @@ import android.util.Base64
 import android.util.Log
 import android.view.PixelCopy
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.FrameLayout
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AppCompatActivity
@@ -44,7 +48,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var notificationHeader: View
     private lateinit var connectionStatus: TextView
     private lateinit var closeButton: ImageButton
+    private lateinit var layoutRoot: FrameLayout
     private var player: ExoPlayer? = null
+    private val layoutVideoPlayers = mutableListOf<ExoPlayer>()
     private val apiClient = ApiClient()
     private lateinit var videoCache: VideoCache
 
@@ -96,6 +102,7 @@ class MainActivity : AppCompatActivity() {
             setContentView(R.layout.activity_main)
             hideSystemUI()
 
+            layoutRoot = findViewById(R.id.layout_root)
             playerView = findViewById(R.id.player_view)
             screensaverView = findViewById(R.id.screensaver_view)
             notificationHeader = findViewById(R.id.notification_header_container)
@@ -279,6 +286,7 @@ class MainActivity : AppCompatActivity() {
 
                 Toast.makeText(this@MainActivity, "Connected!", Toast.LENGTH_SHORT).show()
                 setContentView(R.layout.activity_main)
+                layoutRoot = findViewById(R.id.layout_root)
                 playerView = findViewById(R.id.player_view)
                 screensaverView = findViewById(R.id.screensaver_view)
                 notificationHeader = findViewById(R.id.notification_header_container)
@@ -327,22 +335,35 @@ class MainActivity : AppCompatActivity() {
     private fun sendHeartbeatAndCheckCommands() {
         scope.launch {
             try {
-                val playbackState = withContext(Dispatchers.IO) {
-                    apiClient.getPlaybackState(connectionCode, deviceId, deviceName)
+                // First, try layout-based playback
+                val layoutResponse = withContext(Dispatchers.IO) {
+                    apiClient.setBaseUrl(serverUrl)
+                    apiClient.setConnectionCode(connectionCode)
+                    apiClient.getDeviceLayout(deviceId)
                 }
-                connectionStatus.text = "Connected"
-                if (playbackState.screenshot_requested == true) captureAndUploadScreenshot()
-                if (playbackState.command_id != lastCommandId) {
-                    lastCommandId = playbackState.command_id
-                    if (playbackState.current_video != null) {
-                        playSpecificVideo(playbackState.current_video)
-                    } else {
-                        player?.stop()
-                        showScreensaver(true)
-                        currentPlaylist = emptyList()
+
+                if (layoutResponse?.program != null && layoutResponse.program.elements.isNotEmpty()) {
+                    connectionStatus.text = "Layout mode"
+                    renderProgramLayout(layoutResponse.program)
+                } else {
+                    // Fallback to legacy playback state + playlist behavior
+                    val playbackState = withContext(Dispatchers.IO) {
+                        apiClient.getPlaybackState(connectionCode, deviceId, deviceName)
                     }
-                } else if (currentPlaylist.isNotEmpty() || playbackState.current_video != null) {
-                    updatePlaylist()
+                    connectionStatus.text = "Connected"
+                    if (playbackState.screenshot_requested == true) captureAndUploadScreenshot()
+                    if (playbackState.command_id != lastCommandId) {
+                        lastCommandId = playbackState.command_id
+                        if (playbackState.current_video != null) {
+                            playSpecificVideo(playbackState.current_video)
+                        } else {
+                            player?.stop()
+                            showScreensaver(true)
+                            currentPlaylist = emptyList()
+                        }
+                    } else if (currentPlaylist.isNotEmpty() || playbackState.current_video != null) {
+                        updatePlaylist()
+                    }
                 }
             } catch (_: Exception) {
                 connectionStatus.text = "Connection lost"
@@ -509,6 +530,119 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
         scope.cancel()
+        layoutVideoPlayers.forEach { it.release() }
+        layoutVideoPlayers.clear()
         player?.release()
+    }
+
+    // =========================================================================
+    // Layout engine
+    // =========================================================================
+
+    private fun renderProgramLayout(program: ProgramLayout) {
+        // Clear existing layout elements and players
+        layoutRoot.removeAllViews()
+        layoutVideoPlayers.forEach { it.release() }
+        layoutVideoPlayers.clear()
+
+        // When using layout mode, hide legacy full-screen player
+        playerView.visibility = View.GONE
+
+        val rootWidth = layoutRoot.width.takeIf { it > 0 } ?: layoutRoot.measuredWidth
+        val rootHeight = layoutRoot.height.takeIf { it > 0 } ?: layoutRoot.measuredHeight
+
+        if (rootWidth == 0 || rootHeight == 0) {
+            // View not measured yet; post to layout pass
+            layoutRoot.post { renderProgramLayout(program) }
+            return
+        }
+
+        val scaleX = rootWidth.toFloat() / program.width.toFloat().coerceAtLeast(1f)
+        val scaleY = rootHeight.toFloat() / program.height.toFloat().coerceAtLeast(1f)
+
+        for (element in program.elements.sortedBy { it.zIndex }) {
+            val view = when (element.type) {
+                "video" -> createVideoViewForElement(element)
+                "image" -> createImageViewForElement(element)
+                "text" -> createTextViewForElement(element)
+                "webview" -> createWebViewForElement(element)
+                else -> null
+            } ?: continue
+
+            val lp = FrameLayout.LayoutParams(
+                (element.width * scaleX).toInt().coerceAtLeast(1),
+                (element.height * scaleY).toInt().coerceAtLeast(1)
+            )
+            lp.leftMargin = (element.x * scaleX).toInt()
+            lp.topMargin = (element.y * scaleY).toInt()
+
+            layoutRoot.addView(view, lp)
+        }
+
+        showScreensaver(false)
+    }
+
+    private fun createVideoViewForElement(element: LayoutElement): View? {
+        val url = element.props.optString("url", null) ?: return null
+        val exo = ExoPlayer.Builder(this).build()
+        layoutVideoPlayers.add(exo)
+
+        val pv = PlayerView(this).apply {
+            useController = false
+            player = exo
+        }
+
+        val mediaItem = MediaItem.fromUri(Uri.parse(url))
+        exo.setMediaItem(mediaItem)
+        exo.repeatMode = Player.REPEAT_MODE_ALL
+        exo.prepare()
+        exo.playWhenReady = true
+
+        return pv
+    }
+
+    private fun createImageViewForElement(element: LayoutElement): View? {
+        val url = element.props.optString("url", null) ?: return null
+        val imageView = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+        val imageLoader = ImageLoader.Builder(this).build()
+        val request = ImageRequest.Builder(this)
+            .data(url)
+            .target(imageView)
+            .build()
+        imageLoader.enqueue(request)
+        return imageView
+    }
+
+    private fun createTextViewForElement(element: LayoutElement): View {
+        val content = element.props.optString("content", "")
+        val fontSize = element.props.optInt("fontSize", 24)
+        val color = element.props.optString("color", "#FFFFFF")
+        val alignment = element.props.optString("alignment", "left")
+
+        val tv = TextView(this).apply {
+            text = content
+            textSize = fontSize.toFloat()
+            setTextColor(android.graphics.Color.parseColor(color))
+        }
+
+        when (alignment) {
+            "center" -> tv.textAlignment = View.TEXT_ALIGNMENT_CENTER
+            "right" -> tv.textAlignment = View.TEXT_ALIGNMENT_VIEW_END
+            else -> tv.textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+        }
+
+        return tv
+    }
+
+    private fun createWebViewForElement(element: LayoutElement): View? {
+        val url = element.props.optString("url", null) ?: return null
+        val webView = WebView(this).apply {
+            settings.javaScriptEnabled = true
+            webViewClient = WebViewClient()
+            loadUrl(url)
+        }
+        return webView
     }
 }

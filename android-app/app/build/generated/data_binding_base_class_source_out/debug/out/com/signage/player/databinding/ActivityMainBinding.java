@@ -4,6 +4,7 @@ package com.signage.player.databinding;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import androidx.annotation.NonNull;
@@ -21,14 +22,18 @@ public final class ActivityMainBinding implements ViewBinding {
   private final RelativeLayout rootView;
 
   @NonNull
+  public final FrameLayout layoutRoot;
+
+  @NonNull
   public final PlayerView playerView;
 
   @NonNull
   public final ImageView screensaverView;
 
-  private ActivityMainBinding(@NonNull RelativeLayout rootView, @NonNull PlayerView playerView,
-      @NonNull ImageView screensaverView) {
+  private ActivityMainBinding(@NonNull RelativeLayout rootView, @NonNull FrameLayout layoutRoot,
+      @NonNull PlayerView playerView, @NonNull ImageView screensaverView) {
     this.rootView = rootView;
+    this.layoutRoot = layoutRoot;
     this.playerView = playerView;
     this.screensaverView = screensaverView;
   }
@@ -60,6 +65,12 @@ public final class ActivityMainBinding implements ViewBinding {
     // This is done to optimize the compiled bytecode for size and performance.
     int id;
     missingId: {
+      id = R.id.layout_root;
+      FrameLayout layoutRoot = ViewBindings.findChildViewById(rootView, id);
+      if (layoutRoot == null) {
+        break missingId;
+      }
+
       id = R.id.player_view;
       PlayerView playerView = ViewBindings.findChildViewById(rootView, id);
       if (playerView == null) {
@@ -72,7 +83,8 @@ public final class ActivityMainBinding implements ViewBinding {
         break missingId;
       }
 
-      return new ActivityMainBinding((RelativeLayout) rootView, playerView, screensaverView);
+      return new ActivityMainBinding((RelativeLayout) rootView, layoutRoot, playerView,
+          screensaverView);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

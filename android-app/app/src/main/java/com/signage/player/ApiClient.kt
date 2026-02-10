@@ -41,6 +41,36 @@ data class ServerStatus(
     val connected_devices: Int = 0
 )
 
+data class LayoutElement(
+    val id: String?,
+    val type: String,
+    val x: Float,
+    val y: Float,
+    val width: Float,
+    val height: Float,
+    val zIndex: Int,
+    val props: JSONObject
+)
+
+data class ProgramLayout(
+    val id: String,
+    val name: String?,
+    val width: Int,
+    val height: Int,
+    val elements: List<LayoutElement>
+)
+
+data class LayoutResponse(
+    val deviceId: String,
+    val userId: Int,
+    val program: ProgramLayout?
+)
+
+data class BrandingConfig(
+    val logoUrl: String?,
+    val backgroundColor: String
+)
+
 class ApiClient {
     private var baseUrl = ""
     private var connectionCode = ""
@@ -62,6 +92,114 @@ class ApiClient {
     fun setConnectionCode(code: String) {
         connectionCode = code.trim()
         Log.d(TAG, "Connection code set: ${if (connectionCode.isEmpty()) "none" else "***${connectionCode.takeLast(3)}"}")
+    }
+
+    suspend fun getBranding(): BrandingConfig? = withContext(Dispatchers.IO) {
+        if (baseUrl.isEmpty()) return@withContext null
+
+        val codeParam = if (connectionCode.isNotEmpty()) "code=$connectionCode" else ""
+        val query = if (codeParam.isNotEmpty()) "?$codeParam" else ""
+        val url = "$baseUrl/api/branding$query"
+
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .build()
+
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "branding request failed: ${response.code}")
+                    return@withContext null
+                }
+                val json = JSONObject(response.body?.string() ?: "{}")
+                BrandingConfig(
+                    logoUrl = json.optString("logo_url", null).takeIf { it.isNotBlank() },
+                    backgroundColor = json.optString("background_color", "#000000")
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch branding", e)
+            null
+        }
+    }
+
+    /**
+     * Fetch full program layout for this device (if any).
+     * Returns null on error so callers can gracefully fall back to playlist-only mode.
+     */
+    suspend fun getDeviceLayout(deviceId: String): LayoutResponse? = withContext(Dispatchers.IO) {
+        if (baseUrl.isEmpty()) return@withContext null
+
+        val codeParam = if (connectionCode.isNotEmpty()) "code=$connectionCode" else ""
+        val deviceParam = "device_id=$deviceId"
+        val query = listOf(deviceParam, codeParam).filter { it.isNotEmpty() }.joinToString("&")
+        val url = "$baseUrl/api/device_layout?$query"
+
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .build()
+
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "device_layout request failed: ${response.code}")
+                    return@withContext null
+                }
+
+                val bodyStr = response.body?.string() ?: return@withContext null
+                val json = JSONObject(bodyStr)
+
+                // No active program layout for this device/user
+                if (json.isNull("program")) {
+                    return@withContext LayoutResponse(
+                        deviceId = json.optString("deviceId", deviceId),
+                        userId = json.optInt("userId", 0),
+                        program = null
+                    )
+                }
+
+                val programJson = json.getJSONObject("program")
+                val elementsArray = programJson.optJSONArray("elements")
+
+                val elements = mutableListOf<LayoutElement>()
+                if (elementsArray != null) {
+                    for (i in 0 until elementsArray.length()) {
+                        val elJson = elementsArray.getJSONObject(i)
+                        elements.add(
+                            LayoutElement(
+                                id = if (elJson.isNull("id")) null else elJson.optString("id", null),
+                                type = elJson.optString("type", "unknown"),
+                                x = elJson.optDouble("x", 0.0).toFloat(),
+                                y = elJson.optDouble("y", 0.0).toFloat(),
+                                width = elJson.optDouble("width", 0.0).toFloat(),
+                                height = elJson.optDouble("height", 0.0).toFloat(),
+                                zIndex = elJson.optInt("zIndex", 0),
+                                props = elJson.optJSONObject("props") ?: JSONObject()
+                            )
+                        )
+                    }
+                }
+
+                val program = ProgramLayout(
+                    id = programJson.getString("id"),
+                    name = programJson.optString("name", null),
+                    width = programJson.optInt("width", 1920),
+                    height = programJson.optInt("height", 1080),
+                    elements = elements
+                )
+
+                LayoutResponse(
+                    deviceId = json.optString("deviceId", deviceId),
+                    userId = json.optInt("userId", 0),
+                    program = program
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch device layout", e)
+            null
+        }
     }
 
     suspend fun getStatus(): ServerStatus = withContext(Dispatchers.IO) {

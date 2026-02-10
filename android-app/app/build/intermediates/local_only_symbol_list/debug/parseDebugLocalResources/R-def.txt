@@ -13,6 +13,7 @@ drawable ic_launcher_foreground
 drawable input_background
 id connect_button
 id connection_code_input
+id layout_root
 id logo_view
 id player_view
 id screensaver_view

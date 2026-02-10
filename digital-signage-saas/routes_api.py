@@ -62,6 +62,369 @@ def get_playlist():
     return jsonify(playlist)
 
 
+# ============================================================================
+# BRANDING / SCREENSAVER SETTINGS
+# ============================================================================
+
+
+@api_bp.route('/branding', methods=['GET', 'POST'])
+def branding_settings():
+    """Get or update branding (logo + screensaver background color) for a tenant.
+
+    GET (for APK or dashboard):
+      - Auth via:
+          ?code=<9-digit connection code>   (preferred for APK)
+          ?user_id=<user id>                (legacy)
+          or logged-in session (dashboard)
+      - Returns:
+        {
+          "logo_url": "...",          # absolute URL or null
+          "background_color": "#000000"
+        }
+
+    POST (dashboard only, @login_required):
+      - multipart/form-data:
+          file: PNG logo (optional)
+          background_color: hex color (optional)
+      - Saves tenant-specific branding.json and logo file.
+    """
+    from models import User
+
+    # Handle GET for APK and dashboard
+    if request.method == 'GET':
+        user = None
+        user_id = None
+        code_param = request.args.get('code')
+
+        if current_user.is_authenticated:
+            user = current_user
+        elif code_param:
+            user = User.get_by_connection_code(code_param)
+        else:
+            user_id_param = request.args.get('user_id')
+            if user_id_param:
+                try:
+                    user = User.query.get(int(user_id_param))
+                except (TypeError, ValueError):
+                    user = None
+
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        user_id = user.id
+        # Load tenant branding config
+        branding = load_json_file('branding.json', {
+            'logo_filename': None,
+            'background_color': '#000000'
+        }, user_id)
+
+        logo_filename = branding.get('logo_filename')
+        logo_url = None
+        if logo_filename:
+            base_url = request.url_root.rstrip('/')
+            # Prefer code param for cleaner APK URLs
+            if user.connection_code:
+                logo_url = f"{base_url}/api/branding/logo/{logo_filename}?code={user.connection_code}"
+            else:
+                logo_url = f"{base_url}/api/branding/logo/{logo_filename}?user_id={user_id}"
+
+        return jsonify({
+            'logo_url': logo_url,
+            'background_color': branding.get('background_color') or '#000000'
+        })
+
+    # POST: dashboard users updating branding
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    file = request.files.get('file')
+    bg_color = (request.form.get('background_color') or '').strip()
+
+    # Basic hex color validation (#RGB, #RRGGBB)
+    def _sanitize_color(c):
+        if not c:
+            return None
+        c = c.strip()
+        if not c.startswith('#'):
+            return None
+        hex_part = c[1:]
+        if len(hex_part) not in (3, 6):
+            return None
+        if not all(ch in '0123456789abcdefABCDEF' for ch in hex_part):
+            return None
+        return '#' + hex_part.lower()
+
+    branding = load_json_file('branding.json', {
+        'logo_filename': None,
+        'background_color': '#000000'
+    }, current_user.id)
+
+    # Update background color if provided
+    color_sanitized = _sanitize_color(bg_color)
+    if color_sanitized:
+        branding['background_color'] = color_sanitized
+
+    # Handle logo upload (PNG recommended)
+    if file and file.filename:
+        filename = secure_filename(file.filename)
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in ['.png', '.jpg', '.jpeg', '.webp']:
+            return jsonify({'success': False, 'error': 'Invalid logo type. Use PNG/JPG/WebP.'}), 400
+
+        # Store under tenant data path, separate from content videos
+        logo_dir = get_data_file_path('branding', current_user.id)
+        if not logo_dir:
+            return jsonify({'success': False, 'error': 'Storage error'}), 500
+        os.makedirs(logo_dir, exist_ok=True)
+
+        logo_filename = 'logo' + ext
+        logo_path = os.path.join(logo_dir, logo_filename)
+        file.save(logo_path)
+
+        branding['logo_filename'] = logo_filename
+
+    save_json_file('branding.json', branding, current_user.id)
+    log_activity('branding_updated', {
+        'has_logo': bool(branding.get('logo_filename')),
+        'background_color': branding.get('background_color')
+    }, current_user.id)
+
+    return jsonify({'success': True, 'branding': branding})
+
+
+@api_bp.route('/branding/logo/<filename>')
+def get_branding_logo(filename):
+    """Serve branding logo for a tenant (APK or dashboard).
+
+    Auth via:
+      - ?code=<9-digit>  (preferred)
+      - ?user_id=<id>    (legacy)
+      - logged-in session
+    """
+    from models import User
+
+    user = None
+    user_id = None
+
+    if current_user.is_authenticated:
+        user = current_user
+    else:
+        code_param = request.args.get('code')
+        if code_param:
+            user = User.get_by_connection_code(code_param)
+        if not user:
+            user_id_param = request.args.get('user_id')
+            if user_id_param:
+                try:
+                    user = User.query.get(int(user_id_param))
+                except (TypeError, ValueError):
+                    user = None
+
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    user_id = user.id
+    logo_dir = get_data_file_path('branding', user_id)
+    if not logo_dir:
+        return jsonify({'error': 'Branding folder missing'}), 404
+
+    filepath = os.path.join(logo_dir, secure_filename(filename))
+    if not os.path.exists(filepath):
+        return jsonify({'error': 'Logo not found'}), 404
+
+    import mimetypes
+    return send_file(filepath, mimetype=mimetypes.guess_type(filepath)[0] or 'image/png')
+
+
+# ============================================================================
+# PROGRAM LAYOUT FOR DEVICES (full-layout endpoint for APK)
+# ============================================================================
+
+
+@api_bp.route('/device_layout')
+def get_device_layout():
+    """Return full program layout (program + elements) for a device / connection code.
+
+    This is used by the Android/TV APK to render full layouts instead of just a flat
+    video playlist.
+
+    Authentication:
+      - Preferred: ?code=<9-digit-connection-code>
+      - Legacy   : ?user_id=<user id>
+
+    Response (example):
+    {
+      "deviceId": "192_168_1_10",
+      "userId": 123,
+      "program": {
+        "id": "prog_123",
+        "name": "Main Screen",
+        "width": 1920,
+        "height": 1080,
+        "elements": [
+          {
+            "id": "el1",
+            "type": "video",
+            "x": 0,
+            "y": 0,
+            "width": 1920,
+            "height": 1080,
+            "zIndex": 0,
+            "props": {
+              "url": "https://.../api/video/file.mp4?code=...",
+              "loop": true,
+              "volume": 1.0
+            }
+          },
+          ...
+        ]
+      }
+    }
+    """
+    from models import User
+
+    # Resolve user by connection code or user_id
+    user = None
+    code_param = request.args.get('code')
+    if code_param:
+        user = User.get_by_connection_code(code_param)
+
+    if not user:
+        user_id_param = request.args.get('user_id')
+        if user_id_param:
+            try:
+                user = User.query.get(int(user_id_param))
+            except (TypeError, ValueError):
+                user = None
+
+    if not user:
+        return jsonify({'error': 'User not found', 'message': 'Invalid connection code or user_id'}), 404
+
+    if not user.is_active or not user.is_subscription_active():
+        return jsonify({'error': 'Account inactive or subscription expired'}), 403
+
+    user_id = user.id
+
+    # Device identity – mirror playback/state logic
+    device_id = request.args.get('device_id')
+    if not device_id:
+        device_id = request.remote_addr.replace('.', '_')
+
+    # Load currently active program playlist manifest for this tenant
+    program_manifest = load_json_file('program_playlist.json', {
+        'programs': [],
+        'active_playlist_id': None,
+        'active_playlist_name': None,
+        'updated_at': None,
+    }, user_id)
+
+    program_ids = program_manifest.get('programs') or []
+    if not program_ids:
+        # No active program-based playlist; return empty program so APK can fall back.
+        return jsonify({
+            'deviceId': device_id,
+            'userId': user_id,
+            'program': None
+        })
+
+    # For now, use the first program in the active list
+    active_program_id = program_ids[0]
+
+    programs_data = load_json_file('programs.json', {'programs': []}, user_id)
+    program = next((p for p in programs_data.get('programs', []) if p.get('id') == active_program_id), None)
+
+    if not program:
+        # Manifest references a program that no longer exists – treat as no layout.
+        return jsonify({
+            'deviceId': device_id,
+            'userId': user_id,
+            'program': None
+        })
+
+    # Build full video/image/text/webview element models with proper URLs for media
+    base_url = request.url_root.rstrip('/')
+    video_param = f'code={user.connection_code}' if user.connection_code else f'user_id={user_id}'
+
+    elements_out = []
+    for raw_el in program.get('elements', []):
+        try:
+            el_type = raw_el.get('type')
+            props = raw_el.get('props') or {}
+
+            el = {
+                'id': raw_el.get('id'),
+                'type': el_type,
+                'x': float(raw_el.get('x', 0)),
+                'y': float(raw_el.get('y', 0)),
+                'width': float(raw_el.get('width', program.get('width', 1920))),
+                'height': float(raw_el.get('height', program.get('height', 1080))),
+                'zIndex': int(raw_el.get('zIndex', raw_el.get('z_index', 0))),
+                'props': {}
+            }
+
+            if el_type == 'video':
+                filename = props.get('filename') or props.get('file') or ''
+                video_url = None
+                if filename:
+                    video_url = f"{base_url}/api/video/{filename}?{video_param}"
+                el['props'] = {
+                    'filename': filename,
+                    'url': video_url,
+                    'loop': bool(props.get('loop', True)),
+                    'volume': float(props.get('volume', 1.0)),
+                }
+            elif el_type == 'image':
+                filename = props.get('filename') or ''
+                image_url = None
+                if filename:
+                    image_url = f"{base_url}/api/video/{filename}?{video_param}"
+                el['props'] = {
+                    'filename': filename,
+                    'url': image_url,
+                    'fit': props.get('fit', 'contain'),
+                }
+            elif el_type == 'text':
+                el['props'] = {
+                    'content': props.get('content', ''),
+                    'fontSize': int(props.get('fontSize', 24)),
+                    'color': props.get('color', '#FFFFFF'),
+                    'alignment': props.get('alignment', 'left'),
+                }
+            elif el_type == 'webview':
+                el['props'] = {
+                    'url': props.get('url', ''),
+                    'refreshSeconds': int(props.get('refreshSeconds', 0)),
+                }
+            else:
+                # Unknown element type – include raw props so client can ignore or handle later.
+                el['props'] = props
+
+            elements_out.append(el)
+        except Exception:
+            # Skip any malformed element instead of failing the entire layout.
+            continue
+
+    # Sort by zIndex for stable ordering
+    elements_out.sort(key=lambda e: e.get('zIndex', 0))
+
+    out_program = {
+        'id': program.get('id'),
+        'name': program.get('name'),
+        'width': program.get('width'),
+        'height': program.get('height'),
+        'elements': elements_out,
+    }
+
+    return jsonify({
+        'deviceId': device_id,
+        'userId': user_id,
+        'program': out_program,
+        'source_playlist_id': program_manifest.get('active_playlist_id'),
+        'source_playlist_name': program_manifest.get('active_playlist_name'),
+        'updated_at': program_manifest.get('updated_at'),
+    })
+
+
 @api_bp.route('/upload', methods=['POST'])
 @login_required
 def upload_video():

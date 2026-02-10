@@ -1,5 +1,6 @@
 package com.signage.player
 
+import android.app.ActivityManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
@@ -62,6 +63,8 @@ class MainActivity : AppCompatActivity() {
         private const val LOGO_URL = "https://images.seeklogo.com/logo-png/43/2/karcher-logo-png_seeklogo-437949.png"
         /** Default server URL – no server input needed; user only enters 9-digit code */
         private const val DEFAULT_SERVER_URL = "https://digitalsignage-gits.onrender.com"
+        /** Intent extra from watchdog: start pinned (lock task) when launched by watchdog */
+        private const val EXTRA_START_PINNED = "com.signage.watchdog.START_PINNED"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -110,6 +113,26 @@ class MainActivity : AppCompatActivity() {
             initializePlayer()
             startDeviceHeartbeat()
         }
+        tryStartLockTaskIfRequested(intent)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        tryStartLockTaskIfRequested(intent)
+    }
+
+    private fun tryStartLockTaskIfRequested(intent: android.content.Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_START_PINNED, false) != true) return
+        try {
+            val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (am.lockTaskModeState == ActivityManager.LOCK_TASK_MODE_NONE) startLockTask()
+            } else {
+                @Suppress("DEPRECATION")
+                if (!am.isInLockTaskMode) startLockTask()
+            }
+        } catch (_: Exception) {}
     }
 
     private fun generateDeviceId(): String {

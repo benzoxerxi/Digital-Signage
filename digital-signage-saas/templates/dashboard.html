@@ -919,6 +919,7 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('devices')">🖥️ Devices</button>
             <button class="tab" onclick="switchTab('content')">📹 Content</button>
+            <button class="tab" onclick="switchTab('layout')">📐 Layout</button>
             <button class="tab" onclick="switchTab('playlists')">📋 Playlists</button>
             <button class="tab" onclick="switchTab('schedules')">⏰ Schedules</button>
             <button class="tab" onclick="switchTab('groups')">👥 Groups</button>
@@ -982,6 +983,169 @@
                 <div id="videoList" class="video-list"></div>
             </div>
         </div>
+        
+        <!-- Layout Tab (custom screen size + video layers) -->
+        <div id="layoutTab" class="tab-content">
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Screen size</h2>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <label style="color: var(--text-muted); font-size: 13px;">Width</label>
+                            <input type="number" id="layoutWidth" min="320" max="7680" value="1920" style="width: 100px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark-3); color: var(--text);">
+                            <span style="color: var(--text-muted);">×</span>
+                            <label style="color: var(--text-muted); font-size: 13px;">Height</label>
+                            <input type="number" id="layoutHeight" min="240" max="4320" value="1080" style="width: 100px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark-3); color: var(--text);">
+                            <span style="color: var(--text-muted); font-size: 12px;">px</span>
+                        </div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-secondary btn-small" onclick="setLayoutPreset(1920, 1080)">1920×1080</button>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="setLayoutPreset(1280, 720)">1280×720</button>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="setLayoutPreset(3840, 2160)">3840×2160</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Preview</h2>
+                    </div>
+                    <div id="layoutPreview" style="background: var(--dark-4); border-radius: 8px; aspect-ratio: 16/9; max-height: 200px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 12px;">
+                        Custom canvas
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="margin-top: 24px;">
+                <div class="card-header">
+                    <h2 class="card-title">Video layers</h2>
+                    <button type="button" class="btn btn-primary btn-small" onclick="addLayoutLayer()">+ Add layer</button>
+                </div>
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Add videos as stacked layers. Higher z-index appears on top.</p>
+                <div id="layoutLayersList"></div>
+                <div style="margin-top: 16px;">
+                    <button type="button" class="btn btn-primary" onclick="saveLayout()">Save layout</button>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+        (function() {
+            let layoutLayers = [];
+            let layoutLayerId = 0;
+            window.setLayoutPreset = function(w, h) {
+                document.getElementById('layoutWidth').value = w;
+                document.getElementById('layoutHeight').value = h;
+            };
+            window.loadLayout = async function() {
+                try {
+                    const [layoutRes, playlistRes] = await Promise.all([
+                        fetch('/api/layout'),
+                        fetch('/api/playlist')
+                    ]);
+                    const layout = await layoutRes.json();
+                    const playlistData = await playlistRes.json();
+                    const videos = playlistData.videos || [];
+                    document.getElementById('layoutWidth').value = layout.screen_width || 1920;
+                    document.getElementById('layoutHeight').value = layout.screen_height || 1080;
+                    layoutLayers = (layout.layers || []).map(function(L, i) {
+                        return {
+                            id: L.id || 'layer_' + i,
+                            video: L.video || '',
+                            x: L.x != null ? L.x : 0,
+                            y: L.y != null ? L.y : 0,
+                            width: L.width != null ? L.width : 100,
+                            height: L.height != null ? L.height : 100,
+                            width_units: L.width_units || '%',
+                            height_units: L.height_units || '%',
+                            z_index: L.z_index != null ? L.z_index : i
+                        };
+                    });
+                    renderLayoutLayers(videos);
+                } catch (e) {
+                    console.error('Load layout error:', e);
+                    layoutLayers = [];
+                    renderLayoutLayers([]);
+                }
+            };
+            function renderLayoutLayers(videos) {
+                var container = document.getElementById('layoutLayersList');
+                if (!container) return;
+                var videoOpts = videos.map(function(v) { return '<option value="' + v.filename + '">' + (v.name || v.filename) + '</option>'; }).join('');
+                if (layoutLayers.length === 0) {
+                    container.innerHTML = '<div class="empty-state" style="padding: 24px;"><div class="empty-icon">📐</div><p>No layers yet. Click "Add layer" to add a video layer.</p></div>';
+                    return;
+                }
+                container.innerHTML = layoutLayers.map(function(L, i) {
+                    return '<div class="layout-layer-row" data-id="' + L.id + '" style="display: grid; grid-template-columns: 1fr 60px 60px 80px 80px 60px auto; gap: 8px; align-items: center; padding: 12px; background: var(--dark-3); border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border);">' +
+                        '<select class="layout-layer-video" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--dark-2); color: var(--text);"><option value="">— Select video —</option>' + videoOpts + '</select>' +
+                        '<input type="number" class="layout-layer-x" placeholder="X" value="' + L.x + '" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--dark-2); color: var(--text);">' +
+                        '<input type="number" class="layout-layer-y" placeholder="Y" value="' + L.y + '" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--dark-2); color: var(--text);">' +
+                        '<input type="number" class="layout-layer-w" placeholder="W" value="' + L.width + '" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--dark-2); color: var(--text);">' +
+                        '<input type="number" class="layout-layer-h" placeholder="H" value="' + L.height + '" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--dark-2); color: var(--text);">' +
+                        '<input type="number" class="layout-layer-z" placeholder="Z" value="' + L.z_index + '" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--dark-2); color: var(--text);">' +
+                        '<button type="button" class="btn btn-danger btn-small" onclick="removeLayoutLayer(\'' + L.id + '\')">Remove</button></div>';
+                }).join('');
+                layoutLayers.forEach(function(L) {
+                    var row = container.querySelector('[data-id="' + L.id + '"]');
+                    if (row) row.querySelector('.layout-layer-video').value = L.video || '';
+                });
+            }
+            window.addLayoutLayer = function() {
+                layoutLayers.push({
+                    id: 'layer_' + (++layoutLayerId),
+                    video: '',
+                    x: 0, y: 0, width: 100, height: 100,
+                    width_units: '%', height_units: '%',
+                    z_index: layoutLayers.length
+                });
+                fetch('/api/playlist').then(function(r) { return r.json(); }).then(function(d) { renderLayoutLayers(d.videos || []); });
+            };
+            window.removeLayoutLayer = function(id) {
+                layoutLayers = layoutLayers.filter(function(L) { return L.id !== id; });
+                fetch('/api/playlist').then(function(r) { return r.json(); }).then(function(d) { renderLayoutLayers(d.videos || []); });
+            };
+            window.saveLayout = async function() {
+                var width = parseInt(document.getElementById('layoutWidth').value, 10) || 1920;
+                var height = parseInt(document.getElementById('layoutHeight').value, 10) || 1080;
+                var container = document.getElementById('layoutLayersList');
+                var rows = container ? container.querySelectorAll('.layout-layer-row') : [];
+                var layers = [];
+                for (var i = 0; i < rows.length; i++) {
+                    var row = rows[i];
+                    var id = row.getAttribute('data-id');
+                    var L = layoutLayers.find(function(l) { return l.id === id; }) || {};
+                    layers.push({
+                        id: id,
+                        video: row.querySelector('.layout-layer-video').value,
+                        x: parseFloat(row.querySelector('.layout-layer-x').value) || 0,
+                        y: parseFloat(row.querySelector('.layout-layer-y').value) || 0,
+                        width: parseFloat(row.querySelector('.layout-layer-w').value) || 100,
+                        height: parseFloat(row.querySelector('.layout-layer-h').value) || 100,
+                        width_units: L.width_units || '%',
+                        height_units: L.height_units || '%',
+                        z_index: parseInt(row.querySelector('.layout-layer-z').value, 10) || i
+                    });
+                }
+                try {
+                    var res = await fetch('/api/layout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ screen_width: width, screen_height: height, layers: layers })
+                    });
+                    var data = await res.json();
+                    if (data.success) {
+                        if (typeof showToast === 'function') showToast('Layout saved', 'success');
+                        layoutLayers = (data.layout && data.layout.layers) || layers;
+                    } else {
+                        if (typeof showToast === 'function') showToast(data.error || 'Failed to save layout', 'error');
+                    }
+                } catch (e) {
+                    if (typeof showToast === 'function') showToast('Failed to save layout', 'error');
+                }
+            };
+        })();
+        </script>
         
         <!-- Playlists Tab -->
         <div id="playlistsTab" class="tab-content">
@@ -1192,6 +1356,7 @@
             
             event.target.classList.add('active');
             document.getElementById(tabName + 'Tab').classList.add('active');
+            if (tabName === 'layout') loadLayout();
         }
         
         // Load devices
@@ -2165,6 +2330,7 @@
             
             event.target.classList.add('active');
             document.getElementById(tabName + 'Tab').classList.add('active');
+            if (tabName === 'layout') loadLayout();
         }
         
         // Load devices

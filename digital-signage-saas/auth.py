@@ -68,7 +68,8 @@ def register():
                 'playlists.json': {'playlists': []},
                 'schedules.json': {'schedules': []},
                 'groups.json': {'groups': []},
-                'analytics.json': {'events': [], 'stats': {}}
+                'analytics.json': {'events': [], 'stats': {}},
+                'layout.json': {'screen_width': 1920, 'screen_height': 1080, 'layers': []}
             }
             for filename, content in default_files.items():
                 filepath = os.path.join(tenant_path, filename)

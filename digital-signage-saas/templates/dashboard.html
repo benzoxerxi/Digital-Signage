@@ -1775,28 +1775,36 @@
             }
             
             try {
-                // Activate this playlist for legacy video-based players
-                const response = await fetch(`/api/playlists/${playlistId}/activate`, {
-                    method: 'POST'
-                });
-                const result = await response.json();
+                let result = { success: true, playlist_name: playlist.name, video_count: videoCount, videos: [] };
 
-                // Also activate the program playlist manifest for program-aware TVs
+                // If there are any videos, activate the legacy video-based playlist
+                if (videoCount > 0) {
+                    const response = await fetch(`/api/playlists/${playlistId}/activate`, {
+                        method: 'POST'
+                    });
+                    result = await response.json();
+                    if (!result.success) {
+                        showToast('Failed to activate playlist', 'error');
+                        return;
+                    }
+                }
+
+                // Always activate the program playlist manifest for program-aware TVs (if any programs)
                 if (programCount > 0) {
                     fetch(`/api/program_playlists/${playlistId}/activate`, {
                         method: 'POST'
                     }).catch(() => {});
                 }
                 
-                if (result.success) {
-                    showToast(`✅ Activated: ${result.playlist_name} (${result.video_count} videos, ${programCount} programs)`, 'success');
+                showToast(`✅ Activated: ${playlist.name} (${videoCount} videos, ${programCount} programs)`, 'success');
+
+                // If we have at least one video, start playback on devices as before
+                if (videoCount > 0) {
                     const firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : (playlist.videos[0] || null);
                     if (firstVideo) {
                         console.log("Playing first video:", firstVideo);
                         await playVideo(firstVideo, true);
                     }
-                } else {
-                    showToast('Failed to activate playlist', 'error');
                 }
             } catch (error) {
                 console.error('Activation error:', error);

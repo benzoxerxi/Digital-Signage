@@ -984,46 +984,88 @@
             </div>
         </div>
         
-        <!-- Layout Tab (drag-and-drop style) -->
+        <!-- Layout Tab: size modal first, then workspace -->
         <div id="layoutTab" class="tab-content">
-            <div class="card" style="margin-bottom: 16px;">
-                <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
-                    <h2 class="card-title">Screen size</h2>
-                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <input type="number" id="layoutWidth" min="320" max="7680" value="1920" style="width: 80px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--dark-3); color: var(--text); font-size: 13px;">
-                        <span style="color: var(--text-muted);">×</span>
-                        <input type="number" id="layoutHeight" min="240" max="4320" value="1080" style="width: 80px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--dark-3); color: var(--text); font-size: 13px;">
-                        <span style="color: var(--text-muted); font-size: 12px;">px</span>
-                        <button type="button" class="btn btn-secondary btn-small" onclick="setLayoutPreset(1920, 1080)">1080p</button>
-                        <button type="button" class="btn btn-secondary btn-small" onclick="setLayoutPreset(1280, 720)">720p</button>
-                        <button type="button" class="btn btn-secondary btn-small" onclick="setLayoutPreset(3840, 2160)">4K</button>
-                        <button type="button" class="btn btn-primary btn-small" onclick="saveLayout()">Save layout</button>
+            <!-- Popup: set display size (shown when opening Layout tab) -->
+            <div id="layoutSizeModal" class="layout-modal">
+                <div class="layout-modal-backdrop"></div>
+                <div class="layout-modal-box">
+                    <div class="layout-modal-icon">📐</div>
+                    <h2 class="layout-modal-title">Set display size</h2>
+                    <p class="layout-modal-subtitle">Enter your screen dimensions. The canvas will match this proportion for placing and resizing video layers.</p>
+                    <div class="layout-modal-size-row">
+                        <input type="number" id="layoutModalWidth" min="320" max="7680" value="1920" placeholder="Width">
+                        <span class="layout-modal-times">×</span>
+                        <input type="number" id="layoutModalHeight" min="240" max="4320" value="1080" placeholder="Height">
+                        <span class="layout-modal-px">px</span>
                     </div>
+                    <div class="layout-modal-presets">
+                        <button type="button" class="layout-preset-btn" onclick="layoutModalPreset(1920, 1080)">1080p</button>
+                        <button type="button" class="layout-preset-btn" onclick="layoutModalPreset(1280, 720)">720p</button>
+                        <button type="button" class="layout-preset-btn" onclick="layoutModalPreset(3840, 2160)">4K</button>
+                        <button type="button" class="layout-preset-btn" onclick="layoutModalPreset(1080, 1920)">Portrait</button>
+                    </div>
+                    <button type="button" class="btn btn-primary layout-modal-continue" onclick="layoutSizeConfirm()">Continue to layout</button>
                 </div>
             </div>
-            <div class="grid grid-2" style="grid-template-columns: 1fr 320px;">
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">Drag layers to position</h2>
-                    </div>
-                    <div id="layoutCanvasWrap" style="position: relative; width: 100%; background: var(--dark-4); border-radius: 12px; overflow: hidden; min-height: 320px;">
-                        <div id="layoutCanvas" style="position: relative; width: 100%; aspect-ratio: 16/9; max-height: 420px; margin: 0 auto; background: var(--dark-3); border: 2px dashed var(--border); border-radius: 8px;">
-                            <!-- Layer boxes rendered here -->
+            <!-- Workspace (shown after size is set) -->
+            <div id="layoutWorkspace" class="layout-workspace" style="display: none;">
+                <div class="layout-workspace-bar">
+                    <span class="layout-workspace-size" id="layoutWorkspaceSize">1920 × 1080</span>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="layoutShowSizeModal()">Change size</button>
+                    <button type="button" class="btn btn-primary btn-small" onclick="saveLayout()">Save layout</button>
+                </div>
+                <div class="layout-workspace-main">
+                    <div class="layout-canvas-card">
+                        <div class="layout-canvas-label">Drag to move · Drag corners to resize</div>
+                        <div id="layoutCanvasWrap" class="layout-canvas-wrap">
+                            <div id="layoutCanvas" class="layout-canvas">
+                                <!-- Layer boxes with resize handles -->
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="card">
-                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <h2 class="card-title">Layers</h2>
-                        <button type="button" class="btn btn-primary btn-small" onclick="addLayoutLayer()">+ Add</button>
+                    <div class="layout-sidebar-card">
+                        <div class="layout-sidebar-header">
+                            <h3>Layers</h3>
+                            <button type="button" class="btn btn-primary btn-small" onclick="addLayoutLayer()">+ Add</button>
+                        </div>
+                        <p class="layout-sidebar-hint">Add a layer, pick a video, then drag and resize on the canvas.</p>
+                        <div id="layoutLayersList" class="layout-layers-list"></div>
                     </div>
-                    <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 12px;">Add a layer, pick a video, then drag it on the canvas.</p>
-                    <div id="layoutLayersList" class="layout-layers-list"></div>
                 </div>
             </div>
+            <input type="hidden" id="layoutWidth" value="1920">
+            <input type="hidden" id="layoutHeight" value="1080">
         </div>
         
         <style>
+            .layout-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
+            .layout-modal-backdrop { position: absolute; inset: 0; background: rgba(10, 14, 39, 0.85); }
+            .layout-modal-box { position: relative; background: linear-gradient(180deg, var(--dark-2) 0%, var(--dark-3) 100%); border: 1px solid var(--border); border-radius: 20px; padding: 32px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 24px 48px rgba(0,0,0,0.4); }
+            .layout-modal-icon { font-size: 48px; margin-bottom: 16px; }
+            .layout-modal-title { font-size: 1.5rem; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+            .layout-modal-subtitle { color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin-bottom: 24px; }
+            .layout-modal-size-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+            .layout-modal-size-row input { width: 100px; padding: 12px 16px; border-radius: 10px; border: 2px solid var(--border); background: var(--dark-4); color: var(--text); font-size: 1rem; text-align: center; }
+            .layout-modal-size-row input:focus { outline: none; border-color: var(--primary); }
+            .layout-modal-times { color: var(--text-muted); font-size: 1.2rem; }
+            .layout-modal-px { color: var(--text-muted); font-size: 0.85rem; }
+            .layout-modal-presets { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 24px; }
+            .layout-preset-btn { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark-3); color: var(--text-muted); font-size: 0.8rem; cursor: pointer; }
+            .layout-preset-btn:hover { border-color: var(--primary); color: var(--primary); }
+            .layout-modal-continue { width: 100%; padding: 14px; font-size: 1rem; border-radius: 10px; }
+            .layout-workspace { flex-direction: column; gap: 0; }
+            .layout-workspace-bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--dark-2); border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); }
+            .layout-workspace-size { color: var(--text-muted); font-size: 0.9rem; font-family: 'JetBrains Mono', monospace; }
+            .layout-workspace-main { display: grid; grid-template-columns: 1fr 300px; gap: 20px; min-height: 0; }
+            .layout-canvas-card { background: var(--dark-2); border: 1px solid var(--border); border-radius: 16px; padding: 20px; overflow: hidden; }
+            .layout-canvas-label { color: var(--text-muted); font-size: 12px; margin-bottom: 12px; }
+            .layout-canvas-wrap { position: relative; width: 100%; background: var(--dark-4); border-radius: 12px; overflow: hidden; min-height: 360px; display: flex; align-items: center; justify-content: center; }
+            .layout-canvas { position: relative; width: 100%; max-width: 100%; aspect-ratio: 16/9; max-height: min(70vh, 560px); background: var(--dark-3); border: 2px dashed var(--border); border-radius: 10px; }
+            .layout-sidebar-card { background: var(--dark-2); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+            .layout-sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+            .layout-sidebar-header h3 { font-size: 1rem; color: var(--text); }
+            .layout-sidebar-hint { color: var(--text-muted); font-size: 11px; margin-bottom: 12px; line-height: 1.4; }
             .layout-layers-list { display: flex; flex-direction: column; gap: 8px; }
             .layout-layer-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--dark-3); border: 1px solid var(--border); border-radius: 8px; cursor: grab; user-select: none; }
             .layout-layer-item:active { cursor: grabbing; }
@@ -1031,8 +1073,13 @@
             .layout-layer-item .drag-handle { color: var(--text-muted); font-size: 14px; }
             .layout-layer-item select { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--dark-2); color: var(--text); font-size: 12px; }
             .layout-layer-item .layer-size { width: 44px; padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--dark-2); color: var(--text); font-size: 11px; text-align: center; }
-            .layout-layer-box { position: absolute; border: 2px solid var(--primary); background: rgba(0, 102, 255, 0.2); border-radius: 6px; cursor: move; display: flex; align-items: center; justify-content: center; color: var(--text); font-size: 11px; overflow: hidden; text-align: center; padding: 4px; box-sizing: border-box; }
-            .layout-layer-box.dragging { z-index: 9999; opacity: 0.9; }
+            .layout-layer-box { position: absolute; border: 2px solid var(--primary); background: rgba(0, 102, 255, 0.25); border-radius: 8px; cursor: move; display: flex; align-items: center; justify-content: center; color: var(--text); font-size: 11px; overflow: visible; text-align: center; padding: 4px; box-sizing: border-box; }
+            .layout-layer-box.dragging { z-index: 9999; opacity: 0.95; }
+            .layout-resize-handle { position: absolute; width: 14px; height: 14px; background: var(--primary); border: 2px solid var(--white); border-radius: 4px; z-index: 10; }
+            .layout-resize-handle.nw { top: -7px; left: -7px; cursor: nwse-resize; }
+            .layout-resize-handle.ne { top: -7px; right: -7px; cursor: nesw-resize; }
+            .layout-resize-handle.sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
+            .layout-resize-handle.se { bottom: -7px; right: -7px; cursor: nwse-resize; }
         </style>
         
         <script>
@@ -1041,8 +1088,43 @@
             var layoutLayerId = 0;
             var layoutVideos = [];
             var layoutDrag = { active: false, layerId: null, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
+            var layoutResize = { active: false, layerId: null, corner: null, startX: 0, startY: 0, startBounds: {} };
             var listDrag = { active: false, order: [], startIndex: -1 };
-            
+            var LAYOUT_MIN_SIZE = 5;
+
+            window.layoutModalPreset = function(w, h) {
+                var mw = document.getElementById('layoutModalWidth');
+                var mh = document.getElementById('layoutModalHeight');
+                if (mw) mw.value = w;
+                if (mh) mh.value = h;
+            };
+            window.layoutSizeConfirm = function() {
+                var mw = document.getElementById('layoutModalWidth');
+                var mh = document.getElementById('layoutModalHeight');
+                var w = parseInt(mw && mw.value ? mw.value : 1920, 10) || 1920;
+                var h = parseInt(mh && mh.value ? mh.value : 1080, 10) || 1080;
+                w = Math.max(320, Math.min(7680, w));
+                h = Math.max(240, Math.min(4320, h));
+                document.getElementById('layoutWidth').value = w;
+                document.getElementById('layoutHeight').value = h;
+                updateCanvasAspect();
+                document.getElementById('layoutSizeModal').style.display = 'none';
+                document.getElementById('layoutWorkspace').style.display = 'block';
+                var sizeEl = document.getElementById('layoutWorkspaceSize');
+                if (sizeEl) sizeEl.textContent = w + ' × ' + h;
+                renderLayoutCanvas();
+                renderLayoutSidebar();
+            };
+            window.layoutShowSizeModal = function() {
+                var w = document.getElementById('layoutWidth').value;
+                var h = document.getElementById('layoutHeight').value;
+                var mw = document.getElementById('layoutModalWidth');
+                var mh = document.getElementById('layoutModalHeight');
+                if (mw) mw.value = w;
+                if (mh) mh.value = h;
+                document.getElementById('layoutWorkspace').style.display = 'none';
+                document.getElementById('layoutSizeModal').style.display = 'flex';
+            };
             window.setLayoutPreset = function(w, h) {
                 document.getElementById('layoutWidth').value = w;
                 document.getElementById('layoutHeight').value = h;
@@ -1052,23 +1134,7 @@
                 var w = parseInt(document.getElementById('layoutWidth').value, 10) || 1920;
                 var h = parseInt(document.getElementById('layoutHeight').value, 10) || 1080;
                 var canvas = document.getElementById('layoutCanvas');
-                if (canvas) {
-                    canvas.style.aspectRatio = w + ' / ' + h;
-                }
-            }
-            function attachLayoutInputListeners() {
-                var lw = document.getElementById('layoutWidth');
-                var lh = document.getElementById('layoutHeight');
-                if (lw && !lw._layoutListener) {
-                    lw._layoutListener = true;
-                    lw.addEventListener('input', updateCanvasAspect);
-                    lw.addEventListener('change', updateCanvasAspect);
-                }
-                if (lh && !lh._layoutListener) {
-                    lh._layoutListener = true;
-                    lh.addEventListener('input', updateCanvasAspect);
-                    lh.addEventListener('change', updateCanvasAspect);
-                }
+                if (canvas) canvas.style.aspectRatio = w + ' / ' + h;
             }
             window.loadLayout = async function() {
                 try {
@@ -1077,9 +1143,12 @@
                     var layout = await layoutRes.json();
                     var playlistData = await playlistRes.json();
                     layoutVideos = playlistData.videos || [];
-                    document.getElementById('layoutWidth').value = layout.screen_width || 1920;
-                    document.getElementById('layoutHeight').value = layout.screen_height || 1080;
-                    updateCanvasAspect();
+                    var savedW = layout.screen_width || 1920;
+                    var savedH = layout.screen_height || 1080;
+                    document.getElementById('layoutWidth').value = savedW;
+                    document.getElementById('layoutHeight').value = savedH;
+                    document.getElementById('layoutModalWidth').value = savedW;
+                    document.getElementById('layoutModalHeight').value = savedH;
                     layoutLayers = (layout.layers || []).map(function(L, i) {
                         return {
                             id: L.id || 'layer_' + i,
@@ -1094,23 +1163,84 @@
                         };
                     });
                     layoutLayers.sort(function(a, b) { return a.z_index - b.z_index; });
+                    updateCanvasAspect();
+                    document.getElementById('layoutSizeModal').style.display = 'flex';
+                    document.getElementById('layoutWorkspace').style.display = 'none';
                     renderLayoutCanvas();
                     renderLayoutSidebar();
-                    attachLayoutInputListeners();
                 } catch (e) {
                     console.error('Load layout error:', e);
                     layoutLayers = [];
                     layoutVideos = [];
+                    document.getElementById('layoutSizeModal').style.display = 'flex';
+                    document.getElementById('layoutWorkspace').style.display = 'none';
                     renderLayoutCanvas();
                     renderLayoutSidebar();
-                    attachLayoutInputListeners();
                 }
             };
+            function applyResize(mx, my) {
+                var L = layoutLayers.find(function(l) { return l.id === layoutResize.layerId; });
+                if (!L) return;
+                var c = layoutResize.corner;
+                var sb = layoutResize.startBounds;
+                var x = sb.x, y = sb.y, w = sb.width, h = sb.height;
+                if (c === 'se') {
+                    w = mx - sb.x;
+                    h = my - sb.y;
+                } else if (c === 'sw') {
+                    x = mx;
+                    w = (sb.x + sb.width) - mx;
+                    h = my - sb.y;
+                } else if (c === 'ne') {
+                    y = my;
+                    w = (sb.x + sb.width) - mx;
+                    h = (sb.y + sb.height) - my;
+                } else if (c === 'nw') {
+                    x = mx;
+                    y = my;
+                    w = (sb.x + sb.width) - mx;
+                    h = (sb.y + sb.height) - my;
+                }
+                w = Math.max(LAYOUT_MIN_SIZE, Math.min(100, w));
+                h = Math.max(LAYOUT_MIN_SIZE, Math.min(100, h));
+                if (c === 'se') {
+                    x = sb.x;
+                    y = sb.y;
+                    w = Math.min(w, 100 - sb.x);
+                    h = Math.min(h, 100 - sb.y);
+                    w = Math.max(LAYOUT_MIN_SIZE, w);
+                    h = Math.max(LAYOUT_MIN_SIZE, h);
+                } else if (c === 'sw') y = sb.y;
+                else if (c === 'ne') x = sb.x;
+                x = Math.max(0, Math.min(100 - w, x));
+                y = Math.max(0, Math.min(100 - h, y));
+                L.x = x;
+                L.y = y;
+                L.width = w;
+                L.height = h;
+                var box = document.querySelector('.layout-layer-box[data-layer-id="' + L.id + '"]');
+                if (box) {
+                    box.style.left = L.x + '%';
+                    box.style.top = L.y + '%';
+                    box.style.width = L.width + '%';
+                    box.style.height = L.height + '%';
+                }
+            }
+            function canvasCoordsToPercent(clientX, clientY) {
+                var canvas = document.getElementById('layoutCanvas');
+                if (!canvas) return { x: 0, y: 0 };
+                var rect = canvas.getBoundingClientRect();
+                return {
+                    x: ((clientX - rect.left) / rect.width) * 100,
+                    y: ((clientY - rect.top) / rect.height) * 100
+                };
+            }
             function renderLayoutCanvas() {
                 var canvas = document.getElementById('layoutCanvas');
                 if (!canvas) return;
                 canvas.innerHTML = '';
                 var sorted = layoutLayers.slice().sort(function(a, b) { return a.z_index - b.z_index; });
+                var corners = ['nw', 'ne', 'sw', 'se'];
                 sorted.forEach(function(L) {
                     var box = document.createElement('div');
                     box.className = 'layout-layer-box';
@@ -1120,9 +1250,28 @@
                     box.style.width = L.width + '%';
                     box.style.height = L.height + '%';
                     box.style.zIndex = L.z_index;
+                    var label = document.createElement('span');
                     var name = (layoutVideos.find(function(v) { return v.filename === L.video; }) || {}).name || L.video || 'Layer';
-                    box.textContent = name.length > 20 ? name.slice(0, 18) + '…' : name;
+                    label.textContent = name.length > 18 ? name.slice(0, 16) + '…' : name;
+                    box.appendChild(label);
+                    corners.forEach(function(corner) {
+                        var handle = document.createElement('div');
+                        handle.className = 'layout-resize-handle ' + corner;
+                        handle.setAttribute('data-corner', corner);
+                        handle.addEventListener('mousedown', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            layoutResize.active = true;
+                            layoutResize.layerId = L.id;
+                            layoutResize.corner = corner;
+                            layoutResize.startX = e.clientX;
+                            layoutResize.startY = e.clientY;
+                            layoutResize.startBounds = { x: L.x, y: L.y, width: L.width, height: L.height };
+                        });
+                        box.appendChild(handle);
+                    });
                     box.addEventListener('mousedown', function(e) {
+                        if (e.target.classList.contains('layout-resize-handle')) return;
                         e.preventDefault();
                         layoutDrag.active = true;
                         layoutDrag.layerId = L.id;
@@ -1206,6 +1355,11 @@
                 });
             }
             document.addEventListener('mousemove', function(e) {
+                if (layoutResize.active && layoutResize.layerId && layoutResize.corner) {
+                    var p = canvasCoordsToPercent(e.clientX, e.clientY);
+                    applyResize(p.x, p.y);
+                    return;
+                }
                 if (!layoutDrag.active || !layoutDrag.layerId) return;
                 var L = layoutLayers.find(function(l) { return l.id === layoutDrag.layerId; });
                 if (!L) return;
@@ -1223,6 +1377,12 @@
                 }
             });
             document.addEventListener('mouseup', function() {
+                if (layoutResize.active) {
+                    layoutResize.active = false;
+                    layoutResize.layerId = null;
+                    layoutResize.corner = null;
+                    renderLayoutSidebar();
+                }
                 if (layoutDrag.active) {
                     layoutDrag.active = false;
                     var box = document.querySelector('.layout-layer-box.dragging');
@@ -1276,7 +1436,6 @@
                     if (typeof showToast === 'function') showToast('Failed to save layout', 'error');
                 }
             };
-            setTimeout(attachLayoutInputListeners, 100);
         })();
         </script>
         

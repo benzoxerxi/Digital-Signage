@@ -183,6 +183,26 @@
             var label = (el.type || 'element').toUpperCase();
             if (el.type === 'video' && (el.props || {}).filename) label = (el.props.filename || '').slice(0, 12);
             if (el.type === 'text' && (el.props || {}).text) label = (el.props.text || '').slice(0, 12) || 'TEXT';
+
+            // Video preview (thumbnail/frame) inside the box
+            if (el.type === 'video' && (el.props || {}).filename) {
+                var vidMeta = videoLibrary.find(function(v) { return v.filename === el.props.filename; });
+                var src = (vidMeta && vidMeta.url) || (vidMeta && vidMeta.filename && ('/api/video/' + vidMeta.filename));
+                if (src) {
+                    var videoEl = document.createElement('video');
+                    videoEl.src = src;
+                    videoEl.muted = true;
+                    videoEl.loop = true;
+                    videoEl.autoplay = true;
+                    videoEl.playsInline = true;
+                    videoEl.style.width = '100%';
+                    videoEl.style.height = '100%';
+                    videoEl.style.objectFit = 'cover';
+                    videoEl.style.pointerEvents = 'none';
+                    box.appendChild(videoEl);
+                }
+            }
+
             var span = document.createElement('span');
             span.className = 'element-label';
             span.textContent = label;

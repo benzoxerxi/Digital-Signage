@@ -25,15 +25,20 @@ public final class ActivityMainBinding implements ViewBinding {
   public final FrameLayout layoutRoot;
 
   @NonNull
+  public final RelativeLayout mainRoot;
+
+  @NonNull
   public final PlayerView playerView;
 
   @NonNull
   public final ImageView screensaverView;
 
   private ActivityMainBinding(@NonNull RelativeLayout rootView, @NonNull FrameLayout layoutRoot,
-      @NonNull PlayerView playerView, @NonNull ImageView screensaverView) {
+      @NonNull RelativeLayout mainRoot, @NonNull PlayerView playerView,
+      @NonNull ImageView screensaverView) {
     this.rootView = rootView;
     this.layoutRoot = layoutRoot;
+    this.mainRoot = mainRoot;
     this.playerView = playerView;
     this.screensaverView = screensaverView;
   }
@@ -71,6 +76,8 @@ public final class ActivityMainBinding implements ViewBinding {
         break missingId;
       }
 
+      RelativeLayout mainRoot = (RelativeLayout) rootView;
+
       id = R.id.player_view;
       PlayerView playerView = ViewBindings.findChildViewById(rootView, id);
       if (playerView == null) {
@@ -83,7 +90,7 @@ public final class ActivityMainBinding implements ViewBinding {
         break missingId;
       }
 
-      return new ActivityMainBinding((RelativeLayout) rootView, layoutRoot, playerView,
+      return new ActivityMainBinding((RelativeLayout) rootView, layoutRoot, mainRoot, playerView,
           screensaverView);
     }
     String missingId = rootView.getResources().getResourceName(id);

@@ -8,7 +8,6 @@ import android.util.Log;
 
 /**
  * Receives the alarm scheduled by BootReceiver and starts WatchdogService.
- * Using AlarmManager ensures the service starts even if our process was killed after boot.
  */
 public class AlarmReceiver extends BroadcastReceiver {
     private static final String TAG = "SignageWatchdog";
@@ -42,7 +41,6 @@ public class AlarmReceiver extends BroadcastReceiver {
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
                 | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP
                 | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-            launch.putExtra(WatchdogService.EXTRA_START_PINNED, true);
             context.startActivity(launch);
         } catch (Exception e) {
             Log.w(TAG, "Could not launch player at boot: " + e.getMessage());

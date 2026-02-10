@@ -584,7 +584,9 @@ def play_video():
     if not os.path.exists(filepath):
         return jsonify({'success': False, 'error': 'Video not found'}), 404
     
-    devices = load_json_file('devices.json', {})
+    # Use tenant-scoped devices file so commands only affect current user's displays
+    from flask_login import current_user as _cu
+    devices = load_json_file('devices.json', {}, _cu.id)
     print(f"Available devices: {list(devices.keys())}")
     
     updated_count = 0
@@ -606,7 +608,7 @@ def play_video():
             print(f"✅ Updated device: {device_id} with video: {filename}")
         updated_count = len(devices)
     
-    save_json_file('devices.json', devices)
+    save_json_file('devices.json', devices, _cu.id)
     print(f"Total devices updated: {updated_count}")
     print("=" * 50)
     
@@ -627,7 +629,8 @@ def stop_playback():
     data = request.json or {}
     device_ids = data.get('device_ids', [])
     
-    devices = load_json_file('devices.json', {})
+    from flask_login import current_user as _cu
+    devices = load_json_file('devices.json', {}, _cu.id)
     updated_count = 0
     
     if device_ids:
@@ -644,7 +647,7 @@ def stop_playback():
             devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
         updated_count = len(devices)
     
-    save_json_file('devices.json', devices)
+    save_json_file('devices.json', devices, _cu.id)
     log_activity('playback_stopped', {'device_count': updated_count})
     
     return jsonify({
@@ -764,8 +767,9 @@ def next_video():
 @login_required
 def get_devices():
     """Get list of all devices for current user"""
-    all_devices = load_json_file('devices.json', {})
-    connected = get_connected_devices()
+    from flask_login import current_user as _cu
+    all_devices = load_json_file('devices.json', {}, _cu.id)
+    connected = get_connected_devices(_cu.id)
     
     return jsonify({
         'devices': connected,
@@ -779,7 +783,8 @@ def get_devices():
 def update_device(device_id):
     """Update device information"""
     data = request.json
-    devices = load_json_file('devices.json', {})
+    from flask_login import current_user as _cu
+    devices = load_json_file('devices.json', {}, _cu.id)
     
     if device_id not in devices:
         return jsonify({'success': False, 'error': 'Device not found'}), 404
@@ -787,7 +792,7 @@ def update_device(device_id):
     if 'name' in data:
         devices[device_id]['name'] = data['name']
     
-    save_json_file('devices.json', devices)
+    save_json_file('devices.json', devices, _cu.id)
     return jsonify({'success': True, 'device': devices[device_id]})
 
 
@@ -795,11 +800,12 @@ def update_device(device_id):
 @login_required
 def delete_device(device_id):
     """Remove a device"""
-    devices = load_json_file('devices.json', {})
+    from flask_login import current_user as _cu
+    devices = load_json_file('devices.json', {}, _cu.id)
     
     if device_id in devices:
         del devices[device_id]
-        save_json_file('devices.json', devices)
+        save_json_file('devices.json', devices, _cu.id)
         log_activity('device_deleted', {'device_id': device_id})
     
     return jsonify({'success': True})
@@ -809,11 +815,12 @@ def delete_device(device_id):
 @login_required
 def request_device_screenshot(device_id):
     """Set flag so the display will capture and upload a screenshot on next poll"""
-    devices = load_json_file('devices.json', {})
+    from flask_login import current_user as _cu
+    devices = load_json_file('devices.json', {}, _cu.id)
     if device_id not in devices:
         return jsonify({'success': False, 'error': 'Device not found'}), 404
     devices[device_id]['screenshot_requested'] = True
-    save_json_file('devices.json', devices)
+    save_json_file('devices.json', devices, _cu.id)
     return jsonify({'success': True, 'message': 'Screenshot request sent to display'})
 
 
@@ -821,7 +828,8 @@ def request_device_screenshot(device_id):
 @login_required
 def get_device_screenshot(device_id):
     """Return the latest screenshot for this device (if any)"""
-    devices = load_json_file('devices.json', {})
+    from flask_login import current_user as _cu
+    devices = load_json_file('devices.json', {}, _cu.id)
     if device_id not in devices:
         return jsonify({'success': False, 'error': 'Device not found'}), 404
     data_url = devices[device_id].get('screenshot_data')

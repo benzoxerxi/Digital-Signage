@@ -1,6 +1,7 @@
 package com.signage.watchdog;
 
 import android.app.ActivityManager;
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -15,6 +16,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
 
@@ -22,15 +24,16 @@ import java.util.List;
 
 /**
  * Foreground service that monitors the target app and restarts it if it's not in the foreground.
+ * Designed to be persistent and survive process death.
  */
 public class WatchdogService extends Service {
     private static final String TAG = "SignageWatchdog";
     public static final String TARGET_PACKAGE = "com.signage.player";
-    public static final String EXTRA_START_PINNED = "com.signage.watchdog.START_PINNED";
     private static final String CHANNEL_ID = "watchdog_channel";
     private static final int NOTIFICATION_ID = 1;
     private static final int INITIAL_LAUNCH_DELAY_MS = 5_000;
-    private static final int CHECK_INTERVAL_MS = 5_000; // Check every 5 seconds for better responsiveness
+    private static final int CHECK_INTERVAL_MS = 30_000; // Check every 30 seconds
+    private static final int HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes heartbeat
     static final String EXTRA_SKIP_DELAY = "skip_delay";
 
     private Handler handler;
@@ -40,16 +43,19 @@ public class WatchdogService extends Service {
     public void onCreate() {
         super.onCreate();
         handler = new Handler(Looper.getMainLooper());
+        Log.i(TAG, "WatchdogService created");
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.i(TAG, "WatchdogService onStartCommand");
         startForeground(NOTIFICATION_ID, createNotification());
         
+        scheduleHeartbeat();
+
         boolean skipDelay = intent != null && intent.getBooleanExtra(EXTRA_SKIP_DELAY, false);
         int delay = skipDelay ? 0 : INITIAL_LAUNCH_DELAY_MS;
         
-        // Remove any existing callbacks to avoid multiple loops
         if (checkRunnable != null) {
             handler.removeCallbacks(checkRunnable);
         }
@@ -111,8 +117,8 @@ public class WatchdogService extends Service {
             if (usm == null) return false;
             
             long now = System.currentTimeMillis();
-            // Check events in the last 15 seconds
-            UsageEvents events = usm.queryEvents(now - 15_000, now);
+            // Check events in a window slightly larger than the check interval
+            UsageEvents events = usm.queryEvents(now - (CHECK_INTERVAL_MS + 20_000), now);
             UsageEvents.Event event = new UsageEvents.Event();
             String lastForegroundApp = "";
             
@@ -120,13 +126,35 @@ public class WatchdogService extends Service {
                 events.getNextEvent(event);
                 if (event.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND) {
                     lastForegroundApp = event.getPackageName();
+                } else if (event.getEventType() == UsageEvents.Event.MOVE_TO_BACKGROUND) {
+                    if (TARGET_PACKAGE.equals(event.getPackageName())) {
+                        lastForegroundApp = "";
+                    }
                 }
             }
-            return TARGET_PACKAGE.equals(lastForegroundApp);
+
+            if (TARGET_PACKAGE.equals(lastForegroundApp)) return true;
+
+            return isTargetInForegroundFallback(usm, now);
+
         } catch (Exception e) {
             Log.e(TAG, "UsageStats foreground check failed", e);
         }
         return false;
+    }
+
+    private boolean isTargetInForegroundFallback(UsageStatsManager usm, long now) {
+        List<android.app.usage.UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - 3600000, now);
+        if (stats == null) return false;
+        long lastTimeUsed = 0;
+        String topPackage = "";
+        for (android.app.usage.UsageStats s : stats) {
+            if (s.getLastTimeUsed() > lastTimeUsed) {
+                lastTimeUsed = s.getLastTimeUsed();
+                topPackage = s.getPackageName();
+            }
+        }
+        return TARGET_PACKAGE.equals(topPackage);
     }
 
     public static boolean hasUsageStatsPermission(Context context) {
@@ -151,10 +179,40 @@ public class WatchdogService extends Service {
             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
                 | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP
                 | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-            launchIntent.putExtra(EXTRA_START_PINNED, true);
             startActivity(launchIntent);
         } catch (Exception e) {
             Log.e(TAG, "Failed to launch target app", e);
+        }
+    }
+
+    private void scheduleHeartbeat() {
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager == null) return;
+
+        Intent intent = new Intent(this, AlarmReceiver.class);
+        intent.setAction(AlarmReceiver.ACTION_START_WATCHDOG);
+        PendingIntent pending = PendingIntent.getBroadcast(this, 1, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    SystemClock.elapsedRealtime() + HEARTBEAT_INTERVAL_MS, pending);
+        } else {
+            alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    SystemClock.elapsedRealtime() + HEARTBEAT_INTERVAL_MS, pending);
+        }
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        super.onTaskRemoved(rootIntent);
+        Log.i(TAG, "Task removed, restarting service");
+        Intent restartIntent = new Intent(getApplicationContext(), WatchdogService.class);
+        restartIntent.putExtra(EXTRA_SKIP_DELAY, true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(restartIntent);
+        } else {
+            startService(restartIntent);
         }
     }
 
@@ -164,18 +222,19 @@ public class WatchdogService extends Service {
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Signage Watchdog Active")
-            .setContentText("Monitoring player status...")
+            .setContentTitle("Signage Watchdog Running")
+            .setContentText("Monitoring player every 30s. Do not close.")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .build();
     }
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                "Watchdog", NotificationManager.IMPORTANCE_LOW);
+                "Watchdog Service", NotificationManager.IMPORTANCE_MIN);
             NotificationManager nm = getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(channel);
         }
@@ -184,8 +243,16 @@ public class WatchdogService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        Log.i(TAG, "WatchdogService onDestroy");
         if (handler != null && checkRunnable != null) {
             handler.removeCallbacks(checkRunnable);
+        }
+        // If destroyed, try to restart
+        Intent restartIntent = new Intent(this, WatchdogService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(restartIntent);
+        } else {
+            startService(restartIntent);
         }
     }
 }

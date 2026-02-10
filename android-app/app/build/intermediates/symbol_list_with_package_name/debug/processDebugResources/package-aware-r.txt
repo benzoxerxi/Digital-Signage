@@ -3553,6 +3553,7 @@ id listMode
 id list_item
 id logo_view
 id m3_side_sheet
+id main_root
 id marquee
 id masked
 id match_constraint

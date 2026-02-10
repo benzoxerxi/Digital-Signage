@@ -15,6 +15,7 @@ id connect_button
 id connection_code_input
 id layout_root
 id logo_view
+id main_root
 id player_view
 id screensaver_view
 id server_input

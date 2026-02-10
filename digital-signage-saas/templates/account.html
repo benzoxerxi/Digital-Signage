@@ -51,6 +51,35 @@
             {{ request.url_root.rstrip('/') }}/api/playback/state?code={{ user.connection_code or '' }}
         </code>
     </div>
+
+    <div style="background: white; padding: 1.5rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+        <h3 style="margin-bottom: 1rem;">🎨 Player Branding (Screensaver)</h3>
+        <p style="margin-bottom: 0.75rem; font-size: 0.95rem;">
+            Upload your company logo (ideally a <strong>transparent PNG</strong>) and choose the screensaver background color.
+            Every display using your 9-digit code will show this branding when idle.
+        </p>
+
+        <form action="{{ url_for('api.branding_settings') }}" method="post" enctype="multipart/form-data" style="display: grid; gap: 1rem; max-width: 480px;">
+            <div>
+                <label for="branding_logo" style="display: block; font-weight: 600; margin-bottom: 0.25rem;">Logo (PNG)</label>
+                <input id="branding_logo" type="file" name="file" accept="image/png,image/*">
+                <small style="display: block; color: #666; margin-top: 0.25rem;">Transparent PNG recommended, up to a few MB.</small>
+            </div>
+
+            <div>
+                <label for="branding_bg" style="display: block; font-weight: 600; margin-bottom: 0.25rem;">Screensaver background color</label>
+                <input id="branding_bg" type="color" name="background_color" value="#000000" style="width: 80px; height: 36px; padding: 0; border: none; background: none;">
+            </div>
+
+            <div>
+                <button type="submit" class="btn btn-primary">Save Branding</button>
+            </div>
+        </form>
+
+        <p style="margin-top: 0.75rem; font-size: 0.85rem; color: #666;">
+            Changes may take a few seconds to show on connected players. If a display still shows the default logo, restart the app on that device.
+        </p>
+    </div>
     
     {% if payments %}
     <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">

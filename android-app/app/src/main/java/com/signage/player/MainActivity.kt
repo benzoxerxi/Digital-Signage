@@ -371,8 +371,8 @@ class MainActivity : AppCompatActivity() {
                 }
 
             } catch (e: Exception) {
-                Log.e(TAG, "Heartbeat failed", e)
-                showScreensaver(true)
+                Log.w(TAG, "Heartbeat failed (server may be restarting); keeping current playback", e)
+                // Do not show screensaver or clear cache - keep playing cached video for resilience
             }
         }
     }

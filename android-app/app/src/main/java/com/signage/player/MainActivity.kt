@@ -615,6 +615,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showScreensaver(show: Boolean) {
+        if (show) {
+            // If we have a cached video, prefer playing it instead of showing the static screensaver.
+            // This gives offline resilience: keep casting cached content whenever possible.
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val filename = prefs.getString(KEY_CACHED_VIDEO_FILENAME, null)
+            val cachedFile = if (filename != null) videoCache.getCachedFile(filename) else null
+
+            if (cachedFile != null && cachedFile.exists()) {
+                // This will call showScreensaver(false) internally and start playback.
+                tryPlayCachedVideoLoop()
+                return
+            }
+        }
+
+        // Fallback: show or hide the static screensaver image.
         screensaverView.visibility = if (show) View.VISIBLE else View.GONE
         playerView.visibility = if (show) View.GONE else View.VISIBLE
     }

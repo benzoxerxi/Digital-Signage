@@ -120,12 +120,37 @@ def log_activity(event_type, event_data, user_id=None):
         pass  # Don't fail if logging fails
 
 
-def update_device_heartbeat(device_id, device_name=None, device_info=None, user_id=None):
-    """Update device information for tenant"""
+def _get_removed_devices(user_id):
+    """List of device_ids that were removed from panel; they must not be re-added by heartbeat until re-connected from setup."""
+    data = load_json_file('removed_devices.json', [], user_id)
+    return set(data) if isinstance(data, list) else set()
+
+
+def add_removed_device(user_id, device_id):
+    """Mark device as removed so heartbeat does not re-add it until re-connected from setup."""
+    removed = _get_removed_devices(user_id)
+    removed.add(device_id)
+    save_json_file('removed_devices.json', list(removed), user_id)
+
+
+def _clear_removed_device(user_id, device_id):
+    removed = _get_removed_devices(user_id)
+    removed.discard(device_id)
+    save_json_file('removed_devices.json', list(removed), user_id)
+
+
+def update_device_heartbeat(device_id, device_name=None, device_info=None, user_id=None, from_setup=False):
+    """Update device information for tenant. If device was removed from panel and from_setup is False, returns None (caller should respond with removed=True to APK)."""
     if user_id is None:
         user_id = current_user.id
     
     with device_lock:
+        removed = _get_removed_devices(user_id)
+        if from_setup:
+            _clear_removed_device(user_id, device_id)
+        elif device_id in removed:
+            return None  # Removed from panel; do not re-add. Caller returns removed=True to APK.
+
         devices = load_json_file('devices.json', {}, user_id)
         
         if device_id not in devices:

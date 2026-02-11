@@ -65,6 +65,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_CONNECTION_CODE = "connection_code"
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_DEVICE_NAME = "device_name"
+        private const val KEY_CACHED_VIDEO_FILENAME = "cached_video_filename"
         private const val UPDATE_INTERVAL = 3000L
         private const val SCREENSAVER_URL = "https://karchershop.ge/cdn/shop/files/logo_karcher_2015.svg?v=1683099671&width=600"
         private const val LOGO_URL = "https://images.seeklogo.com/logo-png/43/2/karcher-logo-png_seeklogo-437949.png"
@@ -120,6 +121,7 @@ class MainActivity : AppCompatActivity() {
             showSetupScreen()
         } else {
             initializePlayer()
+            tryPlayCachedVideoLoop()
             startDeviceHeartbeat()
         }
         tryStartLockTaskIfRequested(intent)
@@ -150,6 +152,17 @@ class MainActivity : AppCompatActivity() {
             androidId = "android_${System.currentTimeMillis()}"
         }
         return "android_$androidId"
+    }
+
+    /** Called when server reports device was removed from panel. Clear connection and show setup so user can reconnect. */
+    private fun goBackToSetup() {
+        connectionCode = ""
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_CONNECTION_CODE, connectionCode)
+            .apply()
+        apiClient.setConnectionCode("")
+        showSetupScreen()
     }
 
     private fun showSetupScreen() {
@@ -201,9 +214,9 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this@MainActivity, "Server not responding", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
-                // Validate 9-digit code with playback state (throws if code invalid)
+                // Validate 9-digit code with playback state (from_setup=1 so server allows re-add if device was removed)
                 withContext(Dispatchers.IO) {
-                    apiClient.getPlaybackState(connectionCode, deviceId, deviceName)
+                    apiClient.getPlaybackState(connectionCode, deviceId, deviceName, fromSetup = true)
                 }
 
                 Toast.makeText(this@MainActivity, "Connected successfully!", Toast.LENGTH_SHORT).show()
@@ -216,6 +229,7 @@ class MainActivity : AppCompatActivity() {
                 loadScreensaver()
 
                 initializePlayer()
+                tryPlayCachedVideoLoop()
                 startDeviceHeartbeat()
             } catch (e: Exception) {
                 Log.e(TAG, "Connection failed", e)
@@ -282,6 +296,7 @@ class MainActivity : AppCompatActivity() {
      * FIXED: Send heartbeat and check commands - Format now works correctly!
      */
     private fun sendHeartbeatAndCheckCommands() {
+        if (connectionCode.isEmpty()) return  // Not connected (e.g. back on setup screen)
         scope.launch {
             try {
                 // First try layout-based playback using program layouts
@@ -298,7 +313,13 @@ class MainActivity : AppCompatActivity() {
 
                 // Fallback: legacy playback state + playlist behavior
                 val playbackState = withContext(Dispatchers.IO) {
-                    apiClient.getPlaybackState(connectionCode, deviceId, deviceName)
+                    apiClient.getPlaybackState(connectionCode, deviceId, deviceName, fromSetup = false)
+                }
+
+                if (playbackState.removed == true) {
+                    Log.d(TAG, "Device was removed from panel - returning to setup")
+                    runOnUiThread { goBackToSetup() }
+                    return@launch
                 }
 
                 Log.d(TAG, "Heartbeat sent. Command ID: ${playbackState.command_id}, Current video: ${playbackState.current_video}")
@@ -361,14 +382,18 @@ class MainActivity : AppCompatActivity() {
             try {
                 val cacheSize = videoCache.getCacheSize()
                 videoCache.clearCache()
-                
+                withContext(Dispatchers.Main) {
+                    getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        .edit()
+                        .remove(KEY_CACHED_VIDEO_FILENAME)
+                        .apply()
+                }
                 val sizeMB = cacheSize / (1024 * 1024)
                 Log.d(TAG, "Video cache cleared: ${sizeMB}MB freed")
-                
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
-                        this@MainActivity, 
-                        "Cache cleared: ${sizeMB}MB freed", 
+                        this@MainActivity,
+                        "Cache cleared: ${sizeMB}MB freed",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -395,14 +420,38 @@ class MainActivity : AppCompatActivity() {
                     val mediaItem = MediaItem.fromUri(Uri.fromFile(cachedFile))
                     player?.apply {
                         setMediaItem(mediaItem)
+                        repeatMode = Player.REPEAT_MODE_ONE
                         prepare()
                         play()
                     }
-                    Log.d(TAG, "Playing commanded video: $filename")
+                    getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        .edit()
+                        .putString(KEY_CACHED_VIDEO_FILENAME, filename)
+                        .apply()
+                    Log.d(TAG, "Playing commanded video (looping): $filename")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to play commanded video: $filename", e)
             }
+        }
+    }
+
+    /** On startup or after reconnect: if we have a cached video filename and file exists, play it in a loop (offline resilience). */
+    private fun tryPlayCachedVideoLoop() {
+        val filename = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_CACHED_VIDEO_FILENAME, null) ?: return
+        val cachedFile = videoCache.getCachedFile(filename) ?: return
+        if (!cachedFile.exists()) return
+        scope.launch {
+            showScreensaver(false)
+            val mediaItem = MediaItem.fromUri(Uri.fromFile(cachedFile))
+            player?.apply {
+                setMediaItem(mediaItem)
+                repeatMode = Player.REPEAT_MODE_ONE
+                prepare()
+                play()
+            }
+            Log.d(TAG, "Playing cached video on startup (loop): $filename")
         }
     }
 
@@ -472,10 +521,14 @@ class MainActivity : AppCompatActivity() {
             val mediaItem = MediaItem.fromUri(Uri.fromFile(cachedFile))
             player?.apply {
                 setMediaItem(mediaItem)
+                repeatMode = Player.REPEAT_MODE_OFF
                 prepare()
                 play()
             }
-
+            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_CACHED_VIDEO_FILENAME, video.filename)
+                .apply()
             Log.d(TAG, "Playing: ${video.name} (${currentVideoIndex + 1}/${currentPlaylist.size})")
         } else {
             Log.w(TAG, "Video not cached: ${video.filename}")

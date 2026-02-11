@@ -6,17 +6,18 @@ import java.io.File
 
 class VideoCache(private val context: Context) {
     
+    /** Use filesDir so cached videos persist across reboots and are not evicted by system cache clear. */
     private val cacheDir: File by lazy {
         try {
-            val dir = File(context.cacheDir, "videos")
+            val dir = File(context.filesDir, "playback_videos")
             if (!dir.exists()) {
                 dir.mkdirs()
             }
-            Log.d(TAG, "Cache directory: ${dir.absolutePath}")
+            Log.d(TAG, "Playback cache directory (persistent): ${dir.absolutePath}")
             dir
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create cache directory", e)
-            context.cacheDir // Fallback to default cache dir
+            File(context.filesDir, "playback_videos").also { it.mkdirs() }
         }
     }
     

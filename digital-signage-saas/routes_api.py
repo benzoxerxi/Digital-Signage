@@ -14,7 +14,7 @@ import json
 from utils import (
     load_json_file, save_json_file, get_content_folder, get_data_file_path,
     allowed_file, get_file_hash, get_connected_devices, get_all_devices_with_status,
-    get_device_count, update_device_heartbeat, log_activity, get_storage_usage, device_lock
+    get_device_count, update_device_heartbeat, add_removed_device, log_activity, get_storage_usage, device_lock
 )
 
 api_bp = Blueprint('api', __name__)
@@ -497,14 +497,20 @@ def get_playback_state():
         }), 500
     
     user_id = user.id
+    from_setup = request.args.get('from_setup') == '1'
     device_info = {
         'user_agent': request.headers.get('User-Agent', ''),
         'ip': request.remote_addr
     }
     
     try:
-        device_data = update_device_heartbeat(device_id, device_name, device_info, user_id)
-        
+        device_data = update_device_heartbeat(device_id, device_name, device_info, user_id, from_setup=from_setup)
+        if device_data is None:
+            return jsonify({
+                'removed': True,
+                'message': 'Device was removed from the control panel. Reconnect from setup.'
+            }), 200
+
         # Load playlist settings
         playlist = load_json_file('playlist.json', {
             'videos': [], 
@@ -799,13 +805,14 @@ def update_device(device_id):
 @api_bp.route('/devices/<device_id>', methods=['DELETE'])
 @login_required
 def delete_device(device_id):
-    """Remove a device"""
+    """Remove a device from the panel. The APK will be told to return to setup on next heartbeat."""
     from flask_login import current_user as _cu
     devices = load_json_file('devices.json', {}, _cu.id)
     
     if device_id in devices:
         del devices[device_id]
         save_json_file('devices.json', devices, _cu.id)
+        add_removed_device(_cu.id, device_id)
         log_activity('device_deleted', {'device_id': device_id})
     
     return jsonify({'success': True})

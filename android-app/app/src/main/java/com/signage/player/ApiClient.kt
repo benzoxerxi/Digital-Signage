@@ -32,7 +32,8 @@ data class PlaybackState(
     val command_id: Int,
     val screenshot_requested: Boolean? = false,
     val clear_cache: Boolean? = false,
-    val device_name: String? = null  // Server's name for this device
+    val device_name: String? = null,  // Server's name for this device
+    val removed: Boolean = false  // Device was removed from panel; APK should show setup
 )
 
 data class ServerStatus(
@@ -185,27 +186,40 @@ class ApiClient {
         }
     }
 
-    suspend fun getPlaybackState(connectionCode: String, deviceId: String, deviceName: String): PlaybackState = 
+    suspend fun getPlaybackState(connectionCode: String, deviceId: String, deviceName: String, fromSetup: Boolean = false): PlaybackState =
         withContext(Dispatchers.IO) {
             val codeParam = if (connectionCode.isNotEmpty()) "code=${connectionCode}" else ""
             val deviceParams = "device_id=${deviceId}&device_name=${deviceName}"
-            val url = "$baseUrl/api/playback/state?$deviceParams${if (codeParam.isNotEmpty()) "&$codeParam" else ""}"
+            val setupParam = if (fromSetup) "&from_setup=1" else ""
+            val url = "$baseUrl/api/playback/state?$deviceParams${if (codeParam.isNotEmpty()) "&$codeParam" else ""}$setupParam"
             val request = Request.Builder()
                 .url(url)
                 .get()
                 .build()
 
             client.newCall(request).execute().use { response ->
+                val bodyStr = response.body!!.string()
                 if (!response.isSuccessful) throw IOException("Unexpected code $response")
-
-                val json = JSONObject(response.body!!.string())
+                val json = JSONObject(bodyStr)
+                if (json.optBoolean("removed", false)) {
+                    return@withContext PlaybackState(
+                        current_video = null,
+                        mode = "manual",
+                        command_id = 0,
+                        screenshot_requested = false,
+                        clear_cache = false,
+                        device_name = null,
+                        removed = true
+                    )
+                }
                 PlaybackState(
                     current_video = if (json.isNull("current_video")) null else json.getString("current_video"),
                     mode = json.optString("mode", "manual"),
                     command_id = json.optInt("command_id", 0),
                     screenshot_requested = json.optBoolean("screenshot_requested", false),
                     clear_cache = json.optBoolean("clear_cache", false),
-                    device_name = json.optString("device_name", null)
+                    device_name = json.optString("device_name", null),
+                    removed = false
                 )
             }
         }

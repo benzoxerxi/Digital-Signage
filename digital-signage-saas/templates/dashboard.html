@@ -1185,6 +1185,7 @@
                         <button class="btn btn-secondary btn-small" onclick="deselectAllDevices()">Clear</button>
                         <button class="btn btn-secondary btn-small" onclick="selectOnlineDevices()">Online Only</button>
                         <button class="btn btn-danger btn-small" onclick="formatSelectedDisplays()">🔄 Format Cache</button>
+                        <button class="btn btn-danger btn-small" onclick="removeSelectedDisplays()">🗑️ Remove from panel</button>
                         <button class="btn btn-primary btn-small" onclick="refreshDevices()">Refresh</button>
                     </div>
                 </div>
@@ -2673,6 +2674,32 @@
             }
         }
         
+        async function removeSelectedDisplays() {
+            if (selectedDevices.length === 0) {
+                showToast('Please select displays to remove', 'error');
+                return;
+            }
+            const deviceNames = allDevices
+                .filter(d => selectedDevices.includes(d.id))
+                .map(d => d.name)
+                .join(', ');
+            if (!confirm(`Remove ${selectedDevices.length} display(s) from the panel?\n\n${deviceNames}\n\nThe device(s) will return to the setup screen and must reconnect to appear again.`)) {
+                return;
+            }
+            try {
+                let ok = 0;
+                for (const id of selectedDevices) {
+                    const res = await fetch(`/api/devices/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                    if (res.ok) ok++;
+                }
+                showToast(ok ? `Removed ${ok} display(s) from panel` : 'Failed to remove displays', ok ? 'success' : 'error');
+                selectedDevices = [];
+                await loadDevices();
+            } catch (error) {
+                showToast('Failed to remove displays', 'error');
+            }
+        }
+        
         // Initialize on load
         init();
     </script>
@@ -3663,6 +3690,32 @@
                 }
             } catch (error) {
                 showToast('Failed to format displays', 'error');
+            }
+        }
+        
+        async function removeSelectedDisplays() {
+            if (selectedDevices.length === 0) {
+                showToast('Please select displays to remove', 'error');
+                return;
+            }
+            const deviceNames = allDevices
+                .filter(d => selectedDevices.includes(d.id))
+                .map(d => d.name)
+                .join(', ');
+            if (!confirm(`Remove ${selectedDevices.length} display(s) from the panel?\n\n${deviceNames}\n\nThe device(s) will return to the setup screen and must reconnect to appear again.`)) {
+                return;
+            }
+            try {
+                let ok = 0;
+                for (const id of selectedDevices) {
+                    const res = await fetch(`/api/devices/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                    if (res.ok) ok++;
+                }
+                showToast(ok ? `Removed ${ok} display(s) from panel` : 'Failed to remove displays', ok ? 'success' : 'error');
+                selectedDevices = [];
+                await loadDevices();
+            } catch (error) {
+                showToast('Failed to remove displays', 'error');
             }
         }
         

@@ -13,8 +13,8 @@ import json
 # Import helper functions from utils
 from utils import (
     load_json_file, save_json_file, get_content_folder, get_data_file_path,
-    allowed_file, get_file_hash, get_connected_devices, get_device_count,
-    update_device_heartbeat, log_activity, get_storage_usage, device_lock
+    allowed_file, get_file_hash, get_connected_devices, get_all_devices_with_status,
+    get_device_count, update_device_heartbeat, log_activity, get_storage_usage, device_lock
 )
 
 api_bp = Blueprint('api', __name__)
@@ -766,15 +766,15 @@ def next_video():
 @api_bp.route('/devices')
 @login_required
 def get_devices():
-    """Get list of all devices for current user"""
+    """Get list of all devices (online and offline) for current user. Names are stored per device."""
     from flask_login import current_user as _cu
-    all_devices = load_json_file('devices.json', {}, _cu.id)
-    connected = get_connected_devices(_cu.id)
+    devices = get_all_devices_with_status(_cu.id)
+    connected_count = sum(1 for d in devices if d.get('online'))
     
     return jsonify({
-        'devices': connected,
-        'total': len(all_devices),
-        'connected': len(connected)
+        'devices': devices,
+        'total': len(devices),
+        'connected': connected_count
     })
 
 

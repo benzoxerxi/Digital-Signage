@@ -153,30 +153,40 @@ def update_device_heartbeat(device_id, device_name=None, device_info=None, user_
 
 
 def get_connected_devices(user_id=None):
-    """Get list of online devices for tenant"""
+    """Get list of online devices for tenant (within DEVICE_TIMEOUT)"""
+    all_list = get_all_devices_with_status(user_id)
+    return [d for d in all_list if d.get('online')]
+
+
+def get_all_devices_with_status(user_id=None):
+    """Get all devices for tenant with online/offline status. Names are stored per device."""
     if user_id is None:
         user_id = current_user.id
     
     devices = load_json_file('devices.json', {}, user_id)
     now = datetime.now()
+    result = []
     
-    connected = []
     for device_id, device_data in devices.items():
         try:
-            device_data['id'] = device_id  # dashboard needs device.id
-            last_seen = datetime.fromisoformat(device_data['last_seen'])
+            row = dict(device_data)
+            row['id'] = device_id
+            last_seen = datetime.fromisoformat(device_data.get('last_seen', now.isoformat()))
             seconds_ago = (now - last_seen).total_seconds()
-            
-            if seconds_ago <= Config.DEVICE_TIMEOUT:
-                device_data['online'] = True
-                device_data['last_seen_ago'] = int(seconds_ago)
-                connected.append(device_data)
+            row['online'] = seconds_ago <= Config.DEVICE_TIMEOUT
+            if row['online']:
+                row['last_seen_ago'] = int(seconds_ago)
             else:
-                device_data['online'] = False
-        except:
-            device_data['online'] = False
+                row['last_seen_ago'] = None
+            result.append(row)
+        except Exception:
+            row = dict(device_data)
+            row['id'] = device_id
+            row['online'] = False
+            row['last_seen_ago'] = None
+            result.append(row)
     
-    return connected
+    return result
 
 
 def get_device_count(user_id=None):

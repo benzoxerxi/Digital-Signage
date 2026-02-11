@@ -157,12 +157,13 @@
         .theme-switcher {
             position: relative;
             display: flex;
-            align-items: center;
+            align-items: stretch;
             background: var(--dark-3);
             border-radius: 999px;
             padding: 4px;
             border: 1px solid var(--border);
             box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+            min-width: 140px;
         }
         
         .theme-slide {
@@ -170,7 +171,7 @@
             left: 4px;
             top: 4px;
             bottom: 4px;
-            width: 56px;
+            width: calc(50% - 4px);
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             border-radius: 999px;
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -179,13 +180,15 @@
         }
         
         .theme-switcher[data-theme="light"] .theme-slide {
-            transform: translateX(60px);
+            transform: translateX(100%);
         }
         
         .theme-opt {
             position: relative;
             z-index: 1;
-            padding: 8px 20px;
+            flex: 1;
+            min-width: 0;
+            padding: 8px 16px;
             border: none;
             background: transparent;
             color: var(--text-muted);
@@ -194,6 +197,7 @@
             cursor: pointer;
             border-radius: 999px;
             transition: color 0.2s;
+            text-align: center;
         }
         
         .theme-opt:hover {
@@ -312,10 +316,23 @@
         }
         
         /* Device cards */
+        .device-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
         .device-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 16px;
+        }
+        
+        .device-grid-offline .device-card {
+            opacity: 0.85;
         }
         
         .device-card {
@@ -945,27 +962,167 @@
             background: var(--primary);
         }
         
-        /* Responsive */
-        @media (max-width: 768px) {
+        /* Responsive – mobile friendly */
+        @media (max-width: 900px) {
             .header {
-                flex-direction: column;
-                gap: 20px;
+                flex-wrap: wrap;
+                gap: 16px;
+            }
+            
+            .header-left {
+                flex: 1 1 100%;
+            }
+            
+            .header-left h1 {
+                font-size: 24px;
+            }
+            
+            .header-theme {
+                order: 2;
+                flex: 1 1 auto;
+            }
+            
+            .theme-switcher {
+                min-width: 120px;
             }
             
             .header-stats {
-                flex-direction: column;
-                width: 100%;
+                order: 3;
+                flex: 1 1 100%;
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
             }
             
             .stat {
                 width: 100%;
             }
             
-            .tabs {
+            .stat-value {
+                font-size: 22px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+            
+            .header {
                 flex-direction: column;
+                align-items: stretch;
+                gap: 16px;
+                padding: 16px;
+            }
+            
+            .header-left h1 {
+                font-size: 20px;
+            }
+            
+            .header-left p {
+                font-size: 13px;
+            }
+            
+            .header-theme {
+                display: flex;
+                justify-content: center;
+            }
+            
+            .theme-switcher {
+                width: 100%;
+                max-width: 200px;
+                margin: 0 auto;
+            }
+            
+            .header-stats {
+                flex-direction: row;
+                flex-wrap: wrap;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+            }
+            
+            .stat {
+                min-width: 0;
+            }
+            
+            .stat-value {
+                font-size: 20px;
+            }
+            
+            .stat-label {
+                font-size: 10px;
+            }
+            
+            .tabs {
+                flex-wrap: wrap;
+                gap: 6px;
+                padding: 6px;
+            }
+            
+            .tab {
+                flex: 1 1 calc(50% - 6px);
+                min-width: 0;
+                padding: 10px 12px;
+                font-size: 13px;
             }
             
             .grid-2, .grid-3, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+            
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            
+            .card-header .btn, .card-header .btn-small {
+                width: 100%;
+                min-height: 44px;
+            }
+            
+            .device-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .device-card {
+                min-height: auto;
+            }
+            
+            .device-name, .device-id {
+                font-size: 14px;
+            }
+            
+            .btn, .btn-small {
+                min-height: 44px;
+                padding: 10px 16px;
+            }
+            
+            .selection-bar {
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 12px;
+            }
+            
+            .video-list .video-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .programs-list .program-card,
+            .playlist-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .tab {
+                flex: 1 1 100%;
+            }
+            
+            .header-stats {
                 grid-template-columns: 1fr;
             }
         }
@@ -1022,7 +1179,7 @@
         <div id="devicesTab" class="tab-content active">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">Connected Displays</h2>
+                    <h2 class="card-title">Displays</h2>
                     <div style="display: flex; gap: 8px;">
                         <button class="btn btn-secondary btn-small" onclick="selectAllDevices()">Select All</button>
                         <button class="btn btn-secondary btn-small" onclick="deselectAllDevices()">Clear</button>
@@ -1031,7 +1188,15 @@
                         <button class="btn btn-primary btn-small" onclick="refreshDevices()">Refresh</button>
                     </div>
                 </div>
-                <div id="deviceGrid" class="device-grid"></div>
+                <p id="devicesSummary" style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;"></p>
+                <div id="devicesOnlineSection" class="device-section">
+                    <h3 class="device-section-title">Online</h3>
+                    <div id="deviceGrid" class="device-grid"></div>
+                </div>
+                <div id="devicesOfflineSection" class="device-section" style="margin-top: 24px;">
+                    <h3 class="device-section-title">Offline</h3>
+                    <div id="deviceGridOffline" class="device-grid device-grid-offline"></div>
+                </div>
             </div>
         </div>
         
@@ -1502,57 +1667,76 @@
             if (tabName === 'programs') loadPrograms();
         }
         
-        // Load devices
+        function renderDeviceCard(device) {
+            return `
+                <div class="device-card ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
+                     onclick="toggleDevice('${device.id}', event)">
+                    <div class="device-status">
+                        <div class="status-dot"></div>
+                        <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
+                            ${device.online ? 'ONLINE' : 'OFFLINE'}
+                        </span>
+                    </div>
+                    <div class="device-name" 
+                         id="deviceName_${device.id}" 
+                         onclick="editDeviceName('${device.id}', event)"
+                         title="Click to rename">
+                        ${device.name}
+                    </div>
+                    <div class="device-id">${device.id}</div>
+                    <div class="device-info">
+                        <div class="info-row">
+                            <span class="info-label">Current Video:</span>
+                            <span class="info-value">${device.current_video || 'None'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Last Seen:</span>
+                            <span class="info-value">${device.online ? (device.last_seen_ago != null ? device.last_seen_ago + 's ago' : '—') : 'Offline'}</span>
+                        </div>
+                        <button class="btn btn-secondary btn-small" style="margin-top: 8px; width: 100%;" 
+                                onclick="requestScreenshot('${device.id}', event)">
+                            📸 Screenshot
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Load devices (online + offline; names stored per device)
         async function loadDevices() {
             try {
                 const response = await fetch('/api/devices');
                 const data = await response.json();
-                allDevices = data.devices;
+                allDevices = data.devices || [];
                 
                 const grid = document.getElementById('deviceGrid');
+                const gridOffline = document.getElementById('deviceGridOffline');
+                const summaryEl = document.getElementById('devicesSummary');
+                const onlineSection = document.getElementById('devicesOnlineSection');
+                const offlineSection = document.getElementById('devicesOfflineSection');
                 
                 if (allDevices.length === 0) {
-                    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No displays connected yet</p></div>';
+                    summaryEl.textContent = '';
+                    onlineSection.style.display = 'block';
+                    offlineSection.style.display = 'none';
+                    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No displays yet. Connect a device to see it here.</p></div>';
+                    gridOffline.innerHTML = '';
                     return;
                 }
                 
-                // Don't update the grid if we're currently editing a device name
-                if (editingDeviceId) {
-                    return;
-                }
+                if (editingDeviceId) return;
                 
-                grid.innerHTML = allDevices.map(device => `
-                    <div class="device-card ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
-                         onclick="toggleDevice('${device.id}', event)">
-                        <div class="device-status">
-                            <div class="status-dot"></div>
-                            <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
-                                ${device.online ? 'ONLINE' : 'OFFLINE'}
-                            </span>
-                        </div>
-                        <div class="device-name" 
-                             id="deviceName_${device.id}" 
-                             onclick="editDeviceName('${device.id}', event)"
-                             title="Click to rename">
-                            ${device.name}
-                        </div>
-                        <div class="device-id">${device.id}</div>
-                        <div class="device-info">
-                            <div class="info-row">
-                                <span class="info-label">Current Video:</span>
-                                <span class="info-value">${device.current_video || 'None'}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Last Seen:</span>
-                                <span class="info-value">${device.online ? device.last_seen_ago + 's ago' : 'Offline'}</span>
-                            </div>
-                            <button class="btn btn-secondary btn-small" style="margin-top: 8px; width: 100%;" 
-                                    onclick="requestScreenshot('${device.id}', event)">
-                                📸 Screenshot
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
+                const online = allDevices.filter(d => d.online);
+                const offline = allDevices.filter(d => !d.online);
+                
+                summaryEl.textContent = `${online.length} online, ${offline.length} offline`;
+                onlineSection.style.display = 'block';
+                offlineSection.style.display = offline.length ? 'block' : 'none';
+                
+                grid.innerHTML = online.length
+                    ? online.map(device => renderDeviceCard(device)).join('')
+                    : '<div class="empty-state" style="padding: 24px;"><p style="color: var(--text-muted);">No devices online</p></div>';
+                gridOffline.innerHTML = offline.map(device => renderDeviceCard(device)).join('');
                 
                 updateSelectionBar();
             } catch (error) {
@@ -2534,57 +2718,76 @@
             if (tabName === 'programs') loadPrograms();
         }
         
-        // Load devices
+        function renderDeviceCard(device) {
+            return `
+                <div class="device-card ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
+                     onclick="toggleDevice('${device.id}', event)">
+                    <div class="device-status">
+                        <div class="status-dot"></div>
+                        <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
+                            ${device.online ? 'ONLINE' : 'OFFLINE'}
+                        </span>
+                    </div>
+                    <div class="device-name" 
+                         id="deviceName_${device.id}" 
+                         onclick="editDeviceName('${device.id}', event)"
+                         title="Click to rename">
+                        ${device.name}
+                    </div>
+                    <div class="device-id">${device.id}</div>
+                    <div class="device-info">
+                        <div class="info-row">
+                            <span class="info-label">Current Video:</span>
+                            <span class="info-value">${device.current_video || 'None'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Last Seen:</span>
+                            <span class="info-value">${device.online ? (device.last_seen_ago != null ? device.last_seen_ago + 's ago' : '—') : 'Offline'}</span>
+                        </div>
+                        <button class="btn btn-secondary btn-small" style="margin-top: 8px; width: 100%;" 
+                                onclick="requestScreenshot('${device.id}', event)">
+                            📸 Screenshot
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Load devices (online + offline; names stored per device)
         async function loadDevices() {
             try {
                 const response = await fetch('/api/devices');
                 const data = await response.json();
-                allDevices = data.devices;
+                allDevices = data.devices || [];
                 
                 const grid = document.getElementById('deviceGrid');
+                const gridOffline = document.getElementById('deviceGridOffline');
+                const summaryEl = document.getElementById('devicesSummary');
+                const onlineSection = document.getElementById('devicesOnlineSection');
+                const offlineSection = document.getElementById('devicesOfflineSection');
                 
                 if (allDevices.length === 0) {
-                    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No displays connected yet</p></div>';
+                    summaryEl.textContent = '';
+                    onlineSection.style.display = 'block';
+                    offlineSection.style.display = 'none';
+                    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No displays yet. Connect a device to see it here.</p></div>';
+                    gridOffline.innerHTML = '';
                     return;
                 }
                 
-                // Don't update the grid if we're currently editing a device name
-                if (editingDeviceId) {
-                    return;
-                }
+                if (editingDeviceId) return;
                 
-                grid.innerHTML = allDevices.map(device => `
-                    <div class="device-card ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
-                         onclick="toggleDevice('${device.id}', event)">
-                        <div class="device-status">
-                            <div class="status-dot"></div>
-                            <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
-                                ${device.online ? 'ONLINE' : 'OFFLINE'}
-                            </span>
-                        </div>
-                        <div class="device-name" 
-                             id="deviceName_${device.id}" 
-                             onclick="editDeviceName('${device.id}', event)"
-                             title="Click to rename">
-                            ${device.name}
-                        </div>
-                        <div class="device-id">${device.id}</div>
-                        <div class="device-info">
-                            <div class="info-row">
-                                <span class="info-label">Current Video:</span>
-                                <span class="info-value">${device.current_video || 'None'}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Last Seen:</span>
-                                <span class="info-value">${device.online ? device.last_seen_ago + 's ago' : 'Offline'}</span>
-                            </div>
-                            <button class="btn btn-secondary btn-small" style="margin-top: 8px; width: 100%;" 
-                                    onclick="requestScreenshot('${device.id}', event)">
-                                📸 Screenshot
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
+                const online = allDevices.filter(d => d.online);
+                const offline = allDevices.filter(d => !d.online);
+                
+                summaryEl.textContent = `${online.length} online, ${offline.length} offline`;
+                onlineSection.style.display = 'block';
+                offlineSection.style.display = offline.length ? 'block' : 'none';
+                
+                grid.innerHTML = online.length
+                    ? online.map(device => renderDeviceCard(device)).join('')
+                    : '<div class="empty-state" style="padding: 24px;"><p style="color: var(--text-muted);">No devices online</p></div>';
+                gridOffline.innerHTML = offline.map(device => renderDeviceCard(device)).join('');
                 
                 updateSelectionBar();
             } catch (error) {

@@ -16,6 +16,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.RelativeLayout
 import android.widget.TextView
 import android.widget.Toast
 import android.webkit.WebView
@@ -154,11 +155,13 @@ class MainActivity : AppCompatActivity() {
     private fun showSetupScreen() {
         setContentView(R.layout.activity_setup)
         val codeInput = findViewById<android.widget.EditText>(R.id.connection_code_input)
+        val screenNameInput = findViewById<android.widget.EditText>(R.id.screen_name_input)
         val connectButton = findViewById<android.widget.Button>(R.id.connect_button)
         val logoView = findViewById<ImageView>(R.id.logo_view)
 
         serverUrl = DEFAULT_SERVER_URL
         if (connectionCode.isNotEmpty()) codeInput.setText(connectionCode)
+        if (deviceName.isNotEmpty()) screenNameInput.setText(deviceName)
 
         val imageLoader = ImageLoader.Builder(this).build()
         val request = ImageRequest.Builder(this)
@@ -173,9 +176,12 @@ class MainActivity : AppCompatActivity() {
                 code.length != 9 -> Toast.makeText(this, "Please enter your 9-digit connection code", Toast.LENGTH_SHORT).show()
                 else -> {
                     connectionCode = code
+                    val name = screenNameInput.text.toString().trim()
+                    deviceName = if (name.isNotEmpty()) name else "Android-${Build.MODEL}"
                     getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         .edit()
                         .putString(KEY_CONNECTION_CODE, connectionCode)
+                        .putString(KEY_DEVICE_NAME, deviceName)
                         .apply()
                     apiClient.setBaseUrl(serverUrl)
                     apiClient.setConnectionCode(connectionCode)
@@ -529,6 +535,18 @@ class MainActivity : AppCompatActivity() {
         } catch (_: IllegalArgumentException) {
             // Ignore; default window background will remain
         }
+
+        // Logo size: 70% of screen width (height follows via adjustViewBounds)
+        val screenWidthPx = resources.displayMetrics.widthPixels
+        val logoWidthPx = (screenWidthPx * 0.7f).toInt()
+        val params = (screensaverView.layoutParams as? RelativeLayout.LayoutParams)
+            ?: RelativeLayout.LayoutParams(logoWidthPx, android.view.ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                addRule(RelativeLayout.CENTER_IN_PARENT)
+            }
+        params.width = logoWidthPx
+        params.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        screensaverView.layoutParams = params
+        screensaverView.adjustViewBounds = true
 
         val imageLoader = ImageLoader.Builder(this)
             .components {

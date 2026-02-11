@@ -556,6 +556,12 @@
             background: #E63300;
         }
         
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        
         .btn-secondary {
             background: var(--dark-3);
             color: var(--text);
@@ -1184,7 +1190,7 @@
                         <button class="btn btn-secondary btn-small" onclick="selectAllDevices()">Select All</button>
                         <button class="btn btn-secondary btn-small" onclick="deselectAllDevices()">Clear</button>
                         <button class="btn btn-secondary btn-small" onclick="selectOnlineDevices()">Online Only</button>
-                        <button class="btn btn-danger btn-small" onclick="formatSelectedDisplays()">🔄 Format Cache</button>
+                        <button class="btn btn-danger btn-small" id="formatCacheBtn" onclick="formatSelectedDisplays()" title="Only available for online displays">🔄 Format Cache</button>
                         <button class="btn btn-danger btn-small" onclick="removeSelectedDisplays()">🗑️ Remove from panel</button>
                         <button class="btn btn-primary btn-small" onclick="refreshDevices()">Refresh</button>
                     </div>
@@ -1841,12 +1847,19 @@
         function updateSelectionBar() {
             const bar = document.getElementById('selectionBar');
             const text = document.getElementById('selectionText');
+            const formatBtn = document.getElementById('formatCacheBtn');
             
             if (selectedDevices.length > 0) {
                 text.textContent = `${selectedDevices.length} display(s) selected`;
                 bar.classList.add('active');
+                const selectedOnline = selectedDevices.every(id => allDevices.find(d => d.id === id)?.online);
+                if (formatBtn) {
+                    formatBtn.disabled = !selectedOnline;
+                    formatBtn.title = selectedOnline ? 'Clear cache and stop playback on selected displays' : 'Format Cache is only available for online displays';
+                }
             } else {
                 bar.classList.remove('active');
+                if (formatBtn) formatBtn.disabled = true;
             }
         }
         
@@ -2646,7 +2659,11 @@
                 showToast('Please select displays to format', 'error');
                 return;
             }
-            
+            const hasOffline = selectedDevices.some(id => !allDevices.find(d => d.id === id)?.online);
+            if (hasOffline) {
+                showToast('Format Cache is only available for online displays. Select online displays only.', 'error');
+                return;
+            }
             const deviceNames = allDevices
                 .filter(d => selectedDevices.includes(d.id))
                 .map(d => d.name)
@@ -2918,12 +2935,19 @@
         function updateSelectionBar() {
             const bar = document.getElementById('selectionBar');
             const text = document.getElementById('selectionText');
+            const formatBtn = document.getElementById('formatCacheBtn');
             
             if (selectedDevices.length > 0) {
                 text.textContent = `${selectedDevices.length} display(s) selected`;
                 bar.classList.add('active');
+                const selectedOnline = selectedDevices.every(id => allDevices.find(d => d.id === id)?.online);
+                if (formatBtn) {
+                    formatBtn.disabled = !selectedOnline;
+                    formatBtn.title = selectedOnline ? 'Clear cache and stop playback on selected displays' : 'Format Cache is only available for online displays';
+                }
             } else {
                 bar.classList.remove('active');
+                if (formatBtn) formatBtn.disabled = true;
             }
         }
         
@@ -3665,7 +3689,11 @@
                 showToast('Please select displays to format', 'error');
                 return;
             }
-            
+            const hasOffline = selectedDevices.some(id => !allDevices.find(d => d.id === id)?.online);
+            if (hasOffline) {
+                showToast('Format Cache is only available for online displays. Select online displays only.', 'error');
+                return;
+            }
             const deviceNames = allDevices
                 .filter(d => selectedDevices.includes(d.id))
                 .map(d => d.name)

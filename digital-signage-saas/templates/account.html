@@ -51,6 +51,43 @@
             {{ request.url_root.rstrip('/') }}/api/playback/state?code={{ user.connection_code or '' }}
         </code>
     </div>
+
+    <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2 style="margin-bottom: 1.5rem;">Downloads</h2>
+        <p style="margin-bottom: 1rem; color: #555; font-size: 0.95rem;">
+            Install these apps on your Android TV / player devices. First install the <strong>Watchdog</strong> (optional, for auto-restart), then the <strong>Signage Player</strong>.
+        </p>
+        <div style="display: grid; gap: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-radius: 8px; background: #F5F5F5;">
+                <div>
+                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Signage Player APK</div>
+                    <div style="font-size: 0.85rem; color: #666;">
+                        Main app that shows your layouts and playlists.
+                    </div>
+                </div>
+                <a href="{{ url_for('static', filename='apk/Signage Player.apk') }}"
+                   style="padding: 0.65rem 1.25rem; border-radius: 999px; background: #0066FF; color: white; font-weight: 600; text-decoration: none;">
+                    Download
+                </a>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-radius: 8px; background: #F5F5F5;">
+                <div>
+                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Watchdog APK</div>
+                    <div style="font-size: 0.85rem; color: #666;">
+                        Optional helper that keeps the player running and restarts it if needed.
+                    </div>
+                </div>
+                <a href="{{ url_for('static', filename='apk/watchdog.apk') }}"
+                   style="padding: 0.65rem 1.25rem; border-radius: 999px; background: #0066FF; color: white; font-weight: 600; text-decoration: none;">
+                    Download
+                </a>
+            </div>
+        </div>
+        <p style="margin-top: 0.75rem; font-size: 0.8rem; color: #777;">
+            Place your APK files on the server at <code>static/apk/Signage Player.apk</code> and <code>static/apk/watchdog.apk</code>.
+        </p>
+    </div>
     
     {% if payments %}
     <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">

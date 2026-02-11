@@ -8,6 +8,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
@@ -19,7 +20,7 @@ import java.lang.String;
 
 public final class ActivitySetupBinding implements ViewBinding {
   @NonNull
-  private final LinearLayout rootView;
+  private final ScrollView rootView;
 
   @NonNull
   public final Button connectButton;
@@ -31,25 +32,30 @@ public final class ActivitySetupBinding implements ViewBinding {
   public final ImageView logoView;
 
   @NonNull
+  public final EditText screenNameInput;
+
+  @NonNull
   public final EditText serverInput;
 
   @NonNull
   public final LinearLayout serverSection;
 
-  private ActivitySetupBinding(@NonNull LinearLayout rootView, @NonNull Button connectButton,
+  private ActivitySetupBinding(@NonNull ScrollView rootView, @NonNull Button connectButton,
       @NonNull EditText connectionCodeInput, @NonNull ImageView logoView,
-      @NonNull EditText serverInput, @NonNull LinearLayout serverSection) {
+      @NonNull EditText screenNameInput, @NonNull EditText serverInput,
+      @NonNull LinearLayout serverSection) {
     this.rootView = rootView;
     this.connectButton = connectButton;
     this.connectionCodeInput = connectionCodeInput;
     this.logoView = logoView;
+    this.screenNameInput = screenNameInput;
     this.serverInput = serverInput;
     this.serverSection = serverSection;
   }
 
   @Override
   @NonNull
-  public LinearLayout getRoot() {
+  public ScrollView getRoot() {
     return rootView;
   }
 
@@ -92,6 +98,12 @@ public final class ActivitySetupBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.screen_name_input;
+      EditText screenNameInput = ViewBindings.findChildViewById(rootView, id);
+      if (screenNameInput == null) {
+        break missingId;
+      }
+
       id = R.id.server_input;
       EditText serverInput = ViewBindings.findChildViewById(rootView, id);
       if (serverInput == null) {
@@ -104,8 +116,8 @@ public final class ActivitySetupBinding implements ViewBinding {
         break missingId;
       }
 
-      return new ActivitySetupBinding((LinearLayout) rootView, connectButton, connectionCodeInput,
-          logoView, serverInput, serverSection);
+      return new ActivitySetupBinding((ScrollView) rootView, connectButton, connectionCodeInput,
+          logoView, screenNameInput, serverInput, serverSection);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

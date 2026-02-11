@@ -3689,6 +3689,7 @@ id save_overlay_view
 id sawtooth
 id scale
 id screen
+id screen_name_input
 id screensaver_view
 id scroll
 id scrollIndicatorDown

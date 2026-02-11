@@ -17,6 +17,7 @@ id layout_root
 id logo_view
 id main_root
 id player_view
+id screen_name_input
 id screensaver_view
 id server_input
 id server_section

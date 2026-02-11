@@ -227,6 +227,7 @@ class MainActivity : AppCompatActivity() {
                 screensaverView = findViewById(R.id.screensaver_view)
                 hideSystemUI()
                 loadScreensaver()
+                showScreensaver(true)
 
                 initializePlayer()
                 tryPlayCachedVideoLoop()
@@ -348,20 +349,18 @@ class MainActivity : AppCompatActivity() {
                     if (playbackState.current_video != null) {
                         Log.d(TAG, "Server commanded to play: ${playbackState.current_video}")
                         playSpecificVideo(playbackState.current_video)
-                    } else {
-                        // FIXED: Format/stop command - don't restart videos!
+                    } else if (playbackState.command_id > 0) {
+                        // Explicit Format Cache from dashboard (command_id was incremented, current_video cleared)
                         Log.d(TAG, "Stop/format command received - stopping all playback")
-                        
                         player?.stop()
                         showScreensaver(true)
                         clearVideoCache()
-                        
-                        // Clear playlist to prevent auto-play
                         currentPlaylist = emptyList()
                         currentVideoIndex = 0
-                        
-                        // DON'T call updatePlaylist() - this was restarting videos!
                         Log.d(TAG, "Playback stopped, cache cleared, waiting for new command")
+                    } else {
+                        // command_id == 0 with no video: server state was reset (e.g. redeploy). Do NOT clear cache.
+                        Log.d(TAG, "Server state reset (e.g. redeploy); keeping cached playback")
                     }
                 } else {
                     // No new command - only update if not stopped

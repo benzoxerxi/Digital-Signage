@@ -549,7 +549,7 @@ def get_playback_state():
         else:
             return jsonify({
                 'current_video': None,
-                'command_id': 0,
+                'command_id': device_data.get('command_id', 0),
                 'mode': 'manual',
                 'last_update': device_data.get('last_seen', datetime.now().isoformat()),
                 'device_id': device_id,

@@ -874,33 +874,36 @@ def upload_device_screenshot(device_id):
 @api_bp.route('/devices/format', methods=['POST'])
 @login_required
 def format_devices():
-    """Format/reset selected devices"""
+    """Format/reset selected devices: stop playback, clear cache flag. Preserves device names."""
     data = request.json
     device_ids = data.get('device_ids', [])
     
     if not device_ids:
         return jsonify({'success': False, 'error': 'No devices specified'}), 400
     
-    devices = load_json_file('devices.json', {})
+    from flask_login import current_user as _cu
+    devices = load_json_file('devices.json', {}, _cu.id)
     formatted_count = 0
     
     for device_id in device_ids:
         if device_id in devices:
+            # Keep existing name (user may have renamed the display)
+            existing_name = devices[device_id].get('name') or f'Display {device_id[-4:]}'
             devices[device_id] = {
                 'id': device_id,
-                'name': f'Display {device_id[-4:]}',
-                'first_seen': datetime.now().isoformat(),
+                'name': existing_name,
+                'first_seen': devices[device_id].get('first_seen', datetime.now().isoformat()),
                 'last_seen': datetime.now().isoformat(),
                 'current_video': None,
-                'command_id': 0,
+                'command_id': devices[device_id].get('command_id', 0) + 1,
                 'status': 'idle',
-                'info': {},
-                'online': False
+                'info': devices[device_id].get('info', {}),
+                'online': devices[device_id].get('online', False)
             }
             formatted_count += 1
             log_activity('device_formatted', {'device_id': device_id})
     
-    save_json_file('devices.json', devices)
+    save_json_file('devices.json', devices, _cu.id)
     
     return jsonify({
         'success': True,

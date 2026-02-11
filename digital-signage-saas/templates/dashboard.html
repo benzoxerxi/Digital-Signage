@@ -24,6 +24,27 @@
             --border: #2A3459;
         }
         
+        /* Light theme */
+        html[data-theme="light"] {
+            --primary: #0066FF;
+            --primary-dark: #0052CC;
+            --secondary: #0099CC;
+            --success: #00A86B;
+            --warning: #E6A800;
+            --danger: #E53935;
+            --dark: #F5F5F7;
+            --dark-2: #FFFFFF;
+            --dark-3: #E8E8ED;
+            --dark-4: #D1D1D6;
+            --text: #1D1D1F;
+            --text-muted: #6E6E73;
+            --border: #D1D1D6;
+        }
+        
+        html[data-theme="light"] .bg-grid {
+            opacity: 0.15;
+        }
+        
         body {
             font-family: 'Instrument Sans', -apple-system, sans-serif;
             background: var(--dark);
@@ -126,6 +147,70 @@
             margin-top: 4px;
             text-transform: uppercase;
             letter-spacing: 1px;
+        }
+        
+        .header-theme {
+            display: flex;
+            align-items: center;
+        }
+        
+        .theme-switcher {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: var(--dark-3);
+            border-radius: 999px;
+            padding: 4px;
+            border: 1px solid var(--border);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .theme-slide {
+            position: absolute;
+            left: 4px;
+            top: 4px;
+            bottom: 4px;
+            width: 56px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 999px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0, 102, 255, 0.35);
+        }
+        
+        .theme-switcher[data-theme="light"] .theme-slide {
+            transform: translateX(60px);
+        }
+        
+        .theme-opt {
+            position: relative;
+            z-index: 1;
+            padding: 8px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 999px;
+            transition: color 0.2s;
+        }
+        
+        .theme-opt:hover {
+            color: var(--text);
+        }
+        
+        .theme-opt.active {
+            color: #fff;
+        }
+        
+        .theme-switcher[data-theme="light"] .theme-opt[data-theme="dark"] {
+            color: var(--text-muted);
+        }
+        
+        .theme-switcher[data-theme="light"] .theme-opt[data-theme="light"] {
+            color: var(--primary);
+            font-weight: 700;
         }
         
         /* Tabs */
@@ -899,6 +984,13 @@
                 <h1>🎬 Digital Signage Control Center</h1>
                 <p>Enterprise content management and distribution platform</p>
             </div>
+            <div class="header-theme">
+                <div class="theme-switcher" id="themeSwitcher" role="switch" aria-label="Theme">
+                    <span class="theme-slide" id="themeSlide"></span>
+                    <button type="button" class="theme-opt active" data-theme="dark" aria-pressed="true">Dark</button>
+                    <button type="button" class="theme-opt" data-theme="light" aria-pressed="false">Light</button>
+                </div>
+            </div>
             <div class="header-stats">
                 <div class="stat">
                     <div class="stat-value" id="deviceCount">0</div>
@@ -1347,8 +1439,43 @@
         let selectedScheduleDays = [];
         let editingDeviceId = null;
         
+        // Theme (dark/light) – apply saved theme immediately to avoid flash
+        (function applySavedTheme() {
+            var theme = localStorage.getItem('controlCenterTheme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+        
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('controlCenterTheme', theme);
+            var sw = document.getElementById('themeSwitcher');
+            if (sw) {
+                sw.setAttribute('data-theme', theme);
+                sw.querySelectorAll('.theme-opt').forEach(function(btn) {
+                    var isActive = btn.getAttribute('data-theme') === theme;
+                    btn.classList.toggle('active', isActive);
+                    btn.setAttribute('aria-pressed', isActive);
+                });
+            }
+        }
+        
         // Initialize
         async function init() {
+            var sw = document.getElementById('themeSwitcher');
+            if (sw) {
+                sw.querySelectorAll('.theme-opt').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        setTheme(btn.getAttribute('data-theme'));
+                    });
+                });
+                var saved = localStorage.getItem('controlCenterTheme') || 'dark';
+                sw.setAttribute('data-theme', saved);
+                sw.querySelectorAll('.theme-opt').forEach(function(btn) {
+                    var isActive = btn.getAttribute('data-theme') === saved;
+                    btn.classList.toggle('active', isActive);
+                    btn.setAttribute('aria-pressed', isActive);
+                });
+            }
             await loadAll();
             setInterval(loadAll, 3000);
         }

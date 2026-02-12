@@ -1142,7 +1142,6 @@
                 gap: 8px;
             }
             
-            .programs-list .program-card,
             .playlist-card {
                 flex-direction: column;
                 align-items: flex-start;
@@ -1200,7 +1199,6 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('devices')">🖥️ Devices</button>
             <button class="tab" onclick="switchTab('content')">📹 Content</button>
-            <button class="tab" onclick="switchTab('programs')">📋 Programs</button>
             <button class="tab" onclick="switchTab('playlists')">📋 Playlists</button>
             <button class="tab" onclick="switchTab('schedules')">⏰ Schedules</button>
             <button class="tab" onclick="switchTab('groups')">👥 Groups</button>
@@ -1279,177 +1277,6 @@
                 <div id="videoList" class="video-list"></div>
             </div>
         </div>
-        
-        <!-- Programs Tab -->
-        <div id="programsTab" class="tab-content">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">Programs</h2>
-                    <button type="button" class="btn btn-primary btn-small" onclick="openAddProgramModal()">+ Create program</button>
-                </div>
-                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Create programs with a name and display size, then design your layout in the workspace with video, image, and text layers.</p>
-                <div id="programsList" class="programs-list"></div>
-            </div>
-            <!-- Add Ordinary Program modal -->
-            <div id="addProgramModal" class="program-modal" style="display: none;">
-                <div class="program-modal-backdrop" onclick="closeAddProgramModal()"></div>
-                <div class="program-modal-box">
-                    <div class="program-modal-header">
-                        <h2 class="program-modal-title">Add Ordinary Program</h2>
-                        <button type="button" class="program-modal-close" onclick="closeAddProgramModal()">×</button>
-                    </div>
-                    <div class="program-modal-body">
-                        <div class="program-form-group">
-                            <label class="program-form-label">* Name:</label>
-                            <input type="text" id="addProgramName" class="program-form-input" placeholder="Please enter the name">
-                        </div>
-                        <div class="program-form-group">
-                            <label class="program-form-label">* Size:</label>
-                            <select id="addProgramSize" class="program-form-select" onchange="toggleProgramCustomSize()">
-                                <option value="3840,2160">3840×2160 (Horizontal)</option>
-                                <option value="2160,3840">2160×3840 (Vertical)</option>
-                                <option value="1920,1080" selected>1920×1080 (Horizontal)</option>
-                                <option value="1080,1920">1080×1920 (Vertical)</option>
-                                <option value="1920,360">1920×360 (Horizontal)</option>
-                                <option value="custom">Custom</option>
-                            </select>
-                        </div>
-                        <div id="addProgramCustomSizeRow" class="program-form-custom" style="display: none;">
-                            <input type="number" id="addProgramWidth" class="program-form-input-num" placeholder="Width" min="320" max="7680" value="1920">
-                            <span>×</span>
-                            <input type="number" id="addProgramHeight" class="program-form-input-num" placeholder="Height" min="240" max="4320" value="1080">
-                            <span>px</span>
-                        </div>
-                    </div>
-                    <div class="program-modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeAddProgramModal()">Cancel</button>
-                        <button type="button" class="btn btn-primary" onclick="submitAddProgram()">OK</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <style>
-            .programs-list { display: flex; flex-direction: column; gap: 10px; }
-            .program-card { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--dark-3); border: 1px solid var(--border); border-radius: 10px; }
-            .program-card-name { font-weight: 600; color: var(--text); }
-            .program-card-size { font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
-            .program-card-actions { display: flex; gap: 8px; }
-            .program-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
-            .program-modal-backdrop { position: absolute; inset: 0; background: rgba(10, 14, 39, 0.8); }
-            .program-modal-box { position: relative; background: linear-gradient(180deg, var(--dark-2) 0%, var(--dark-3) 100%); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 440px; box-shadow: 0 24px 48px rgba(0,0,0,0.4); }
-            .program-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border); }
-            .program-modal-title { font-size: 1.25rem; font-weight: 700; color: var(--text); margin: 0; }
-            .program-modal-close { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; padding: 0 4px; line-height: 1; }
-            .program-modal-close:hover { color: var(--text); }
-            .program-modal-body { padding: 24px; }
-            .program-form-group { margin-bottom: 18px; }
-            .program-form-label { display: block; font-size: 0.9rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
-            .program-form-input { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark-4); color: var(--text); font-size: 1rem; box-sizing: border-box; }
-            .program-form-select { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark-4); color: var(--text); font-size: 1rem; }
-            .program-form-custom { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-            .program-form-input-num { width: 100px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark-4); color: var(--text); font-size: 1rem; }
-            .program-modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--border); }
-        </style>
-        
-        <script>
-        (function() {
-            window.openAddProgramModal = function() {
-                document.getElementById('addProgramName').value = '';
-                document.getElementById('addProgramSize').value = '1920,1080';
-                document.getElementById('addProgramCustomSizeRow').style.display = 'none';
-                document.getElementById('addProgramWidth').value = 1920;
-                document.getElementById('addProgramHeight').value = 1080;
-                document.getElementById('addProgramModal').style.display = 'flex';
-            };
-            window.closeAddProgramModal = function() {
-                document.getElementById('addProgramModal').style.display = 'none';
-            };
-            window.toggleProgramCustomSize = function() {
-                var sel = document.getElementById('addProgramSize');
-                var row = document.getElementById('addProgramCustomSizeRow');
-                row.style.display = sel.value === 'custom' ? 'flex' : 'none';
-            };
-            window.submitAddProgram = async function() {
-                var name = (document.getElementById('addProgramName').value || '').trim();
-                if (!name) {
-                    if (typeof showToast === 'function') showToast('Please enter a name', 'error');
-                    return;
-                }
-                var sel = document.getElementById('addProgramSize');
-                var width, height;
-                if (sel.value === 'custom') {
-                    width = parseInt(document.getElementById('addProgramWidth').value, 10) || 1920;
-                    height = parseInt(document.getElementById('addProgramHeight').value, 10) || 1080;
-                } else {
-                    var parts = sel.value.split(',');
-                    width = parseInt(parts[0], 10) || 1920;
-                    height = parseInt(parts[1], 10) || 1080;
-                }
-                width = Math.max(320, Math.min(7680, width));
-                height = Math.max(240, Math.min(4320, height));
-                try {
-                    var res = await fetch('/api/programs', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: name, width: width, height: height })
-                    });
-                    var data = await res.json();
-                    if (data.success && data.program && data.program.id) {
-                        closeAddProgramModal();
-                        window.location = '/dashboard/program/' + data.program.id + '/edit';
-                        return;
-                    }
-                    if (typeof showToast === 'function') showToast(data.error || 'Failed to create program', 'error');
-                } catch (e) {
-                    if (typeof showToast === 'function') showToast('Failed to create program', 'error');
-                }
-            };
-            window.loadPrograms = async function() {
-                try {
-                    var res = await fetch('/api/programs');
-                    var data = await res.json();
-                    var list = document.getElementById('programsList');
-                    var programs = (data.programs || []);
-                    // expose for playlists modal
-                    window.allPrograms = programs;
-                    if (list) {
-                        if (programs.length === 0) {
-                            list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No programs yet. Click "+ Create program" to add one.</p></div>';
-                        } else {
-                            list.innerHTML = programs.map(function(p) {
-                                return '<div class="program-card">' +
-                                    '<div><div class="program-card-name">' + (p.name || 'Program') + '</div>' +
-                                    '<div class="program-card-size">' + (p.width || 1920) + ' × ' + (p.height || 1080) + '</div></div>' +
-                                    '<div class="program-card-actions">' +
-                                    '<a href="/dashboard/program/' + p.id + '/edit" class="btn btn-primary btn-small">Edit</a>' +
-                                    '<button type="button" class="btn btn-danger btn-small" onclick="deleteProgram(\'' + p.id + '\')">Delete</button></div></div>';
-                            }).join('');
-                        }
-                    }
-                } catch (e) {
-                    var list = document.getElementById('programsList');
-                    if (list) list.innerHTML = '<div class="empty-state"><p>Failed to load programs.</p></div>';
-                }
-            };
-            window.deleteProgram = async function(id) {
-                if (!confirm('Delete this program?')) return;
-                try {
-                    var res = await fetch('/api/programs/' + id, { method: 'DELETE' });
-                    var data = await res.json();
-                    if (data.success) {
-                        if (typeof showToast === 'function') showToast('Program deleted', 'success');
-                        loadPrograms();
-                    } else {
-                        if (typeof showToast === 'function') showToast(data.error || 'Failed to delete', 'error');
-                    }
-                } catch (e) {
-                    if (typeof showToast === 'function') showToast('Failed to delete program', 'error');
-                }
-            };
-            window.loadLayout = async function() { /* Programs tab replaced layout */ };
-        })();
-        </script>
         
         <!-- Playlists Tab -->
         <div id="playlistsTab" class="tab-content">
@@ -1591,13 +1418,6 @@
                 <label class="form-label">Add Videos</label>
                 <select class="form-select" id="playlistVideos" multiple size="6"></select>
             </div>
-            <div class="form-group">
-                <label class="form-label">Add Programs</label>
-                <select class="form-select" id="playlistPrograms" multiple size="6"></select>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
-                    Programs are the layouts you design in the Programs tab. They will be activated for TVs that support programs.
-                </p>
-            </div>
             <button class="btn btn-primary" onclick="savePlaylist()">Create Playlist</button>
         </div>
     </div>
@@ -1703,7 +1523,6 @@
             
             event.target.classList.add('active');
             document.getElementById(tabName + 'Tab').classList.add('active');
-            if (tabName === 'programs') loadPrograms();
         }
         
         function renderDeviceCard(device) {
@@ -2070,17 +1889,13 @@
                 }
                 
                 list.innerHTML = allPlaylists.map(playlist => {
-                    const programCount = (playlist.programs || []).length;
                     const videoCount = (playlist.videos || []).length;
-                    const total = videoCount + programCount;
                     return `
                     <div class="group-card">
                         <div class="group-header">
                             <div class="group-name">${playlist.name}</div>
                             <div class="group-count">
-                                ${total} item(s)
-                                ${videoCount ? ` • ${videoCount} video(s)` : ''}
-                                ${programCount ? ` • ${programCount} program(s)` : ''}
+                                ${videoCount} video(s)
                             </div>
                         </div>
                         <div style="display: flex; gap: 8px; margin-top: 12px;">
@@ -2107,14 +1922,6 @@
             select.innerHTML = allVideos.map(v => 
                 `<option value="${v.filename}">${v.name}</option>`
             ).join('');
-
-            const progSelect = document.getElementById('playlistPrograms');
-            if (progSelect) {
-                const programs = (window.allPrograms || []);
-                progSelect.innerHTML = programs.map(p =>
-                    `<option value="${p.id}">${p.name} (${p.width}×${p.height})</option>`
-                ).join('');
-            }
             openModal('createPlaylistModal');
         }
         
@@ -2122,11 +1929,9 @@
             const name = document.getElementById('playlistName').value;
             const select = document.getElementById('playlistVideos');
             const videos = Array.from(select.selectedOptions).map(o => o.value);
-            const progSelect = document.getElementById('playlistPrograms');
-            const programs = progSelect ? Array.from(progSelect.selectedOptions).map(o => o.value) : [];
             
-            if (!name || (videos.length === 0 && programs.length === 0)) {
-                showToast('Please enter a name and select at least one video or program', 'error');
+            if (!name || videos.length === 0) {
+                showToast('Please enter a name and select at least one video', 'error');
                 return;
             }
             
@@ -2134,7 +1939,7 @@
                 const response = await fetch('/api/playlists', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({name, videos, programs})
+                    body: JSON.stringify({name, videos})
                 });
                 
                 if (response.ok) {
@@ -2150,53 +1955,23 @@
         async function playPlaylist(playlistId) {
             const playlist = allPlaylists.find(p => p.id === playlistId);
             const videoCount = playlist && playlist.videos ? playlist.videos.length : 0;
-            const programCount = playlist && playlist.programs ? playlist.programs.length : 0;
-            if (!playlist || (videoCount === 0 && programCount === 0)) {
+            if (!playlist || videoCount === 0) {
                 showToast('Playlist is empty', 'error');
                 return;
             }
             
             try {
-                let result = { success: true, playlist_name: playlist.name, video_count: videoCount, videos: [] };
-                let programResult = { success: true, video_count: 0, compiled_videos: [] };
-
-                // If there are any videos, activate the legacy video-based playlist
-                if (videoCount > 0) {
-                    const response = await fetch(`/api/playlists/${playlistId}/activate`, {
-                        method: 'POST'
-                    });
-                    result = await response.json();
-                    if (!result.success) {
-                        showToast('Failed to activate playlist', 'error');
-                        return;
-                    }
+                const response = await fetch(`/api/playlists/${playlistId}/activate`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    showToast('Failed to activate playlist', 'error');
+                    return;
                 }
-
-                // Activate the program playlist manifest and compile videos (if any programs)
-                if (programCount > 0) {
-                    const resp = await fetch(`/api/program_playlists/${playlistId}/activate`, {
-                        method: 'POST'
-                    });
-                    programResult = await resp.json();
-                    if (!programResult.success) {
-                        showToast('Failed to activate program playlist', 'error');
-                        return;
-                    }
-                }
-                
-                const totalVideos = videoCount > 0 ? result.video_count : programResult.video_count;
-                showToast(`✅ Activated: ${playlist.name} (${totalVideos} videos, ${programCount} programs)`, 'success');
-
-                // Decide first video to kick off playback for devices
-                let firstVideo = null;
-                if (videoCount > 0) {
-                    firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : (playlist.videos[0] || null);
-                } else if (programResult.video_count > 0 && Array.isArray(programResult.compiled_videos) && programResult.compiled_videos.length > 0) {
-                    firstVideo = programResult.compiled_videos[0];
-                }
-
+                showToast(`✅ Activated: ${playlist.name} (${result.video_count || videoCount} videos)`, 'success');
+                const firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : (playlist.videos[0] || null);
                 if (firstVideo) {
-                    console.log("Playing first video:", firstVideo);
                     await playVideo(firstVideo, true);
                 }
             } catch (error) {
@@ -2209,15 +1984,6 @@
             const playlist = allPlaylists.find(p => p.id === playlistId);
             if (playlist) {
                 const preview = document.getElementById('playlistPreview');
-                const programLines = (playlist.programs || []).map((pId, idx) => `
-                    <div class="video-item">
-                        <div style="font-weight: 600; color: var(--secondary); width: 30px;">P${idx + 1}</div>
-                        <div class="video-info">
-                            <div class="video-name">Program: ${pId}</div>
-                        </div>
-                    </div>
-                `).join('');
-
                 preview.innerHTML = `
                     <h3 style="margin-bottom: 16px;">${playlist.name}</h3>
                     <div class="video-list">
@@ -2229,7 +1995,6 @@
                                 </div>
                             </div>
                         `).join('')}
-                        ${programLines}
                     </div>
                 `;
             }
@@ -2816,7 +2581,6 @@
             
             event.target.classList.add('active');
             document.getElementById(tabName + 'Tab').classList.add('active');
-            if (tabName === 'programs') loadPrograms();
         }
         
         function renderDeviceCard(device) {

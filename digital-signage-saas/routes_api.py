@@ -65,58 +65,15 @@ def get_playlist():
 
 
 # ============================================================================
-# PROGRAM LAYOUT FOR DEVICES (full-layout endpoint for APK)
+# DEVICE LAYOUT (APK can request layout; no program feature – return program: null)
 # ============================================================================
-
 
 @api_bp.route('/device_layout')
 def get_device_layout():
-    """Return full program layout (program + elements) for a device / connection code.
-
-    This is used by the Android/TV APK to render full layouts instead of just a flat
-    video playlist.
-
-    Authentication:
-      - Preferred: ?code=<9-digit-connection-code>
-      - Legacy   : ?user_id=<user id>
-
-    Response (example):
-    {
-      "deviceId": "192_168_1_10",
-      "userId": 123,
-      "program": {
-        "id": "prog_123",
-        "name": "Main Screen",
-        "width": 1920,
-        "height": 1080,
-        "elements": [
-          {
-            "id": "el1",
-            "type": "video",
-            "x": 0,
-            "y": 0,
-            "width": 1920,
-            "height": 1080,
-            "zIndex": 0,
-            "props": {
-              "url": "https://.../api/video/file.mp4?code=...",
-              "loop": true,
-              "volume": 1.0
-            }
-          },
-          ...
-        ]
-      }
-    }
-    """
+    """Return device layout for APK. Program feature removed – always returns program: null."""
     from models import User
-
-    # Resolve user by connection code or user_id
-    user = None
     code_param = request.args.get('code')
-    if code_param:
-        user = User.get_by_connection_code(code_param)
-
+    user = User.get_by_connection_code(code_param) if code_param else None
     if not user:
         user_id_param = request.args.get('user_id')
         if user_id_param:
@@ -124,132 +81,15 @@ def get_device_layout():
                 user = User.query.get(int(user_id_param))
             except (TypeError, ValueError):
                 user = None
-
     if not user:
         return jsonify({'error': 'User not found', 'message': 'Invalid connection code or user_id'}), 404
-
     if not user.is_active or not user.is_subscription_active():
         return jsonify({'error': 'Account inactive or subscription expired'}), 403
-
-    user_id = user.id
-
-    # Device identity – mirror playback/state logic
-    device_id = request.args.get('device_id')
-    if not device_id:
-        device_id = request.remote_addr.replace('.', '_')
-
-    # Load currently active program playlist manifest for this tenant
-    program_manifest = load_json_file('program_playlist.json', {
-        'programs': [],
-        'active_playlist_id': None,
-        'active_playlist_name': None,
-        'updated_at': None,
-    }, user_id)
-
-    program_ids = program_manifest.get('programs') or []
-    if not program_ids:
-        # No active program-based playlist; return empty program so APK can fall back.
-        return jsonify({
-            'deviceId': device_id,
-            'userId': user_id,
-            'program': None
-        })
-
-    # For now, use the first program in the active list
-    active_program_id = program_ids[0]
-
-    programs_data = load_json_file('programs.json', {'programs': []}, user_id)
-    program = next((p for p in programs_data.get('programs', []) if p.get('id') == active_program_id), None)
-
-    if not program:
-        # Manifest references a program that no longer exists – treat as no layout.
-        return jsonify({
-            'deviceId': device_id,
-            'userId': user_id,
-            'program': None
-        })
-
-    # Build full video/image/text/webview element models with proper URLs for media
-    base_url = request.url_root.rstrip('/')
-    video_param = f'code={user.connection_code}' if user.connection_code else f'user_id={user_id}'
-
-    elements_out = []
-    for raw_el in program.get('elements', []):
-        try:
-            el_type = raw_el.get('type')
-            props = raw_el.get('props') or {}
-
-            el = {
-                'id': raw_el.get('id'),
-                'type': el_type,
-                'x': float(raw_el.get('x', 0)),
-                'y': float(raw_el.get('y', 0)),
-                'width': float(raw_el.get('width', program.get('width', 1920))),
-                'height': float(raw_el.get('height', program.get('height', 1080))),
-                'zIndex': int(raw_el.get('zIndex', raw_el.get('z_index', 0))),
-                'props': {}
-            }
-
-            if el_type == 'video':
-                filename = props.get('filename') or props.get('file') or ''
-                video_url = None
-                if filename:
-                    video_url = f"{base_url}/api/video/{filename}?{video_param}"
-                el['props'] = {
-                    'filename': filename,
-                    'url': video_url,
-                    'loop': bool(props.get('loop', True)),
-                    'volume': float(props.get('volume', 1.0)),
-                }
-            elif el_type == 'image':
-                filename = props.get('filename') or ''
-                image_url = None
-                if filename:
-                    image_url = f"{base_url}/api/video/{filename}?{video_param}"
-                el['props'] = {
-                    'filename': filename,
-                    'url': image_url,
-                    'fit': props.get('fit', 'contain'),
-                }
-            elif el_type == 'text':
-                el['props'] = {
-                    'content': props.get('content', ''),
-                    'fontSize': int(props.get('fontSize', 24)),
-                    'color': props.get('color', '#FFFFFF'),
-                    'alignment': props.get('alignment', 'left'),
-                }
-            elif el_type == 'webview':
-                el['props'] = {
-                    'url': props.get('url', ''),
-                    'refreshSeconds': int(props.get('refreshSeconds', 0)),
-                }
-            else:
-                # Unknown element type – include raw props so client can ignore or handle later.
-                el['props'] = props
-
-            elements_out.append(el)
-        except Exception:
-            # Skip any malformed element instead of failing the entire layout.
-            continue
-
-    # Sort by zIndex for stable ordering
-    elements_out.sort(key=lambda e: e.get('zIndex', 0))
-
-    out_program = {
-        'id': program.get('id'),
-        'name': program.get('name'),
-        'width': program.get('width'),
-        'height': program.get('height'),
-        'elements': elements_out,
-    }
-
+    device_id = request.args.get('device_id') or request.remote_addr.replace('.', '_')
     return jsonify({
         'deviceId': device_id,
-        'userId': user_id,
-        'program': out_program,
-        'source_playlist_id': program_manifest.get('active_playlist_id'),
-        'source_playlist_name': program_manifest.get('active_playlist_name'),
-        'updated_at': program_manifest.get('updated_at'),
+        'userId': user.id,
+        'program': None
     })
 
 
@@ -924,12 +764,7 @@ def format_devices():
 @api_bp.route('/playlists', methods=['GET', 'POST'])
 @login_required
 def handle_playlists():
-    """Get or create playlists.
-
-    Playlists can now include both raw videos (filenames) and program IDs.
-    The existing 'videos' field is kept for backwards compatibility, and
-    an optional 'programs' list stores associated program IDs.
-    """
+    """Get or create playlists (videos only)."""
     if request.method == 'GET':
         return jsonify(load_json_file('playlists.json', {'playlists': []}))
     
@@ -944,7 +779,6 @@ def handle_playlists():
         'id': f'playlist_{int(time.time())}',
         'name': data.get('name') or 'Untitled playlist',
         'videos': data.get('videos') or [],
-        'programs': data.get('programs') or [],
         'created': datetime.now().isoformat()
     }
     
@@ -953,93 +787,6 @@ def handle_playlists():
     log_activity('playlist_created', {'playlist_id': new_playlist['id']})
     
     return jsonify({'success': True, 'playlist': new_playlist})
-
-
-@api_bp.route('/program_playlists/<playlist_id>/activate', methods=['POST'])
-@login_required
-def activate_program_playlist(playlist_id):
-    """Activate just the program portion of a playlist.
-
-    1) Writes a simple manifest to program_playlist.json with the ordered list of program IDs.
-    2) Also compiles all video filenames referenced by those programs into playlist.json so
-       existing video-only players (APK) still have something to play.
-    """
-    playlists_data = load_json_file('playlists.json', {'playlists': []})
-    playlist = next((p for p in playlists_data['playlists'] if p['id'] == playlist_id), None)
-    if not playlist:
-        return jsonify({'success': False, 'error': 'Playlist not found'}), 404
-    
-    programs = playlist.get('programs') or []
-    manifest = {
-        'programs': programs,
-        'active_playlist_id': playlist_id,
-        'active_playlist_name': playlist.get('name'),
-        'updated_at': datetime.now().isoformat()
-    }
-    save_json_file('program_playlist.json', manifest)
-
-    # Compile all video filenames used inside the selected programs so the
-    # existing Android player (which only understands videos) can still play them.
-    video_filenames = []
-    if programs:
-        programs_data = load_json_file('programs.json', {'programs': []})
-        for pid in programs:
-            program = next((p for p in programs_data.get('programs', []) if p.get('id') == pid), None)
-            if not program:
-                continue
-            for el in program.get('elements', []):
-                try:
-                    if el.get('type') != 'video':
-                        continue
-                    props = el.get('props') or {}
-                    filename = props.get('filename')
-                    if filename and filename not in video_filenames:
-                        video_filenames.append(filename)
-                except Exception:
-                    continue
-
-    video_count = 0
-    if video_filenames:
-        # Load / build main playlist.json just like activate_playlist()
-        main_playlist = load_json_file('playlist.json', {
-            'videos': [],
-            'settings': {'interval': 30, 'loop': True},
-            'active_playlist_id': None,
-            'active_playlist_name': None
-        })
-        content_folder = get_content_folder()
-        video_objects = []
-        if content_folder:
-            for video_filename in video_filenames:
-                filepath = os.path.join(content_folder, video_filename)
-                if os.path.exists(filepath):
-                    stat = os.stat(filepath)
-                    video_objects.append({
-                        'filename': video_filename,
-                        'name': video_filename,
-                        'added': datetime.now().isoformat(),
-                        'url': f'/api/video/{video_filename}',
-                        'size': f"{stat.st_size / (1024*1024):.1f} MB"
-                    })
-        if video_objects:
-            main_playlist['videos'] = video_objects
-            main_playlist['active_playlist_id'] = playlist_id
-            main_playlist['active_playlist_name'] = playlist.get('name')
-            save_json_file('playlist.json', main_playlist)
-            video_count = len(video_objects)
-
-    log_activity('program_playlist_activated', {
-        'playlist_id': playlist_id,
-        'program_count': len(programs),
-        'compiled_videos': video_filenames
-    })
-    return jsonify({
-        'success': True,
-        'program_count': len(programs),
-        'video_count': video_count,
-        'compiled_videos': video_filenames,
-        'playlist_name': playlist.get('name')
-    })
 
 
 @api_bp.route('/playlists/<playlist_id>', methods=['DELETE'])
@@ -1264,90 +1011,6 @@ def save_layout():
     save_json_file('layout.json', layout)
     log_activity('layout_updated', {'screen_width': screen_width, 'screen_height': screen_height, 'layers_count': len(out_layers)})
     return jsonify({'success': True, 'layout': layout})
-
-
-# ============================================================================
-# PROGRAMS (create program = name + size, then workspace with elements)
-# ============================================================================
-
-import uuid
-
-@api_bp.route('/programs', methods=['GET'])
-@login_required
-def list_programs():
-    """List all programs for current user"""
-    data = load_json_file('programs.json', {'programs': []})
-    return jsonify(data)
-
-
-@api_bp.route('/programs', methods=['POST'])
-@login_required
-def create_program():
-    """Create a new program (name + width, height). Returns the new program with id."""
-    data = request.get_json() or {}
-    name = (data.get('name') or '').strip()
-    width = int(data.get('width', 1920))
-    height = int(data.get('height', 1080))
-    if not name:
-        return jsonify({'error': 'Name is required'}), 400
-    width = max(320, min(7680, width))
-    height = max(240, min(4320, height))
-    programs_data = load_json_file('programs.json', {'programs': []})
-    program_id = str(uuid.uuid4())[:8]
-    program = {
-        'id': program_id,
-        'name': name,
-        'width': width,
-        'height': height,
-        'elements': []
-    }
-    programs_data['programs'].append(program)
-    save_json_file('programs.json', programs_data)
-    log_activity('program_created', {'program_id': program_id, 'name': name})
-    return jsonify({'success': True, 'program': program})
-
-
-@api_bp.route('/programs/<program_id>')
-@login_required
-def get_program(program_id):
-    """Get one program by id"""
-    data = load_json_file('programs.json', {'programs': []})
-    program = next((p for p in data['programs'] if p['id'] == program_id), None)
-    if not program:
-        return jsonify({'error': 'Program not found'}), 404
-    return jsonify(program)
-
-
-@api_bp.route('/programs/<program_id>', methods=['PUT'])
-@login_required
-def update_program(program_id):
-    """Update program (name, size, elements)"""
-    data = request.get_json() or {}
-    programs_data = load_json_file('programs.json', {'programs': []})
-    program = next((p for p in programs_data['programs'] if p['id'] == program_id), None)
-    if not program:
-        return jsonify({'error': 'Program not found'}), 404
-    if 'name' in data and data['name'] is not None:
-        program['name'] = str(data['name']).strip() or program['name']
-    if 'width' in data:
-        program['width'] = max(320, min(7680, int(data['width'])))
-    if 'height' in data:
-        program['height'] = max(240, min(4320, int(data['height'])))
-    if 'elements' in data:
-        program['elements'] = data['elements']
-    save_json_file('programs.json', programs_data)
-    return jsonify({'success': True, 'program': program})
-
-
-@api_bp.route('/programs/<program_id>', methods=['DELETE'])
-@login_required
-def delete_program(program_id):
-    """Delete a program"""
-    programs_data = load_json_file('programs.json', {'programs': []})
-    programs_data['programs'] = [p for p in programs_data['programs'] if p['id'] != program_id]
-    save_json_file('programs.json', programs_data)
-    log_activity('program_deleted', {'program_id': program_id})
-    return jsonify({'success': True})
 
 
 # ============================================================================

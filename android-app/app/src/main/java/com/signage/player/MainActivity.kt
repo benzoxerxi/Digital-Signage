@@ -57,6 +57,8 @@ class MainActivity : AppCompatActivity() {
     private var deviceId = ""
     private var deviceName = ""
     private var lastCommandId = -1
+    /** When true, do not resume from playlist (set by format/clear_cache; cleared when server sends explicit play). */
+    private var doNotResumeFromPlaylist = false
 
     companion object {
         private const val TAG = "SignagePlayer"
@@ -345,6 +347,7 @@ class MainActivity : AppCompatActivity() {
                 // Explicit clear_cache (format): stop, clear cache, empty playlist – do not resume from playlist
                 if (playbackState.clear_cache == true) {
                     Log.d(TAG, "clear_cache requested by server – stopping and clearing")
+                    doNotResumeFromPlaylist = true
                     player?.stop()
                     showScreensaver(true)
                     clearVideoCache()
@@ -358,10 +361,12 @@ class MainActivity : AppCompatActivity() {
 
                     if (playbackState.current_video != null) {
                         Log.d(TAG, "Server commanded to play: ${playbackState.current_video}")
+                        doNotResumeFromPlaylist = false
                         playSpecificVideo(playbackState.current_video)
                     } else if (playbackState.command_id > 0) {
                         // Format/stop (command_id incremented, current_video cleared)
                         Log.d(TAG, "Stop/format command received - stopping all playback")
+                        doNotResumeFromPlaylist = true
                         player?.stop()
                         showScreensaver(true)
                         clearVideoCache()
@@ -373,8 +378,9 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "Server state reset (e.g. redeploy); keeping cached playback")
                     }
                 } else {
-                    // No new command - only update playlist if we have one or server says play something
-                    if (currentPlaylist.isNotEmpty() || playbackState.current_video != null) {
+                    // No new command - only update playlist if we have one or server says play something.
+                    // Do not resume from playlist if we were just formatted (stops in-flight updatePlaylist from restarting).
+                    if (!doNotResumeFromPlaylist && (currentPlaylist.isNotEmpty() || playbackState.current_video != null)) {
                         updatePlaylist()
                     }
                 }
@@ -429,7 +435,11 @@ class MainActivity : AppCompatActivity() {
                     val mediaItem = MediaItem.fromUri(Uri.fromFile(cachedFile))
                     player?.apply {
                         setMediaItem(mediaItem)
-                        repeatMode = Player.REPEAT_MODE_ONE
+                        // For commanded videos, play once and let the normal
+                        // playlist/STATE_ENDED handler decide what to do next.
+                        // This allows playlists (when active) to advance to the
+                        // next video instead of looping the first one forever.
+                        repeatMode = Player.REPEAT_MODE_OFF
                         prepare()
                         play()
                     }
@@ -473,6 +483,10 @@ class MainActivity : AppCompatActivity() {
 
                 playlistSettings = playlist.settings
 
+                // If server told us to stop/format, do not repopulate playlist or start playback
+                // (e.g. in-flight updatePlaylist finishing after format).
+                if (doNotResumeFromPlaylist) return@launch
+
                 if (playlist.videos.isEmpty()) {
                     if (currentPlaylist.isNotEmpty()) {
                         showScreensaver(true)
@@ -487,7 +501,12 @@ class MainActivity : AppCompatActivity() {
                     currentPlaylist = playlist.videos
                     downloadVideos(playlist.videos)
 
-                    if (player?.isPlaying != true && lastCommandId == -1) {
+                    if (doNotResumeFromPlaylist) return@launch
+
+                    // If nothing is currently playing, start the playlist from
+                    // the beginning. This ensures that when a playlist is activated
+                    // the device cycles through all videos in the playlist.
+                    if (player?.isPlaying != true && currentPlaylist.isNotEmpty()) {
                         currentVideoIndex = 0
                         playCurrentVideo()
                     }

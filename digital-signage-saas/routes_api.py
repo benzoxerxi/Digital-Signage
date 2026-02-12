@@ -373,10 +373,11 @@ def get_playback_state():
                     save_json_file('devices.json', devs, user_id)
 
         if device_data.get('current_video'):
+            # Only send the single commanded video; do not push playlist to device
             response = {
                 'current_video': device_data['current_video'],
                 'command_id': device_data['command_id'],
-                'mode': 'auto' if len(playlist.get('videos', [])) > 1 else 'manual',
+                'mode': 'manual',
                 'last_update': device_data.get('last_seen'),
                 'video_url': f'/api/video/{device_data["current_video"]}?{video_param}',
                 'device_id': device_id,
@@ -386,14 +387,6 @@ def get_playback_state():
                 'device_name': device_name_from_server,
                 'clear_cache': clear_cache
             }
-            # If there's an active playlist with multiple videos, include the playlist
-            if len(playlist.get('videos', [])) > 1:
-                response['playlist'] = {
-                    'videos': [v['filename'] for v in playlist['videos']],
-                    'current_index': next((i for i, v in enumerate(playlist['videos'])
-                                          if v['filename'] == device_data['current_video']), 0)
-                }
-
             return jsonify(response)
         else:
             return jsonify({
@@ -515,9 +508,8 @@ def stop_playback():
 
 @api_bp.route('/playback/next', methods=['POST', 'GET'])
 def next_video():
-    """Move to next video in playlist - called when current video ends"""
-    
-    # Resolve user: authenticated, code (9-digit), or user_id (legacy)
+    """Called when device's current video ends. Server does not auto-send next video or playlist;
+    only explicit Play from dashboard sends content. Return no next so device stops or shows screensaver."""
     from models import User
     user = None
     if current_user.is_authenticated:
@@ -535,84 +527,16 @@ def next_video():
                 pass
     if not user:
         return jsonify({'error': 'Invalid code or user_id'}), 400
-    
-    user_id = user.id
-    
-    device_id = request.args.get('device_id')
-    if not device_id:
-        device_id = request.remote_addr.replace('.', '_')
-    
-    print(f"📹 Next video request from device: {device_id}")
-    
-    # Load playlist
-    playlist = load_json_file('playlist.json', {
-        'videos': [],
-        'settings': {'interval': 30, 'loop': True}
-    }, user_id)
-    
-    if not playlist.get('videos') or len(playlist['videos']) == 0:
-        print(f"❌ No playlist active for user {user_id}")
-        return jsonify({'success': False, 'error': 'No playlist active', 'action': 'repeat'}), 404
-    
-    # Load devices to get current video
-    devices = load_json_file('devices.json', {}, user_id)
-    
-    if device_id not in devices:
-        print(f"❌ Device not found: {device_id}")
-        # Device not registered yet, play first video
-        devices[device_id] = {
-            'id': device_id,
-            'name': f'Display {device_id[-6:]}',
-            'first_seen': datetime.now().isoformat(),
-            'last_seen': datetime.now().isoformat(),
-            'current_video': playlist['videos'][0]['filename'],
-            'command_id': 1,
-            'status': 'playing',
-            'info': {}
-        }
-        save_json_file('devices.json', devices, user_id)
-        
-        video_param = f'code={user.connection_code}' if user.connection_code else f'user_id={user_id}'
-        return jsonify({
-            'success': True,
-            'next_video': playlist['videos'][0]['filename'],
-            'current_index': 0,
-            'total_videos': len(playlist['videos']),
-            'video_url': f'/api/video/{playlist["videos"][0]["filename"]}?{video_param}'
-        })
-    
-    current_video = devices[device_id].get('current_video')
-    
-    # Find current video index
-    current_index = 0
-    if current_video:
-        for i, video in enumerate(playlist['videos']):
-            if video['filename'] == current_video:
-                current_index = i
-                break
-    
-    # Get next video (loop back to start if at end)
-    next_index = (current_index + 1) % len(playlist['videos'])
-    next_video = playlist['videos'][next_index]['filename']
-    
-    # Update device
-    devices[device_id]['current_video'] = next_video
-    devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
-    devices[device_id]['last_seen'] = datetime.now().isoformat()
-    
-    save_json_file('devices.json', devices, user_id)
-    
-    print(f"✅ Auto-advance: {current_video} → {next_video} (index: {next_index}/{len(playlist['videos'])})")
-    
-    video_param = f'code={user.connection_code}' if user.connection_code else f'user_id={user_id}'
+
+    device_id = request.args.get('device_id') or request.remote_addr.replace('.', '_')
+
+    # Do not auto-advance device to next video; do not register new devices with first video.
+    # Only explicit Play from dashboard should set current_video on devices.
     return jsonify({
-        'success': True,
-        'next_video': next_video,
-        'current_index': next_index,
-        'total_videos': len(playlist['videos']),
-        'video_url': f'/api/video/{next_video}?{video_param}',
-        'loop': playlist.get('settings', {}).get('loop', True)
-    })
+        'success': False,
+        'error': 'No next video',
+        'action': 'stop'
+    }), 404
 
 
 # ============================================================================

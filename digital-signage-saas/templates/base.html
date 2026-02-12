@@ -75,6 +75,58 @@
             color: var(--primary);
         }
         
+        /* Burger button – hidden on desktop */
+        .navbar-burger {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            background: transparent;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            color: #333;
+            font-size: 1.4rem;
+            cursor: pointer;
+        }
+        .navbar-burger:hover {
+            background: #f5f5f5;
+            color: var(--primary);
+        }
+        
+        @media (max-width: 768px) {
+            .navbar-burger {
+                display: flex;
+            }
+            .navbar .nav-links {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                flex-direction: column;
+                gap: 0;
+                background: white;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+                padding: 0.5rem 0;
+                border-top: 1px solid #eee;
+            }
+            .navbar .nav-links.open {
+                display: flex;
+            }
+            .navbar .nav-links a {
+                padding: 1rem 1.5rem;
+                border-bottom: 1px solid #f0f0f0;
+            }
+            .navbar .nav-links a:last-child {
+                border-bottom: none;
+            }
+            .navbar .container {
+                position: relative;
+            }
+        }
+        
         .btn {
             padding: 0.6rem 1.5rem;
             border: none;
@@ -156,7 +208,8 @@
     <nav class="navbar">
         <div class="container">
             <a href="/" class="logo">🎬 Digital Signage</a>
-            <div class="nav-links">
+            <button type="button" class="navbar-burger" id="navbarBurger" aria-label="Open menu">☰</button>
+            <div class="nav-links" id="navLinks">
                 {% if current_user.is_authenticated %}
                     {% if current_user.is_admin %}
                         <a href="{{ url_for('admin.admin_dashboard') }}">Admin</a>
@@ -191,6 +244,24 @@
     {% block extra_js %}{% endblock %}
     
     <script>
+        // Burger menu (phones only)
+        (function() {
+            var burger = document.getElementById('navbarBurger');
+            var navLinks = document.getElementById('navLinks');
+            if (burger && navLinks) {
+                burger.addEventListener('click', function() {
+                    navLinks.classList.toggle('open');
+                });
+                document.addEventListener('click', function(e) {
+                    if (navLinks.classList.contains('open') && !navLinks.contains(e.target) && !burger.contains(e.target)) {
+                        navLinks.classList.remove('open');
+                    }
+                });
+                navLinks.querySelectorAll('a').forEach(function(a) {
+                    a.addEventListener('click', function() { navLinks.classList.remove('open'); });
+                });
+            }
+        })();
         // Auto-dismiss flash messages after 5 seconds
         setTimeout(() => {
             document.querySelectorAll('.flash-message').forEach(msg => {

@@ -1104,162 +1104,16 @@
             }
             
             .tabs {
-                flex-wrap: nowrap;
+                flex-wrap: wrap;
                 gap: 6px;
                 padding: 6px;
-                margin-left: -8px;
-                margin-right: -8px;
-                border-radius: 12px;
             }
             
             .tab {
-                flex: 0 0 auto;
-                min-width: 90px;
-                padding: 10px 14px;
+                flex: 1 1 calc(50% - 6px);
+                min-width: 0;
+                padding: 10px 12px;
                 font-size: 13px;
-            }
-            
-            /* Burger menu */
-            .header-burger {
-                display: none;
-                align-items: center;
-                justify-content: center;
-                width: 44px;
-                height: 44px;
-                padding: 0;
-                background: var(--dark-3);
-                border: 1px solid var(--border);
-                border-radius: 10px;
-                color: var(--text);
-                cursor: pointer;
-                font-size: 22px;
-            }
-            .header-burger:hover {
-                background: var(--dark-4);
-            }
-            .burger-menu-overlay {
-                display: none;
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(10, 14, 39, 0.85);
-                backdrop-filter: blur(6px);
-                z-index: 999;
-                opacity: 0;
-                transition: opacity 0.25s ease;
-            }
-            .burger-menu-overlay.open {
-                display: block;
-                opacity: 1;
-            }
-            .burger-menu-panel {
-                position: fixed;
-                top: 0;
-                right: 0;
-                width: min(300px, 85vw);
-                max-width: 300px;
-                height: 100%;
-                background: var(--dark-2);
-                border-left: 1px solid var(--border);
-                z-index: 1000;
-                transform: translateX(100%);
-                transition: transform 0.25s ease;
-                overflow-y: auto;
-                padding: 24px;
-                box-shadow: -8px 0 32px rgba(0,0,0,0.3);
-            }
-            .burger-menu-overlay.open .burger-menu-panel {
-                transform: translateX(0);
-            }
-            .burger-menu-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 24px;
-            }
-            .burger-menu-header h3 {
-                font-size: 16px;
-                color: var(--text);
-            }
-            .burger-menu-close {
-                width: 40px;
-                height: 40px;
-                padding: 0;
-                background: var(--dark-3);
-                border: 1px solid var(--border);
-                border-radius: 10px;
-                color: var(--text);
-                cursor: pointer;
-                font-size: 20px;
-                line-height: 1;
-            }
-            .burger-stats {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                margin-bottom: 24px;
-            }
-            .burger-stat {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 12px 14px;
-                background: var(--dark-3);
-                border-radius: 10px;
-                border: 1px solid var(--border);
-            }
-            .burger-stat-label { font-size: 13px; color: var(--text-muted); }
-            .burger-stat-value { font-size: 18px; font-weight: 700; color: var(--primary); font-family: 'JetBrains Mono', monospace; }
-            .burger-section-title {
-                font-size: 11px;
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-                color: var(--text-muted);
-                margin-bottom: 10px;
-            }
-            .burger-nav {
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-            }
-            .burger-nav-btn {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                width: 100%;
-                padding: 14px 16px;
-                background: transparent;
-                border: none;
-                border-radius: 10px;
-                color: var(--text);
-                font-size: 15px;
-                font-weight: 500;
-                cursor: pointer;
-                text-align: left;
-                transition: background 0.2s;
-            }
-            .burger-nav-btn:hover {
-                background: var(--dark-3);
-            }
-            .burger-nav-btn.active {
-                background: var(--primary);
-                color: white;
-            }
-            .burger-theme-wrap {
-                margin-top: 24px;
-                padding-top: 20px;
-                border-top: 1px solid var(--border);
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .header-burger {
-                display: flex;
-            }
-            .header-desktop-only {
-                display: none !important;
             }
             
             .grid-2, .grid-3, .grid-4 {
@@ -1336,15 +1190,14 @@
                 <h1>🎬 Digital Signage Control Center</h1>
                 <p>Enterprise content management and distribution platform</p>
             </div>
-            <button type="button" class="header-burger" id="headerBurger" onclick="toggleBurgerMenu()" aria-label="Open menu">☰</button>
-            <div class="header-theme header-desktop-only">
+            <div class="header-theme">
                 <div class="theme-switcher" id="themeSwitcher" role="switch" aria-label="Theme">
                     <span class="theme-slide" id="themeSlide"></span>
                     <button type="button" class="theme-opt active" data-theme="dark" aria-pressed="true">Dark</button>
                     <button type="button" class="theme-opt" data-theme="light" aria-pressed="false">Light</button>
                 </div>
             </div>
-            <div class="header-stats header-desktop-only">
+            <div class="header-stats">
                 <div class="stat">
                     <div class="stat-value" id="deviceCount">0</div>
                     <div class="stat-label">Displays</div>
@@ -1360,46 +1213,14 @@
             </div>
         </div>
         
-        <!-- Burger menu overlay -->
-        <div class="burger-menu-overlay" id="burgerMenuOverlay" onclick="closeBurgerMenu()">
-            <div class="burger-menu-panel" onclick="event.stopPropagation()">
-                <div class="burger-menu-header">
-                    <h3>Menu</h3>
-                    <button type="button" class="burger-menu-close" onclick="closeBurgerMenu()" aria-label="Close menu">×</button>
-                </div>
-                <div class="burger-stats" id="burgerStats">
-                    <div class="burger-stat"><span class="burger-stat-label">Displays</span><span class="burger-stat-value" id="burgerDeviceCount">0</span></div>
-                    <div class="burger-stat"><span class="burger-stat-label">Videos</span><span class="burger-stat-value" id="burgerVideoCount">0</span></div>
-                    <div class="burger-stat"><span class="burger-stat-label">Playlists</span><span class="burger-stat-value" id="burgerPlaylistCount">0</span></div>
-                </div>
-                <div class="burger-section-title">Sections</div>
-                <div class="burger-nav">
-                    <button type="button" class="burger-nav-btn active" data-tab="devices" onclick="switchTab('devices')">🖥️ Devices</button>
-                    <button type="button" class="burger-nav-btn" data-tab="content" onclick="switchTab('content')">📹 Content</button>
-                    <button type="button" class="burger-nav-btn" data-tab="playlists" onclick="switchTab('playlists')">📋 Playlists</button>
-                    <button type="button" class="burger-nav-btn" data-tab="schedules" onclick="switchTab('schedules')">⏰ Schedules</button>
-                    <button type="button" class="burger-nav-btn" data-tab="groups" onclick="switchTab('groups')">👥 Groups</button>
-                    <button type="button" class="burger-nav-btn" data-tab="analytics" onclick="switchTab('analytics')">📊 Analytics</button>
-                </div>
-                <div class="burger-theme-wrap">
-                    <div class="burger-section-title">Theme</div>
-                    <div class="theme-switcher theme-switcher-burger" id="themeSwitcherBurger" role="switch" aria-label="Theme">
-                        <span class="theme-slide" id="themeSlideBurger"></span>
-                        <button type="button" class="theme-opt active" data-theme="dark" aria-pressed="true">Dark</button>
-                        <button type="button" class="theme-opt" data-theme="light" aria-pressed="false">Light</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab active" data-tab="devices" onclick="switchTab('devices')">🖥️ Devices</button>
-            <button class="tab" data-tab="content" onclick="switchTab('content')">📹 Content</button>
-            <button class="tab" data-tab="playlists" onclick="switchTab('playlists')">📋 Playlists</button>
-            <button class="tab" data-tab="schedules" onclick="switchTab('schedules')">⏰ Schedules</button>
-            <button class="tab" data-tab="groups" onclick="switchTab('groups')">👥 Groups</button>
-            <button class="tab" data-tab="analytics" onclick="switchTab('analytics')">📊 Analytics</button>
+            <button class="tab active" onclick="switchTab('devices')">🖥️ Devices</button>
+            <button class="tab" onclick="switchTab('content')">📹 Content</button>
+            <button class="tab" onclick="switchTab('playlists')">📋 Playlists</button>
+            <button class="tab" onclick="switchTab('schedules')">⏰ Schedules</button>
+            <button class="tab" onclick="switchTab('groups')">👥 Groups</button>
+            <button class="tab" onclick="switchTab('analytics')">📊 Analytics</button>
         </div>
         
         <!-- Devices Tab -->
@@ -1650,6 +1471,20 @@
         </div>
     </div>
     
+    <div class="modal" id="playbackProgressModal">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Starting playback</h3>
+                <button class="modal-close" onclick="closeModal('playbackProgressModal')">×</button>
+            </div>
+            <p id="playbackProgressTargets" style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;"></p>
+            <div class="upload-progress-bar-wrap" style="margin-bottom: 8px;">
+                <div id="playbackProgressBar" class="upload-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div id="playbackProgressStatus" style="font-size: 14px; font-weight: 600; color: var(--text); margin-top: 8px;"></div>
+        </div>
+    </div>
+    
     <script>
         let selectedDevices = [];
         let allDevices = [];
@@ -1669,36 +1504,34 @@
         function setTheme(theme) {
             document.documentElement.setAttribute('data-theme', theme);
             localStorage.setItem('controlCenterTheme', theme);
-            [document.getElementById('themeSwitcher'), document.getElementById('themeSwitcherBurger')].forEach(function(sw) {
-                if (sw) {
-                    sw.setAttribute('data-theme', theme);
-                    sw.querySelectorAll('.theme-opt').forEach(function(btn) {
-                        var isActive = btn.getAttribute('data-theme') === theme;
-                        btn.classList.toggle('active', isActive);
-                        btn.setAttribute('aria-pressed', isActive);
-                    });
-                }
-            });
+            var sw = document.getElementById('themeSwitcher');
+            if (sw) {
+                sw.setAttribute('data-theme', theme);
+                sw.querySelectorAll('.theme-opt').forEach(function(btn) {
+                    var isActive = btn.getAttribute('data-theme') === theme;
+                    btn.classList.toggle('active', isActive);
+                    btn.setAttribute('aria-pressed', isActive);
+                });
+            }
         }
         
         // Initialize
         async function init() {
-            [document.getElementById('themeSwitcher'), document.getElementById('themeSwitcherBurger')].forEach(function(sw) {
-                if (sw) {
-                    sw.querySelectorAll('.theme-opt').forEach(function(btn) {
-                        btn.addEventListener('click', function() {
-                            setTheme(btn.getAttribute('data-theme'));
-                        });
+            var sw = document.getElementById('themeSwitcher');
+            if (sw) {
+                sw.querySelectorAll('.theme-opt').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        setTheme(btn.getAttribute('data-theme'));
                     });
-                    var saved = localStorage.getItem('controlCenterTheme') || 'dark';
-                    sw.setAttribute('data-theme', saved);
-                    sw.querySelectorAll('.theme-opt').forEach(function(btn) {
-                        var isActive = btn.getAttribute('data-theme') === saved;
-                        btn.classList.toggle('active', isActive);
-                        btn.setAttribute('aria-pressed', isActive);
-                    });
-                }
-            });
+                });
+                var saved = localStorage.getItem('controlCenterTheme') || 'dark';
+                sw.setAttribute('data-theme', saved);
+                sw.querySelectorAll('.theme-opt').forEach(function(btn) {
+                    var isActive = btn.getAttribute('data-theme') === saved;
+                    btn.classList.toggle('active', isActive);
+                    btn.setAttribute('aria-pressed', isActive);
+                });
+            }
             await loadAll();
             setInterval(loadAll, 3000);
         }
@@ -1719,30 +1552,9 @@
         function switchTab(tabName) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            var tabBtn = document.querySelector('.tab[data-tab="' + tabName + '"]');
-            if (tabBtn) tabBtn.classList.add('active');
-            else if (typeof event !== 'undefined' && event.target && event.target.classList && event.target.classList.contains('tab')) event.target.classList.add('active');
-            var panel = document.getElementById(tabName + 'Tab');
-            if (panel) panel.classList.add('active');
-            closeBurgerMenu();
-            document.querySelectorAll('.burger-nav-btn').forEach(function(btn) {
-                btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
-            });
-        }
-        
-        function toggleBurgerMenu() {
-            var overlay = document.getElementById('burgerMenuOverlay');
-            if (overlay && overlay.classList) {
-                overlay.classList.toggle('open');
-                document.body.style.overflow = overlay.classList.contains('open') ? 'hidden' : '';
-            }
-        }
-        function closeBurgerMenu() {
-            var overlay = document.getElementById('burgerMenuOverlay');
-            if (overlay) {
-                overlay.classList.remove('open');
-                document.body.style.overflow = '';
-            }
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
         }
         
         function renderDeviceCard(device) {
@@ -1976,14 +1788,34 @@
             }
         }
         
+        function getPlaybackTargetNames() {
+            if (selectedDevices.length === 0) return 'All devices';
+            return selectedDevices.map(function(id) {
+                var d = allDevices.find(function(dev) { return dev.id === id; });
+                return d ? (d.name || id) : id;
+            }).join(', ');
+        }
+        
+        function setPlaybackProgress(pct, status) {
+            var bar = document.getElementById('playbackProgressBar');
+            var statusEl = document.getElementById('playbackProgressStatus');
+            if (bar) bar.style.width = (pct || 0) + '%';
+            if (statusEl) statusEl.textContent = status || '';
+        }
+        
         async function playVideo(filename, fromPlaylist = false) {
-            // Block direct video playback - only allow from playlists
             if (!fromPlaylist) {
                 showToast('❌ Videos can only be played from playlists. Go to Playlists tab.', 'error');
                 return;
             }
             
+            var targetsEl = document.getElementById('playbackProgressTargets');
+            if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
+            setPlaybackProgress(0, 'Sending to devices...');
+            openModal('playbackProgressModal');
+            
             try {
+                setPlaybackProgress(20, 'Sending to devices...');
                 const payload = {filename: filename};
                 if (selectedDevices.length > 0) {
                     payload.device_ids = selectedDevices;
@@ -1995,12 +1827,19 @@
                     body: JSON.stringify(payload)
                 });
                 
+                setPlaybackProgress(80, 'Updating displays...');
                 const result = await response.json();
                 if (result.success) {
-                    showToast(`Playing "${filename}" on ${result.target === 'all' ? 'all' : result.devices_updated} display(s)`, 'success');
+                    setPlaybackProgress(100, 'Done — playing on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)');
+                    showToast('Playing "' + filename + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
                     await loadDevices();
+                    setTimeout(function() { closeModal('playbackProgressModal'); }, 2000);
+                } else {
+                    setPlaybackProgress(100, 'Failed: ' + (result.error || 'Unknown error'));
+                    showToast('Playback failed: ' + (result.error || 'Unknown'), 'error');
                 }
             } catch (error) {
+                setPlaybackProgress(100, 'Failed: network error');
                 showToast('Failed to play video', 'error');
             }
         }
@@ -2654,18 +2493,9 @@
         
         // Update stats
         function updateStats() {
-            var dc = allDevices.filter(d => d.online).length;
-            var vc = allVideos.length;
-            var pc = allPlaylists.length;
-            document.getElementById('deviceCount').textContent = dc;
-            document.getElementById('videoCount').textContent = vc;
-            document.getElementById('playlistCount').textContent = pc;
-            var bdc = document.getElementById('burgerDeviceCount');
-            var bvc = document.getElementById('burgerVideoCount');
-            var bpc = document.getElementById('burgerPlaylistCount');
-            if (bdc) bdc.textContent = dc;
-            if (bvc) bvc.textContent = vc;
-            if (bpc) bpc.textContent = pc;
+            document.getElementById('deviceCount').textContent = allDevices.filter(d => d.online).length;
+            document.getElementById('videoCount').textContent = allVideos.length;
+            document.getElementById('playlistCount').textContent = allPlaylists.length;
         }
         
         // Modal functions
@@ -2815,30 +2645,9 @@
         function switchTab(tabName) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            var tabBtn = document.querySelector('.tab[data-tab="' + tabName + '"]');
-            if (tabBtn) tabBtn.classList.add('active');
-            else if (typeof event !== 'undefined' && event.target && event.target.classList && event.target.classList.contains('tab')) event.target.classList.add('active');
-            var panel = document.getElementById(tabName + 'Tab');
-            if (panel) panel.classList.add('active');
-            closeBurgerMenu();
-            document.querySelectorAll('.burger-nav-btn').forEach(function(btn) {
-                btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
-            });
-        }
-        
-        function toggleBurgerMenu() {
-            var overlay = document.getElementById('burgerMenuOverlay');
-            if (overlay && overlay.classList) {
-                overlay.classList.toggle('open');
-                document.body.style.overflow = overlay.classList.contains('open') ? 'hidden' : '';
-            }
-        }
-        function closeBurgerMenu() {
-            var overlay = document.getElementById('burgerMenuOverlay');
-            if (overlay) {
-                overlay.classList.remove('open');
-                document.body.style.overflow = '';
-            }
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
         }
         
         function renderDeviceCard(device) {
@@ -3072,14 +2881,34 @@
             }
         }
         
+        function getPlaybackTargetNames() {
+            if (selectedDevices.length === 0) return 'All devices';
+            return selectedDevices.map(function(id) {
+                var d = allDevices.find(function(dev) { return dev.id === id; });
+                return d ? (d.name || id) : id;
+            }).join(', ');
+        }
+        
+        function setPlaybackProgress(pct, status) {
+            var bar = document.getElementById('playbackProgressBar');
+            var statusEl = document.getElementById('playbackProgressStatus');
+            if (bar) bar.style.width = (pct || 0) + '%';
+            if (statusEl) statusEl.textContent = status || '';
+        }
+        
         async function playVideo(filename, fromPlaylist = false) {
-            // Block direct video playback - only allow from playlists
             if (!fromPlaylist) {
                 showToast('❌ Videos can only be played from playlists. Go to Playlists tab.', 'error');
                 return;
             }
             
+            var targetsEl = document.getElementById('playbackProgressTargets');
+            if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
+            setPlaybackProgress(0, 'Sending to devices...');
+            openModal('playbackProgressModal');
+            
             try {
+                setPlaybackProgress(20, 'Sending to devices...');
                 const payload = {filename: filename};
                 if (selectedDevices.length > 0) {
                     payload.device_ids = selectedDevices;
@@ -3091,12 +2920,19 @@
                     body: JSON.stringify(payload)
                 });
                 
+                setPlaybackProgress(80, 'Updating displays...');
                 const result = await response.json();
                 if (result.success) {
-                    showToast(`Playing "${filename}" on ${result.target === 'all' ? 'all' : result.devices_updated} display(s)`, 'success');
+                    setPlaybackProgress(100, 'Done — playing on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)');
+                    showToast('Playing "' + filename + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
                     await loadDevices();
+                    setTimeout(function() { closeModal('playbackProgressModal'); }, 2000);
+                } else {
+                    setPlaybackProgress(100, 'Failed: ' + (result.error || 'Unknown error'));
+                    showToast('Playback failed: ' + (result.error || 'Unknown'), 'error');
                 }
             } catch (error) {
+                setPlaybackProgress(100, 'Failed: network error');
                 showToast('Failed to play video', 'error');
             }
         }
@@ -3746,18 +3582,9 @@
         
         // Update stats
         function updateStats() {
-            var dc = allDevices.filter(d => d.online).length;
-            var vc = allVideos.length;
-            var pc = allPlaylists.length;
-            document.getElementById('deviceCount').textContent = dc;
-            document.getElementById('videoCount').textContent = vc;
-            document.getElementById('playlistCount').textContent = pc;
-            var bdc = document.getElementById('burgerDeviceCount');
-            var bvc = document.getElementById('burgerVideoCount');
-            var bpc = document.getElementById('burgerPlaylistCount');
-            if (bdc) bdc.textContent = dc;
-            if (bvc) bvc.textContent = vc;
-            if (bpc) bpc.textContent = pc;
+            document.getElementById('deviceCount').textContent = allDevices.filter(d => d.online).length;
+            document.getElementById('videoCount').textContent = allVideos.length;
+            document.getElementById('playlistCount').textContent = allPlaylists.length;
         }
         
         // Modal functions

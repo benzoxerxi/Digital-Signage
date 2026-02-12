@@ -33,7 +33,7 @@ def dashboard():
     return render_template('dashboard.html', user=current_user)
 
 
-@main_bp.route('/account')
+@main_bp.route('/account', methods=['GET'])
 @login_required
 def account():
     """Account settings page"""
@@ -46,6 +46,70 @@ def account():
         .order_by(PaymentHistory.created_at.desc()).limit(10).all()
     
     return render_template('account.html', user=current_user, payments=payments, plans=Config.PLANS)
+
+
+@main_bp.route('/account/update', methods=['POST'])
+@login_required
+def account_update():
+    """Update profile: username, email, company_name"""
+    from models import db, User
+    
+    username = request.form.get('username', '').strip()
+    email = request.form.get('email', '').strip()
+    company_name = request.form.get('company_name', '').strip()
+    
+    if not username:
+        flash('Username is required', 'error')
+        return redirect(url_for('main.account'))
+    if not email:
+        flash('Email is required', 'error')
+        return redirect(url_for('main.account'))
+    
+    other_username = User.query.filter(User.username == username, User.id != current_user.id).first()
+    if other_username:
+        flash('Username is already in use', 'error')
+        return redirect(url_for('main.account'))
+    
+    other_email = User.query.filter(User.email == email, User.id != current_user.id).first()
+    if other_email:
+        flash('Email is already in use', 'error')
+        return redirect(url_for('main.account'))
+    
+    current_user.username = username
+    current_user.email = email
+    current_user.company_name = company_name if company_name else None
+    db.session.commit()
+    flash('Profile updated successfully', 'success')
+    return redirect(url_for('main.account'))
+
+
+@main_bp.route('/account/change-password', methods=['POST'])
+@login_required
+def account_change_password():
+    """Change password (requires current password)"""
+    from models import db
+    
+    current_password = request.form.get('current_password', '')
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+    
+    if not current_password:
+        flash('Current password is required', 'error')
+        return redirect(url_for('main.account'))
+    if not current_user.check_password(current_password):
+        flash('Current password is incorrect', 'error')
+        return redirect(url_for('main.account'))
+    if not new_password or len(new_password) < 6:
+        flash('New password must be at least 6 characters', 'error')
+        return redirect(url_for('main.account'))
+    if new_password != confirm_password:
+        flash('New password and confirmation do not match', 'error')
+        return redirect(url_for('main.account'))
+    
+    current_user.set_password(new_password)
+    db.session.commit()
+    flash('Password changed successfully', 'success')
+    return redirect(url_for('main.account'))
 
 
 @main_bp.route('/subscriptions')

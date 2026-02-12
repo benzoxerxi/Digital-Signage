@@ -184,7 +184,9 @@ def get_connected_devices(user_id=None):
 
 
 def get_all_devices_with_status(user_id=None):
-    """Get all devices for tenant with online/offline status. Names are stored per device."""
+    """Get all devices for tenant with online/offline status. Names are stored per device.
+    Devices are never removed by time or last_seen; they stay until the user removes them.
+    Use a persistent DATA_DIR (e.g. on Render) so devices.json survives redeploys and offline devices remain visible."""
     if user_id is None:
         user_id = current_user.id
     

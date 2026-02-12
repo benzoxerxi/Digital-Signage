@@ -342,6 +342,19 @@ class MainActivity : AppCompatActivity() {
                     captureAndUploadScreenshot()
                 }
 
+                // If server says current video is missing from contents, upload it from device cache
+                if (playbackState.upload_current_video == true && !playbackState.upload_current_video_filename.isNullOrEmpty()) {
+                    val filename = playbackState.upload_current_video_filename!!
+                    scope.launch {
+                        val file = withContext(Dispatchers.IO) { videoCache.getCachedFile(filename) }
+                        if (file != null && file.exists()) {
+                            val bytes = withContext(Dispatchers.IO) { file.readBytes() }
+                            val ok = apiClient.uploadCurrentVideoToServer(connectionCode, deviceId, filename, bytes)
+                            if (ok) Log.d(TAG, "Restored video to contents: $filename")
+                        }
+                    }
+                }
+
                 if (playbackState.command_id != lastCommandId) {
                     Log.d(TAG, "New command received! Previous: $lastCommandId, New: ${playbackState.command_id}")
                     lastCommandId = playbackState.command_id

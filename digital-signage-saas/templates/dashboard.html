@@ -616,6 +616,32 @@
         
         input[type="file"] { display: none; }
         
+        .upload-progress-container {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 320px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .upload-progress-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .upload-progress-bar-wrap {
+            height: 8px;
+            background: var(--dark-4);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .upload-progress-bar {
+            height: 100%;
+            width: 0%;
+            background: var(--primary);
+            border-radius: 999px;
+            transition: width 0.15s ease-out;
+        }
+        
         /* Form elements */
         .form-group {
             margin-bottom: 20px;
@@ -1221,6 +1247,12 @@
                         <p style="color: var(--text-muted); margin-top: 8px;">
                             Supports: MP4, AVI, MKV, MOV, WEBM, JPG, PNG, GIF
                         </p>
+                        <div id="uploadProgressContainer" class="upload-progress-container" style="display: none;">
+                            <div id="uploadProgressLabel" class="upload-progress-label"></div>
+                            <div class="upload-progress-bar-wrap">
+                                <div id="uploadProgressBar" class="upload-progress-bar"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -1978,24 +2010,49 @@
             await loadVideos();
         }
         
-        async function uploadFile(file) {
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            try {
-                showToast(`Uploading ${file.name}...`, 'success');
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    showToast(`✓ ${file.name} uploaded`, 'success');
-                }
-            } catch (error) {
-                showToast(`Failed to upload ${file.name}`, 'error');
-            }
+        function uploadFile(file) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                const container = document.getElementById('uploadProgressContainer');
+                const label = document.getElementById('uploadProgressLabel');
+                const bar = document.getElementById('uploadProgressBar');
+                container.style.display = 'block';
+                label.textContent = file.name;
+                bar.style.width = '0%';
+                const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const pct = Math.round((e.loaded / e.total) * 100);
+                        bar.style.width = pct + '%';
+                    }
+                };
+                xhr.onload = () => {
+                    container.style.display = 'none';
+                    bar.style.width = '0%';
+                    try {
+                        const result = JSON.parse(xhr.responseText);
+                        if (result.success) {
+                            showToast('✓ ' + file.name + ' uploaded', 'success');
+                            resolve();
+                        } else {
+                            showToast('Upload failed: ' + (result.error || 'Unknown'), 'error');
+                            reject(new Error(result.error));
+                        }
+                    } catch (_) {
+                        showToast('Failed to upload ' + file.name, 'error');
+                        reject(new Error('Invalid response'));
+                    }
+                };
+                xhr.onerror = () => {
+                    container.style.display = 'none';
+                    bar.style.width = '0%';
+                    showToast('Failed to upload ' + file.name, 'error');
+                    reject(new Error('Network error'));
+                };
+                xhr.open('POST', '/api/upload');
+                xhr.send(formData);
+            });
         }
         
         // Playlists
@@ -3066,24 +3123,49 @@
             await loadVideos();
         }
         
-        async function uploadFile(file) {
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            try {
-                showToast(`Uploading ${file.name}...`, 'success');
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    showToast(`✓ ${file.name} uploaded`, 'success');
-                }
-            } catch (error) {
-                showToast(`Failed to upload ${file.name}`, 'error');
-            }
+        function uploadFile(file) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                const container = document.getElementById('uploadProgressContainer');
+                const label = document.getElementById('uploadProgressLabel');
+                const bar = document.getElementById('uploadProgressBar');
+                container.style.display = 'block';
+                label.textContent = file.name;
+                bar.style.width = '0%';
+                const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const pct = Math.round((e.loaded / e.total) * 100);
+                        bar.style.width = pct + '%';
+                    }
+                };
+                xhr.onload = () => {
+                    container.style.display = 'none';
+                    bar.style.width = '0%';
+                    try {
+                        const result = JSON.parse(xhr.responseText);
+                        if (result.success) {
+                            showToast('✓ ' + file.name + ' uploaded', 'success');
+                            resolve();
+                        } else {
+                            showToast('Upload failed: ' + (result.error || 'Unknown'), 'error');
+                            reject(new Error(result.error));
+                        }
+                    } catch (_) {
+                        showToast('Failed to upload ' + file.name, 'error');
+                        reject(new Error('Invalid response'));
+                    }
+                };
+                xhr.onerror = () => {
+                    container.style.display = 'none';
+                    bar.style.width = '0%';
+                    showToast('Failed to upload ' + file.name, 'error');
+                    reject(new Error('Network error'));
+                };
+                xhr.open('POST', '/api/upload');
+                xhr.send(formData);
+            });
         }
         
         // Playlists

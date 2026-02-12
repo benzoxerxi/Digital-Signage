@@ -22,9 +22,11 @@ class Config:
     # Session
     PERMANENT_SESSION_LIFETIME = timedelta(days=7)
     
-    # File upload
+    # File upload and tenant data (devices, playlists, etc.)
+    # Set DATA_DIR to a persistent disk path (e.g. Render: /opt/render/project/data) so offline devices and data survive redeploys.
+    _data_dir = os.environ.get('DATA_DIR', '').strip()
+    UPLOAD_FOLDER = os.path.join(_data_dir, 'tenants') if _data_dir else 'data/tenants'
     MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 500MB max file size
-    UPLOAD_FOLDER = 'data/tenants'
     ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mkv', 'mov', 'webm', 'jpg', 'jpeg', 'png', 'gif'}
     
     # Device settings

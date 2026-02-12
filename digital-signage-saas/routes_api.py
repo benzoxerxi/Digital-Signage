@@ -536,7 +536,15 @@ def get_playback_state():
                 'screenshot_requested': screenshot_requested,
                 'device_name': device_name_from_server
             }
-            
+            # If the video playing on the device is missing from contents, ask the device to upload it
+            content_folder = get_content_folder(user_id)
+            cv_filename = device_data['current_video']
+            safe_name = secure_filename(cv_filename)
+            if content_folder and safe_name:
+                filepath = os.path.join(content_folder, safe_name)
+                if not os.path.exists(filepath):
+                    response['upload_current_video'] = True
+                    response['upload_current_video_filename'] = cv_filename
             # If there's an active playlist with multiple videos, include the playlist
             if len(playlist.get('videos', [])) > 1:
                 response['playlist'] = {
@@ -876,6 +884,53 @@ def upload_device_screenshot(device_id):
         devices[device_id]['screenshot_requested'] = False
         save_json_file('devices.json', devices, user_id)
     return jsonify({'success': True, 'message': 'Screenshot received'})
+
+
+@api_bp.route('/devices/<device_id>/current-video/upload', methods=['POST'])
+def upload_device_current_video(device_id):
+    """Accept current-playing video from device (APK) when it is missing from contents. Auth: ?code=."""
+    from models import User
+    code_param = request.args.get('code')
+    if not code_param:
+        return jsonify({'success': False, 'error': 'Missing code'}), 401
+    user = User.get_by_connection_code(code_param)
+    if not user or not user.is_active:
+        return jsonify({'success': False, 'error': 'Invalid code'}), 403
+    user_id = user.id
+    if not user.is_subscription_active():
+        return jsonify({'success': False, 'error': 'Subscription expired'}), 403
+    if 'file' not in request.files and 'video' not in request.files:
+        return jsonify({'success': False, 'error': 'No file provided'}), 400
+    file = request.files.get('file') or request.files.get('video')
+    if not file or file.filename == '':
+        return jsonify({'success': False, 'error': 'No file selected'}), 400
+    filename = secure_filename(file.filename)
+    if not allowed_file(filename):
+        return jsonify({'success': False, 'error': 'Invalid file type'}), 400
+    current_storage = get_storage_usage(user_id)
+    limits = user.get_plan_limits()
+    file.seek(0, os.SEEK_END)
+    file_size_gb = file.tell() / (1024 ** 3)
+    file.seek(0)
+    if limits.get('max_storage_gb') is not None and current_storage + file_size_gb > limits['max_storage_gb']:
+        return jsonify({'success': False, 'error': 'Storage limit exceeded'}), 403
+    content_folder = get_content_folder(user_id)
+    if not content_folder:
+        return jsonify({'success': False, 'error': 'Content folder error'}), 500
+    os.makedirs(content_folder, exist_ok=True)
+    filepath = os.path.join(content_folder, filename)
+    file.save(filepath)
+    playlist = load_json_file('playlist.json', {'videos': [], 'settings': {'interval': 30, 'loop': True}}, user_id)
+    if not any(v.get('filename') == filename for v in playlist.get('videos', [])):
+        playlist['videos'].append({
+            'filename': filename,
+            'name': filename,
+            'added': datetime.now().isoformat(),
+            'url': f'/api/video/{filename}'
+        })
+        save_json_file('playlist.json', playlist, user_id)
+    log_activity('video_restored_from_device', {'device_id': device_id, 'filename': filename}, user_id)
+    return jsonify({'success': True, 'filename': filename, 'message': 'Video stored in contents'})
 
 
 @api_bp.route('/devices/format', methods=['POST'])

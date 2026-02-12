@@ -140,10 +140,12 @@ def _clear_removed_device(user_id, device_id):
 
 
 def update_device_heartbeat(device_id, device_name=None, device_info=None, user_id=None, from_setup=False):
-    """Update device information for tenant. If device was removed from panel and from_setup is False, returns None (caller should respond with removed=True to APK)."""
+    """Update device information for tenant. If device was removed from panel and from_setup is False, returns None (caller should respond with removed=True to APK).
+    log_activity is called outside the lock to avoid blocking other heartbeats (DB commit can be slow)."""
     if user_id is None:
         user_id = current_user.id
-    
+
+    is_new_device = False
     with device_lock:
         removed = _get_removed_devices(user_id)
         if from_setup:
@@ -152,8 +154,9 @@ def update_device_heartbeat(device_id, device_name=None, device_info=None, user_
             return None  # Removed from panel; do not re-add. Caller returns removed=True to APK.
 
         devices = load_json_file('devices.json', {}, user_id)
-        
+
         if device_id not in devices:
+            is_new_device = True
             devices[device_id] = {
                 'id': device_id,
                 'name': device_name or f'Display {len(devices) + 1}',
@@ -163,18 +166,18 @@ def update_device_heartbeat(device_id, device_name=None, device_info=None, user_
                 'status': 'idle',
                 'info': device_info or {}
             }
-            log_activity('device_connected', {'device_id': device_id, 'name': device_name}, user_id)
-        
+
         devices[device_id]['last_seen'] = datetime.now().isoformat()
-        
-        # Do not overwrite name on heartbeat — user may have set a custom name on the dashboard.
-        # Name is only set when the device is first created above.
 
         if device_info:
             devices[device_id]['info'].update(device_info)
-        
+
         save_json_file('devices.json', devices, user_id)
-        return devices[device_id]
+        result = devices[device_id]
+
+    if is_new_device:
+        log_activity('device_connected', {'device_id': device_id, 'name': device_name}, user_id)
+    return result
 
 
 def get_connected_devices(user_id=None):

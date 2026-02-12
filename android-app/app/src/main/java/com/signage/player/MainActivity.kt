@@ -342,7 +342,17 @@ class MainActivity : AppCompatActivity() {
                     captureAndUploadScreenshot()
                 }
 
-                if (playbackState.command_id != lastCommandId) {
+                // Explicit clear_cache (format): stop, clear cache, empty playlist – do not resume from playlist
+                if (playbackState.clear_cache == true) {
+                    Log.d(TAG, "clear_cache requested by server – stopping and clearing")
+                    player?.stop()
+                    showScreensaver(true)
+                    clearVideoCache()
+                    currentPlaylist = emptyList()
+                    currentVideoIndex = 0
+                    lastCommandId = playbackState.command_id
+                    Log.d(TAG, "Playback stopped, cache cleared, waiting for new command")
+                } else if (playbackState.command_id != lastCommandId) {
                     Log.d(TAG, "New command received! Previous: $lastCommandId, New: ${playbackState.command_id}")
                     lastCommandId = playbackState.command_id
 
@@ -350,7 +360,7 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "Server commanded to play: ${playbackState.current_video}")
                         playSpecificVideo(playbackState.current_video)
                     } else if (playbackState.command_id > 0) {
-                        // Explicit Format Cache from dashboard (command_id was incremented, current_video cleared)
+                        // Format/stop (command_id incremented, current_video cleared)
                         Log.d(TAG, "Stop/format command received - stopping all playback")
                         player?.stop()
                         showScreensaver(true)
@@ -363,7 +373,7 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "Server state reset (e.g. redeploy); keeping cached playback")
                     }
                 } else {
-                    // No new command - only update if not stopped
+                    // No new command - only update playlist if we have one or server says play something
                     if (currentPlaylist.isNotEmpty() || playbackState.current_video != null) {
                         updatePlaylist()
                     }

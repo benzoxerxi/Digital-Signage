@@ -363,6 +363,15 @@ def get_playback_state():
         # Include screenshot_requested and device_name so display can respond
         screenshot_requested = device_data.get('screenshot_requested', False)
         device_name_from_server = device_data.get('name')
+        # If format was requested, include clear_cache and clear the flag after sending once
+        clear_cache = device_data.get('clear_cache', False)
+        if clear_cache:
+            with device_lock:
+                devs = load_json_file('devices.json', {}, user_id)
+                if device_id in devs:
+                    devs[device_id].pop('clear_cache', None)
+                    save_json_file('devices.json', devs, user_id)
+
         if device_data.get('current_video'):
             response = {
                 'current_video': device_data['current_video'],
@@ -374,16 +383,17 @@ def get_playback_state():
                 'loop': playlist.get('settings', {}).get('loop', True),
                 'interval': playlist.get('settings', {}).get('interval', 30),
                 'screenshot_requested': screenshot_requested,
-                'device_name': device_name_from_server
+                'device_name': device_name_from_server,
+                'clear_cache': clear_cache
             }
             # If there's an active playlist with multiple videos, include the playlist
             if len(playlist.get('videos', [])) > 1:
                 response['playlist'] = {
                     'videos': [v['filename'] for v in playlist['videos']],
-                    'current_index': next((i for i, v in enumerate(playlist['videos']) 
+                    'current_index': next((i for i, v in enumerate(playlist['videos'])
                                           if v['filename'] == device_data['current_video']), 0)
                 }
-            
+
             return jsonify(response)
         else:
             return jsonify({
@@ -395,7 +405,8 @@ def get_playback_state():
                 'status': 'connected',
                 'loop': True,
                 'screenshot_requested': screenshot_requested,
-                'device_name': device_name_from_server
+                'device_name': device_name_from_server,
+                'clear_cache': clear_cache
             })
     except Exception as e:
         return jsonify({
@@ -744,7 +755,8 @@ def format_devices():
                 'command_id': devices[device_id].get('command_id', 0) + 1,
                 'status': 'idle',
                 'info': devices[device_id].get('info', {}),
-                'online': devices[device_id].get('online', False)
+                'online': devices[device_id].get('online', False),
+                'clear_cache': True,  # APK will clear cache and stop; we clear this flag after sending once
             }
             formatted_count += 1
             log_activity('device_formatted', {'device_id': device_id})

@@ -30,9 +30,27 @@
     </div>
 </div>
 <div class="admin-card">
+    <div class="admin-card-header">Payoneer (payments)</div>
+    <div class="admin-card-body">
+        <p style="color: var(--wp-text-light); font-size: 0.9rem; margin-bottom: 1rem;">Users will pay the $10 plan via Payoneer. Set your Payoneer details below; they will be shown on the Subscriptions page when a user clicks Subscribe.</p>
+        <form method="post" style="max-width: 560px;">
+            <input type="hidden" name="form_section" value="payoneer">
+            <div class="form-group">
+                <label>Payoneer email (or account identifier)</label>
+                <input type="text" name="payoneer_email" class="form-control" value="{{ settings.payoneer_email or '' }}" placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+                <label>Payment instructions (optional)</label>
+                <textarea name="payoneer_instructions" class="form-control" rows="4" placeholder="e.g. Send $10/month to the email above. Mention your account email so we can activate your plan. We will activate within 24h after payment.">{{ settings.payoneer_instructions or '' }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Payoneer settings</button>
+        </form>
+    </div>
+</div>
+<div class="admin-card">
     <div class="admin-card-header">System Information</div>
     <div class="admin-card-body">
-        <p style="color: var(--wp-text-light); font-size: 0.9rem;">Stripe, email, and database configuration are managed via <code>config.py</code> and environment variables.</p>
+        <p style="color: var(--wp-text-light); font-size: 0.9rem;">Email and database configuration are managed via <code>config.py</code> and environment variables. Payments use Payoneer (configure above).</p>
     </div>
 </div>
 {% endblock %}

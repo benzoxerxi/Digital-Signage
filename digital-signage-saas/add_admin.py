@@ -24,7 +24,7 @@ with app.app_context():
             email='admin@example.com',
             company_name='System Administrator',
             is_admin=True,
-            plan='enterprise',
+            plan='paid',
             subscription_status='active'
         )
         admin.set_password('admin123')

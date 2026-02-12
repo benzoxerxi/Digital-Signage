@@ -255,12 +255,17 @@ def load_admin_settings():
             'support_email': '',
             'default_trial_days': 7,
             'maintenance_mode': False,
+            'payoneer_email': '',
+            'payoneer_instructions': '',
         }
     try:
         with open(path, 'r') as f:
-            return json.load(f)
+            data = json.load(f)
+        data.setdefault('payoneer_email', '')
+        data.setdefault('payoneer_instructions', '')
+        return data
     except Exception:
-        return {'site_name': 'Digital Signage', 'support_email': '', 'default_trial_days': 7, 'maintenance_mode': False}
+        return {'site_name': 'Digital Signage', 'support_email': '', 'default_trial_days': 7, 'maintenance_mode': False, 'payoneer_email': '', 'payoneer_instructions': ''}
 
 
 def save_admin_settings(settings):

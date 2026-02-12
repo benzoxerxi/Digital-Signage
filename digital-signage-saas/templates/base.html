@@ -110,14 +110,19 @@
                 left: 0;
                 right: 0;
                 bottom: 0;
+                min-width: 100vw;
+                min-height: 100vh;
                 background: rgba(0, 0, 0, 0.4);
                 z-index: 1000;
                 opacity: 0;
                 transition: opacity 0.25s ease;
+                cursor: pointer;
+                pointer-events: none;
             }
             .nav-overlay.active {
                 display: block;
                 opacity: 1;
+                pointer-events: auto;
             }
             .navbar .nav-links {
                 display: flex;
@@ -296,7 +301,12 @@
                     e.stopPropagation();
                     toggleMenu();
                 });
-                if (overlay) overlay.addEventListener('click', closeMenu);
+                if (overlay) {
+                    overlay.addEventListener('click', closeMenu);
+                    overlay.addEventListener('touchend', function(e) {
+                        if (e.target === overlay) closeMenu();
+                    });
+                }
                 navLinks.querySelectorAll('a').forEach(function(a) {
                     a.addEventListener('click', closeMenu);
                 });

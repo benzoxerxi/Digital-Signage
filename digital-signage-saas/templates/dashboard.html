@@ -313,6 +313,11 @@
             align-items: center;
             margin-bottom: 20px;
         }
+        .card-header-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
         
         .card-title {
             font-size: 18px;
@@ -1122,12 +1127,25 @@
             
             .card-header {
                 flex-direction: column;
-                align-items: flex-start;
+                align-items: stretch;
                 gap: 12px;
             }
             
-            .card-header .btn, .card-header .btn-small {
+            .card-header-actions {
                 width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            
+            .card-header-actions .btn,
+            .card-header-actions .btn-small {
+                flex: 1 1 calc(50% - 4px);
+                min-width: 0;
+                min-height: 44px;
+            }
+            
+            .card-header .btn, .card-header .btn-small {
                 min-height: 44px;
             }
             
@@ -1173,6 +1191,11 @@
             
             .header-stats {
                 grid-template-columns: 1fr;
+            }
+            
+            .card-header-actions .btn,
+            .card-header-actions .btn-small {
+                flex: 1 1 100%;
             }
         }
     
@@ -1228,7 +1251,7 @@
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Displays</h2>
-                    <div style="display: flex; gap: 8px;">
+                    <div class="card-header-actions">
                         <button class="btn btn-secondary btn-small" onclick="selectAllDevices()">Select All</button>
                         <button class="btn btn-secondary btn-small" onclick="deselectAllDevices()">Clear</button>
                         <button class="btn btn-secondary btn-small" onclick="selectOnlineDevices()">Online Only</button>

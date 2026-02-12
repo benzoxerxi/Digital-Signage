@@ -33,9 +33,7 @@ data class PlaybackState(
     val screenshot_requested: Boolean? = false,
     val clear_cache: Boolean? = false,
     val device_name: String? = null,  // Server's name for this device
-    val removed: Boolean = false,  // Device was removed from panel; APK should show setup
-    val upload_current_video: Boolean = false,  // Server wants device to upload current video to contents
-    val upload_current_video_filename: String? = null
+    val removed: Boolean = false  // Device was removed from panel; APK should show setup
 )
 
 data class ServerStatus(
@@ -211,9 +209,7 @@ class ApiClient {
                         screenshot_requested = false,
                         clear_cache = false,
                         device_name = null,
-                        removed = true,
-                        upload_current_video = false,
-                        upload_current_video_filename = null
+                        removed = true
                     )
                 }
                 PlaybackState(
@@ -223,9 +219,7 @@ class ApiClient {
                     screenshot_requested = json.optBoolean("screenshot_requested", false),
                     clear_cache = json.optBoolean("clear_cache", false),
                     device_name = json.optString("device_name", null),
-                    removed = false,
-                    upload_current_video = json.optBoolean("upload_current_video", false),
-                    upload_current_video_filename = json.optString("upload_current_video_filename", null).takeIf { !it.isNullOrEmpty() }
+                    removed = false
                 )
             }
         }
@@ -316,37 +310,6 @@ class ApiClient {
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to upload screenshot", e)
                 throw e
-            }
-        }
-
-    /**
-     * Upload the current video file from device cache to server contents (when server reports it is missing).
-     */
-    suspend fun uploadCurrentVideoToServer(connectionCode: String, deviceId: String, filename: String, fileBytes: ByteArray): Boolean =
-        withContext(Dispatchers.IO) {
-            try {
-                val codeParam = if (connectionCode.isNotEmpty()) "?code=$connectionCode" else ""
-                val url = "$baseUrl/api/devices/$deviceId/current-video/upload$codeParam"
-                val mediaType = "video/mp4".toMediaType()
-                val body = MultipartBody.Builder()
-                    .setType(MultipartBody.FORM)
-                    .addFormDataPart("file", filename, fileBytes.toRequestBody(mediaType, 0, fileBytes.size))
-                    .build()
-                val request = Request.Builder()
-                    .url(url)
-                    .post(body)
-                    .build()
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        Log.e(TAG, "Current video upload failed: ${response.code} ${response.message}")
-                        return@withContext false
-                    }
-                    Log.d(TAG, "Current video uploaded to contents: $filename")
-                    true
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to upload current video", e)
-                false
             }
         }
 }

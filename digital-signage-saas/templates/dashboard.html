@@ -1628,9 +1628,13 @@
             </div>
             <div class="form-group">
                 <label class="form-label">From Google Drive</label>
-                <p class="form-hint" style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">Load root folder; select videos to add.</p>
-                <button type="button" class="btn btn-secondary btn-small" id="loadDriveForPlaylistBtn" onclick="loadDriveVideosForPlaylist()">Load Drive videos</button>
-                <select class="form-select" id="playlistDriveVideos" multiple size="4" style="margin-top: 8px;"></select>
+                <p class="form-hint" style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">Load Drive, then choose a folder and select videos to add.</p>
+                <button type="button" class="btn btn-secondary btn-small" id="loadDriveForPlaylistBtn" onclick="loadDriveVideosForPlaylist()">Load Drive</button>
+                <label class="form-label" style="margin-top: 10px; font-size: 12px;">Folder</label>
+                <select class="form-select" id="playlistDriveFolder" style="margin-bottom: 8px;" onchange="loadDriveFolderForPlaylist(this.value)">
+                    <option value="root">Root</option>
+                </select>
+                <select class="form-select" id="playlistDriveVideos" multiple size="4" style="margin-top: 4px;"></select>
             </div>
             <button class="btn btn-primary" onclick="savePlaylist()">Create Playlist</button>
         </div>
@@ -2296,34 +2300,55 @@
                 `<option value="${(v.filename || '').replace(/"/g, '&quot;')}">${(v.name || v.filename || '').replace(/</g, '&lt;')}</option>`
             ).join('');
             const driveSelect = document.getElementById('playlistDriveVideos');
+            const folderSelect = document.getElementById('playlistDriveFolder');
             if (driveSelect) driveSelect.innerHTML = '';
+            if (folderSelect) { folderSelect.innerHTML = '<option value="root">Root</option>'; folderSelect.value = 'root'; }
             openModal('createPlaylistModal');
         }
         
         async function loadDriveVideosForPlaylist() {
-            const sel = document.getElementById('playlistDriveVideos');
             const btn = document.getElementById('loadDriveForPlaylistBtn');
-            if (!sel || !btn) return;
-            btn.disabled = true;
-            btn.textContent = 'Loading...';
+            if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
+            await loadDriveFolderForPlaylist('root');
+            if (btn) { btn.disabled = false; btn.textContent = 'Load Drive'; }
+        }
+        
+        async function loadDriveFolderForPlaylist(folderId) {
+            const sel = document.getElementById('playlistDriveVideos');
+            const folderSelect = document.getElementById('playlistDriveFolder');
+            if (!sel) return;
+            const id = (folderId === 'root' || !folderId) ? 'root' : folderId;
+            var currentFolderName = 'Root';
+            if (folderSelect && folderSelect.selectedIndex >= 0) currentFolderName = folderSelect.options[folderSelect.selectedIndex].text;
             try {
-                const r = await fetch('/api/drive/files?folder_id=root');
+                const r = await fetch('/api/drive/files?folder_id=' + encodeURIComponent(id));
                 const data = await r.json();
                 if (data.error && !data.files) {
                     sel.innerHTML = '<option disabled>Connect Drive on Content tab first</option>';
+                    if (folderSelect) folderSelect.innerHTML = '<option value="root">Root</option>';
                     return;
                 }
                 const files = data.files || [];
+                const folders = data.folders || [];
                 sel.innerHTML = files.map(f => {
                     const name = (f.name || f.id).replace(/"/g, '&quot;').replace(/</g, '&lt;');
                     return `<option value="${f.id}" data-name="${name}">${name} (Drive)</option>`;
                 }).join('');
-                if (files.length === 0) sel.innerHTML = '<option disabled>No video files in root folder</option>';
+                if (files.length === 0 && folders.length === 0) sel.innerHTML = '<option disabled>No video files in this folder</option>';
+                if (folderSelect) {
+                    var opts = '<option value="root">Root</option>';
+                    if (id !== 'root') opts += '<option value="' + id + '">' + (currentFolderName.replace(/</g, '&lt;')) + '</option>';
+                    folders.forEach(f => {
+                        const name = (f.name || f.id).replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                        opts += '<option value="' + f.id + '">' + name + '</option>';
+                    });
+                    folderSelect.innerHTML = opts;
+                    folderSelect.value = id;
+                }
             } catch (e) {
-                sel.innerHTML = '<option disabled>Failed to load Drive</option>';
+                sel.innerHTML = '<option disabled>Failed to load folder</option>';
+                if (folderSelect) folderSelect.innerHTML = '<option value="root">Root</option>';
             }
-            btn.disabled = false;
-            btn.textContent = 'Load Drive videos';
         }
         
         async function savePlaylist() {
@@ -3544,7 +3569,9 @@
                 `<option value="${(v.filename || '').replace(/"/g, '&quot;')}">${(v.name || v.filename || '').replace(/</g, '&lt;')}</option>`
             ).join('');
             const driveSelect = document.getElementById('playlistDriveVideos');
+            const folderSelect = document.getElementById('playlistDriveFolder');
             if (driveSelect) driveSelect.innerHTML = '';
+            if (folderSelect) { folderSelect.innerHTML = '<option value="root">Root</option>'; folderSelect.value = 'root'; }
             openModal('createPlaylistModal');
         }
         

@@ -505,6 +505,10 @@ def play_video():
             if device_id in devices:
                 devices[device_id]['current_video'] = current_video_value
                 devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
+                if display_name:
+                    devices[device_id]['current_video_display_name'] = display_name
+                else:
+                    devices[device_id].pop('current_video_display_name', None)
                 set_current_video_display_name(_cu.id, device_id, display_name)
                 updated_count += 1
             else:
@@ -513,6 +517,10 @@ def play_video():
         for device_id in devices:
             devices[device_id]['current_video'] = current_video_value
             devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
+            if display_name:
+                devices[device_id]['current_video_display_name'] = display_name
+            else:
+                devices[device_id].pop('current_video_display_name', None)
             set_current_video_display_name(_cu.id, device_id, display_name)
         updated_count = len(devices)
     
@@ -544,6 +552,7 @@ def stop_playback():
                 devices[device_id]['current_video'] = None
                 devices[device_id]['status'] = 'idle'
                 devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
+                devices[device_id].pop('current_video_display_name', None)
                 set_current_video_display_name(_cu.id, device_id, None)
                 updated_count += 1
     else:
@@ -551,6 +560,7 @@ def stop_playback():
             devices[device_id]['current_video'] = None
             devices[device_id]['status'] = 'idle'
             devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
+            devices[device_id].pop('current_video_display_name', None)
             set_current_video_display_name(_cu.id, device_id, None)
         updated_count = len(devices)
     

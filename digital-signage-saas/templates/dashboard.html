@@ -290,6 +290,15 @@
         }
         
         .grid-2 { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+        .content-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 24px;
+        }
+        @media (max-width: 900px) {
+            .content-split { grid-template-columns: 1fr; }
+        }
         .grid-3 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
         .grid-4 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
         
@@ -1037,6 +1046,70 @@
             font-size: 12px;
         }
         
+        /* Device Groups: compact, inside Displays card, expandable */
+        .device-groups-wrap {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        .device-groups-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-muted);
+            user-select: none;
+        }
+        .device-groups-toggle:hover {
+            color: var(--text);
+        }
+        .device-groups-chevron {
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .device-groups-wrap.expanded .device-groups-chevron {
+            transform: rotate(90deg);
+        }
+        .device-groups-label {
+            flex: 1;
+            font-weight: 600;
+        }
+        .device-groups-content {
+            display: none;
+            margin-top: 12px;
+            padding-left: 18px;
+        }
+        .device-groups-wrap.expanded .device-groups-content {
+            display: block;
+        }
+        .device-groups-content .group-card {
+            padding: 10px 12px;
+            margin-bottom: 8px;
+        }
+        .device-groups-content .group-name {
+            font-size: 13px;
+        }
+        .device-groups-content .group-count {
+            font-size: 11px;
+            padding: 2px 8px;
+        }
+        .device-groups-content .group-device-badge {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        .device-groups-content .group-devices {
+            gap: 6px;
+        }
+        .device-groups-content .group-header {
+            margin-bottom: 8px;
+        }
+        .device-groups-content .btn-small {
+            padding: 4px 10px;
+            font-size: 11px;
+        }
+        
         /* Loading spinner */
         .spinner {
             width: 40px;
@@ -1335,15 +1408,16 @@
                     <h3 class="device-section-title">Offline</h3>
                     <div id="deviceGridOffline" class="device-grid device-grid-offline"></div>
                 </div>
-            </div>
-            <div class="card" style="margin-top: 24px;">
-                <div class="card-header">
-                    <h2 class="card-title">Device Groups</h2>
-                    <button class="btn btn-primary btn-small" onclick="openCreateGroupModal()">
-                        + Create Group
-                    </button>
+                <div class="device-groups-wrap">
+                    <div class="device-groups-toggle" onclick="toggleDeviceGroups()" role="button" tabindex="0" aria-expanded="false" id="deviceGroupsToggle">
+                        <span class="device-groups-chevron" id="deviceGroupsChevron">▶</span>
+                        <span class="device-groups-label">Device Groups</span>
+                        <button type="button" class="btn btn-primary btn-small" onclick="event.stopPropagation(); openCreateGroupModal();">+ Create</button>
+                    </div>
+                    <div id="deviceGroupsContent" class="device-groups-content" aria-hidden="true">
+                        <div id="groupList"></div>
+                    </div>
                 </div>
-                <div id="groupList"></div>
             </div>
         </div>
         
@@ -1385,31 +1459,32 @@
                 </div>
             </div>
             
-            <div class="card" style="margin-top: 24px;">
-                <div class="card-header">
-                    <h2 class="card-title">Video Library</h2>
-                    <div class="card-badge" id="videoBadge">0 videos</div>
-                </div>
-                <div id="videoList" class="video-list"></div>
-            </div>
-            
-            <div class="card" style="margin-top: 24px;">
-                <div class="card-header">
-                    <h2 class="card-title">Google Drive</h2>
-                    <button type="button" class="btn btn-primary btn-small" id="driveConnectBtn" onclick="connectGoogleDrive()">Connect Google Drive</button>
-                    <button type="button" class="btn btn-secondary btn-small" id="driveDisconnectBtn" style="display: none;" onclick="disconnectGoogleDrive()">Disconnect</button>
-                </div>
-                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">Connect your own Google account to play videos from a Drive folder. Devices stream from Drive (server stays light) and cache videos locally.</p>
-                <div id="driveToolbar" style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap;">
-                    <div id="driveBackBar" style="display: none;">
-                        <button type="button" class="btn btn-secondary btn-small" onclick="driveBack()">← Back</button>
+            <div class="content-split grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Video Library</h2>
+                        <div class="card-badge" id="videoBadge">0 videos</div>
                     </div>
-                    <div style="margin-left: auto; display: flex; gap: 4px;">
-                        <button type="button" class="btn btn-ghost btn-small drive-layout-btn" id="driveLayoutList" onclick="setDriveLayout('list')" title="List view">☰ List</button>
-                        <button type="button" class="btn btn-ghost btn-small drive-layout-btn" id="driveLayoutGrid" onclick="setDriveLayout('grid')" title="Grid view">⊞ Grid</button>
-                    </div>
+                    <div id="videoList" class="video-list"></div>
                 </div>
-                <div id="driveFileList" class="video-list drive-file-list"></div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Google Drive</h2>
+                        <button type="button" class="btn btn-primary btn-small" id="driveConnectBtn" onclick="connectGoogleDrive()">Connect Google Drive</button>
+                        <button type="button" class="btn btn-secondary btn-small" id="driveDisconnectBtn" style="display: none;" onclick="disconnectGoogleDrive()">Disconnect</button>
+                    </div>
+                    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">Connect your own Google account to play videos from a Drive folder. Devices stream from Drive (server stays light) and cache videos locally.</p>
+                    <div id="driveToolbar" style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap;">
+                        <div id="driveBackBar" style="display: none;">
+                            <button type="button" class="btn btn-secondary btn-small" onclick="driveBack()">← Back</button>
+                        </div>
+                        <div style="margin-left: auto; display: flex; gap: 4px;">
+                            <button type="button" class="btn btn-ghost btn-small drive-layout-btn" id="driveLayoutList" onclick="setDriveLayout('list')" title="List view">☰ List</button>
+                            <button type="button" class="btn btn-ghost btn-small drive-layout-btn" id="driveLayoutGrid" onclick="setDriveLayout('grid')" title="Grid view">⊞ Grid</button>
+                        </div>
+                    </div>
+                    <div id="driveFileList" class="video-list drive-file-list"></div>
+                </div>
             </div>
         </div>
         
@@ -2458,6 +2533,17 @@
             }
         }
         
+        function toggleDeviceGroups() {
+            var wrap = document.querySelector('.device-groups-wrap');
+            var toggle = document.getElementById('deviceGroupsToggle');
+            var content = document.getElementById('deviceGroupsContent');
+            if (wrap && toggle && content) {
+                wrap.classList.toggle('expanded');
+                var isExpanded = wrap.classList.contains('expanded');
+                toggle.setAttribute('aria-expanded', isExpanded);
+                content.setAttribute('aria-hidden', !isExpanded);
+            }
+        }
         function openCreateGroupModal() {
             const select = document.getElementById('groupDevices');
             select.innerHTML = allDevices.map(d => 
@@ -3655,6 +3741,17 @@
             }
         }
         
+        function toggleDeviceGroups() {
+            var wrap = document.querySelector('.device-groups-wrap');
+            var toggle = document.getElementById('deviceGroupsToggle');
+            var content = document.getElementById('deviceGroupsContent');
+            if (wrap && toggle && content) {
+                wrap.classList.toggle('expanded');
+                var isExpanded = wrap.classList.contains('expanded');
+                toggle.setAttribute('aria-expanded', isExpanded);
+                content.setAttribute('aria-hidden', !isExpanded);
+            }
+        }
         function openCreateGroupModal() {
             const select = document.getElementById('groupDevices');
             select.innerHTML = allDevices.map(d => 

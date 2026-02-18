@@ -1082,11 +1082,16 @@
             padding-left: 18px;
         }
         .device-groups-wrap.expanded .device-groups-content {
-            display: block;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 12px;
         }
         .device-groups-content .group-card {
             padding: 10px 12px;
-            margin-bottom: 8px;
+            margin-bottom: 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
         }
         .device-groups-content .group-name {
             font-size: 13px;
@@ -1108,6 +1113,12 @@
         .device-groups-content .btn-small {
             padding: 4px 10px;
             font-size: 11px;
+        }
+        @media (max-width: 1200px) {
+            .device-groups-wrap.expanded .device-groups-content { grid-template-columns: repeat(4, 1fr); }
+        }
+        @media (max-width: 640px) {
+            .device-groups-wrap.expanded .device-groups-content { grid-template-columns: repeat(2, 1fr); }
         }
         
         /* Loading spinner */
@@ -1602,7 +1613,7 @@
     </div>
     
     <div class="modal" id="createPlaylistModal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 560px;">
             <div class="modal-header">
                 <h3 class="modal-title">Create Playlist</h3>
                 <button class="modal-close" onclick="closeModal('createPlaylistModal')">×</button>
@@ -1612,8 +1623,14 @@
                 <input type="text" class="form-input" id="playlistName" placeholder="e.g., Morning Rotation">
             </div>
             <div class="form-group">
-                <label class="form-label">Add Videos</label>
-                <select class="form-select" id="playlistVideos" multiple size="6"></select>
+                <label class="form-label">From Video Library</label>
+                <select class="form-select" id="playlistVideos" multiple size="4"></select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">From Google Drive</label>
+                <p class="form-hint" style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">Load root folder; select videos to add.</p>
+                <button type="button" class="btn btn-secondary btn-small" id="loadDriveForPlaylistBtn" onclick="loadDriveVideosForPlaylist()">Load Drive videos</button>
+                <select class="form-select" id="playlistDriveVideos" multiple size="4" style="margin-top: 8px;"></select>
             </div>
             <button class="btn btn-primary" onclick="savePlaylist()">Create Playlist</button>
         </div>
@@ -1984,35 +2001,29 @@
             if (statusEl) statusEl.textContent = status || '';
         }
         
-        async function playVideo(filename, fromPlaylist = false) {
-            if (!fromPlaylist) {
-                showToast('❌ Videos can only be played from playlists. Go to Playlists tab.', 'error');
-                return;
-            }
-            
+        async function playVideoFromPlaylist(videoEntry) {
             var targetsEl = document.getElementById('playbackProgressTargets');
             if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
             setPlaybackProgress(0, 'Sending to devices...');
             openModal('playbackProgressModal');
-            
+            const isDrive = videoEntry && (videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.startsWith('drive:')));
+            const payload = {};
+            if (selectedDevices.length > 0) payload.device_ids = selectedDevices;
+            if (isDrive) {
+                payload.drive_file_id = videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.replace(/^drive:/, ''));
+                payload.name = videoEntry.name || payload.drive_file_id;
+            } else {
+                payload.filename = typeof videoEntry === 'string' ? videoEntry : (videoEntry && videoEntry.filename);
+            }
+            const displayName = videoEntry && videoEntry.name ? videoEntry.name : (payload.filename || payload.drive_file_id);
             try {
                 setPlaybackProgress(20, 'Sending to devices...');
-                const payload = {filename: filename};
-                if (selectedDevices.length > 0) {
-                    payload.device_ids = selectedDevices;
-                }
-                
-                const response = await fetch('/api/playback/play', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-                
+                const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 setPlaybackProgress(80, 'Updating displays...');
                 const result = await response.json();
                 if (result.success) {
                     setPlaybackProgress(100, 'Done — playing on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)');
-                    showToast('Playing "' + filename + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
+                    showToast('Playing "' + displayName + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
                     await loadDevices();
                     setTimeout(function() { closeModal('playbackProgressModal'); }, 2000);
                 } else {
@@ -2023,6 +2034,14 @@
                 setPlaybackProgress(100, 'Failed: network error');
                 showToast('Failed to play video', 'error');
             }
+        }
+        
+        async function playVideo(filename, fromPlaylist = false) {
+            if (!fromPlaylist) {
+                showToast('❌ Videos can only be played from playlists. Go to Playlists tab.', 'error');
+                return;
+            }
+            await playVideoFromPlaylist({ filename: filename, name: filename });
         }
         
         async function deleteVideo(filename) {
@@ -2274,18 +2293,52 @@
         function openCreatePlaylistModal() {
             const select = document.getElementById('playlistVideos');
             select.innerHTML = allVideos.map(v => 
-                `<option value="${v.filename}">${v.name}</option>`
+                `<option value="${(v.filename || '').replace(/"/g, '&quot;')}">${(v.name || v.filename || '').replace(/</g, '&lt;')}</option>`
             ).join('');
+            const driveSelect = document.getElementById('playlistDriveVideos');
+            if (driveSelect) driveSelect.innerHTML = '';
             openModal('createPlaylistModal');
+        }
+        
+        async function loadDriveVideosForPlaylist() {
+            const sel = document.getElementById('playlistDriveVideos');
+            const btn = document.getElementById('loadDriveForPlaylistBtn');
+            if (!sel || !btn) return;
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+            try {
+                const r = await fetch('/api/drive/files?folder_id=root');
+                const data = await r.json();
+                if (data.error && !data.files) {
+                    sel.innerHTML = '<option disabled>Connect Drive on Content tab first</option>';
+                    return;
+                }
+                const files = data.files || [];
+                sel.innerHTML = files.map(f => {
+                    const name = (f.name || f.id).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                    return `<option value="${f.id}" data-name="${name}">${name} (Drive)</option>`;
+                }).join('');
+                if (files.length === 0) sel.innerHTML = '<option disabled>No video files in root folder</option>';
+            } catch (e) {
+                sel.innerHTML = '<option disabled>Failed to load Drive</option>';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Load Drive videos';
         }
         
         async function savePlaylist() {
             const name = document.getElementById('playlistName').value;
             const select = document.getElementById('playlistVideos');
-            const videos = Array.from(select.selectedOptions).map(o => o.value);
+            const driveSelect = document.getElementById('playlistDriveVideos');
+            const serverVideos = Array.from(select.selectedOptions).map(o => ({ filename: o.value, name: o.textContent }));
+            const driveVideos = Array.from(driveSelect ? driveSelect.selectedOptions : []).map(o => ({
+                drive_file_id: o.value,
+                name: o.getAttribute('data-name') || o.textContent.replace(/\s*\(Drive\)\s*$/, '')
+            }));
+            const videos = serverVideos.concat(driveVideos);
             
             if (!name || videos.length === 0) {
-                showToast('Please enter a name and select at least one video', 'error');
+                showToast('Please enter a name and select at least one video (Library or Drive)', 'error');
                 return;
             }
             
@@ -2293,13 +2346,16 @@
                 const response = await fetch('/api/playlists', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({name, videos})
+                    body: JSON.stringify({ name, videos })
                 });
                 
                 if (response.ok) {
                     showToast('Playlist created', 'success');
                     closeModal('createPlaylistModal');
                     await loadPlaylists();
+                } else {
+                    const err = await response.json();
+                    showToast(err.error || 'Failed to create playlist', 'error');
                 }
             } catch (error) {
                 showToast('Failed to create playlist', 'error');
@@ -2324,9 +2380,9 @@
                     return;
                 }
                 showToast(`✅ Activated: ${playlist.name} (${result.video_count || videoCount} videos)`, 'success');
-                const firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : (playlist.videos[0] || null);
-                if (firstVideo) {
-                    await playVideo(firstVideo, true);
+                const firstEntry = result.videos && result.videos[0] ? result.videos[0] : (playlist.videos[0] || null);
+                if (firstEntry) {
+                    await playVideoFromPlaylist(firstEntry);
                 }
             } catch (error) {
                 console.error('Activation error:', error);
@@ -2338,14 +2394,16 @@
             const playlist = allPlaylists.find(p => p.id === playlistId);
             if (playlist) {
                 const preview = document.getElementById('playlistPreview');
+                const videos = playlist.videos || [];
+                const names = videos.map(v => typeof v === 'object' && v && v.name ? v.name : (v || ''));
                 preview.innerHTML = `
                     <h3 style="margin-bottom: 16px;">${playlist.name}</h3>
                     <div class="video-list">
-                        ${(playlist.videos || []).map((v, i) => `
+                        ${names.map((name, i) => `
                             <div class="video-item">
                                 <div style="font-weight: 600; color: var(--primary); width: 30px;">${i + 1}</div>
                                 <div class="video-info">
-                                    <div class="video-name">${v}</div>
+                                    <div class="video-name">${(name || '').replace(/</g, '&lt;')}</div>
                                 </div>
                             </div>
                         `).join('')}
@@ -3196,35 +3254,29 @@
             if (statusEl) statusEl.textContent = status || '';
         }
         
-        async function playVideo(filename, fromPlaylist = false) {
-            if (!fromPlaylist) {
-                showToast('❌ Videos can only be played from playlists. Go to Playlists tab.', 'error');
-                return;
-            }
-            
+        async function playVideoFromPlaylist(videoEntry) {
             var targetsEl = document.getElementById('playbackProgressTargets');
             if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
             setPlaybackProgress(0, 'Sending to devices...');
             openModal('playbackProgressModal');
-            
+            const isDrive = videoEntry && (videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.startsWith('drive:')));
+            const payload = {};
+            if (selectedDevices.length > 0) payload.device_ids = selectedDevices;
+            if (isDrive) {
+                payload.drive_file_id = videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.replace(/^drive:/, ''));
+                payload.name = videoEntry.name || payload.drive_file_id;
+            } else {
+                payload.filename = typeof videoEntry === 'string' ? videoEntry : (videoEntry && videoEntry.filename);
+            }
+            const displayName = videoEntry && videoEntry.name ? videoEntry.name : (payload.filename || payload.drive_file_id);
             try {
                 setPlaybackProgress(20, 'Sending to devices...');
-                const payload = {filename: filename};
-                if (selectedDevices.length > 0) {
-                    payload.device_ids = selectedDevices;
-                }
-                
-                const response = await fetch('/api/playback/play', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-                
+                const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 setPlaybackProgress(80, 'Updating displays...');
                 const result = await response.json();
                 if (result.success) {
                     setPlaybackProgress(100, 'Done — playing on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)');
-                    showToast('Playing "' + filename + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
+                    showToast('Playing "' + displayName + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
                     await loadDevices();
                     setTimeout(function() { closeModal('playbackProgressModal'); }, 2000);
                 } else {
@@ -3235,6 +3287,14 @@
                 setPlaybackProgress(100, 'Failed: network error');
                 showToast('Failed to play video', 'error');
             }
+        }
+        
+        async function playVideo(filename, fromPlaylist = false) {
+            if (!fromPlaylist) {
+                showToast('❌ Videos can only be played from playlists. Go to Playlists tab.', 'error');
+                return;
+            }
+            await playVideoFromPlaylist({ filename: filename, name: filename });
         }
         
         async function deleteVideo(filename) {
@@ -3481,32 +3541,40 @@
         function openCreatePlaylistModal() {
             const select = document.getElementById('playlistVideos');
             select.innerHTML = allVideos.map(v => 
-                `<option value="${v.filename}">${v.name}</option>`
+                `<option value="${(v.filename || '').replace(/"/g, '&quot;')}">${(v.name || v.filename || '').replace(/</g, '&lt;')}</option>`
             ).join('');
+            const driveSelect = document.getElementById('playlistDriveVideos');
+            if (driveSelect) driveSelect.innerHTML = '';
             openModal('createPlaylistModal');
         }
         
         async function savePlaylist() {
             const name = document.getElementById('playlistName').value;
             const select = document.getElementById('playlistVideos');
-            const videos = Array.from(select.selectedOptions).map(o => o.value);
-            
+            const driveSelect = document.getElementById('playlistDriveVideos');
+            const serverVideos = Array.from(select.selectedOptions).map(o => ({ filename: o.value, name: o.textContent }));
+            const driveVideos = Array.from(driveSelect ? driveSelect.selectedOptions : []).map(o => ({
+                drive_file_id: o.value,
+                name: o.getAttribute('data-name') || o.textContent.replace(/\s*\(Drive\)\s*$/, '')
+            }));
+            const videos = serverVideos.concat(driveVideos);
             if (!name || videos.length === 0) {
-                showToast('Please enter a name and select videos', 'error');
+                showToast('Please enter a name and select at least one video (Library or Drive)', 'error');
                 return;
             }
-            
             try {
                 const response = await fetch('/api/playlists', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({name, videos})
+                    body: JSON.stringify({ name, videos })
                 });
-                
                 if (response.ok) {
                     showToast('Playlist created', 'success');
                     closeModal('createPlaylistModal');
                     await loadPlaylists();
+                } else {
+                    const err = await response.json();
+                    showToast(err.error || 'Failed to create playlist', 'error');
                 }
             } catch (error) {
                 showToast('Failed to create playlist', 'error');
@@ -3515,24 +3583,17 @@
         
         async function playPlaylist(playlistId) {
             const playlist = allPlaylists.find(p => p.id === playlistId);
-            if (!playlist || playlist.videos.length === 0) {
+            if (!playlist || !playlist.videos || playlist.videos.length === 0) {
                 showToast('Playlist is empty', 'error');
                 return;
             }
-            
             try {
-                // Activate this playlist first (copies to playlist.json for Android)
-                const response = await fetch(`/api/playlists/${playlistId}/activate`, {
-                    method: 'POST'
-                });
-                
+                const response = await fetch(`/api/playlists/${playlistId}/activate`, { method: 'POST' });
                 const result = await response.json();
                 if (result.success) {
                     showToast(`✅ Activated: ${result.playlist_name} (${result.video_count} videos)`, 'success');
-                    // Pass TRUE to allow playback from playlist
-                    const firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : playlist.videos[0];
-                    console.log("Playing first video:", firstVideo);
-                    await playVideo(firstVideo, true);
+                    const firstEntry = result.videos && result.videos[0] ? result.videos[0] : playlist.videos[0];
+                    if (firstEntry) await playVideoFromPlaylist(firstEntry);
                 } else {
                     showToast('Failed to activate playlist', 'error');
                 }
@@ -3546,14 +3607,16 @@
             const playlist = allPlaylists.find(p => p.id === playlistId);
             if (playlist) {
                 const preview = document.getElementById('playlistPreview');
+                const videos = playlist.videos || [];
+                const names = videos.map(v => typeof v === 'object' && v && v.name ? v.name : (v || ''));
                 preview.innerHTML = `
                     <h3 style="margin-bottom: 16px;">${playlist.name}</h3>
                     <div class="video-list">
-                        ${playlist.videos.map((v, i) => `
+                        ${names.map((name, i) => `
                             <div class="video-item">
                                 <div style="font-weight: 600; color: var(--primary); width: 30px;">${i + 1}</div>
                                 <div class="video-info">
-                                    <div class="video-name">${v}</div>
+                                    <div class="video-name">${(name || '').replace(/</g, '&lt;')}</div>
                                 </div>
                             </div>
                         `).join('')}

@@ -777,12 +777,31 @@ def handle_playlists():
     
     data = request.json or {}
     playlists = load_json_file('playlists.json', {'playlists': []})
+    raw_videos = data.get('videos') or []
+    # Normalize: allow strings (server filename) or objects { filename, name?, drive_file_id? }
+    videos = []
+    for v in raw_videos:
+        if isinstance(v, dict):
+            if v.get('drive_file_id'):
+                videos.append({
+                    'filename': f"drive:{v['drive_file_id']}",
+                    'name': v.get('name') or v.get('drive_file_id'),
+                    'drive_file_id': v['drive_file_id']
+                })
+            else:
+                videos.append({
+                    'filename': v.get('filename', ''),
+                    'name': v.get('name') or v.get('filename', '')
+                })
+        else:
+            fn = str(v)
+            videos.append({'filename': fn, 'name': fn})
     
     import time
     new_playlist = {
         'id': f'playlist_{int(time.time())}',
         'name': data.get('name') or 'Untitled playlist',
-        'videos': data.get('videos') or [],
+        'videos': videos,
         'created': datetime.now().isoformat()
     }
     
@@ -822,39 +841,50 @@ def activate_playlist(playlist_id):
         if not playlist.get('videos') or len(playlist['videos']) == 0:
             return jsonify({'success': False, 'error': 'Playlist is empty'}), 400
         
-        # Load main playlist
-        main_playlist = load_json_file('playlist.json', {
-            'videos': [], 
-            'settings': {'interval': 30, 'loop': True},
-            'active_playlist_id': None,
-            'active_playlist_name': None
-        })
-        
-        # Get content folder to build full video objects
-        content_folder = get_content_folder()
+        user_id = current_user.id
+        content_folder = get_content_folder(user_id)
         video_objects = []
         
-        for video_filename in playlist['videos']:
-            filepath = os.path.join(content_folder, video_filename)
-            if os.path.exists(filepath):
-                stat = os.stat(filepath)
+        for video in playlist['videos']:
+            if isinstance(video, dict) and video.get('drive_file_id'):
+                # Google Drive entry
                 video_objects.append({
-                    'filename': video_filename,
-                    'name': video_filename,
+                    'filename': f"drive:{video['drive_file_id']}",
+                    'name': video.get('name') or video['drive_file_id'],
+                    'drive_file_id': video['drive_file_id'],
                     'added': datetime.now().isoformat(),
-                    'url': f'/api/video/{video_filename}',
-                    'size': f"{stat.st_size / (1024*1024):.1f} MB"
+                    'url': f"/api/video/drive/{video['drive_file_id']}"
                 })
+            else:
+                # Server file (legacy string or object with filename)
+                filename = video.get('filename', video) if isinstance(video, dict) else video
+                filename = str(filename).strip()
+                if not filename:
+                    continue
+                filepath = os.path.join(content_folder, filename) if content_folder else None
+                if filepath and os.path.exists(filepath):
+                    stat = os.stat(filepath)
+                    video_objects.append({
+                        'filename': filename,
+                        'name': video.get('name', filename) if isinstance(video, dict) else filename,
+                        'added': datetime.now().isoformat(),
+                        'url': f'/api/video/{filename}',
+                        'size': f"{stat.st_size / (1024*1024):.1f} MB"
+                    })
         
         if len(video_objects) == 0:
             return jsonify({'success': False, 'error': 'No valid videos in playlist'}), 400
         
-        # Update main playlist with this playlist's videos
+        main_playlist = load_json_file('playlist.json', {
+            'videos': [],
+            'settings': {'interval': 30, 'loop': True},
+            'active_playlist_id': None,
+            'active_playlist_name': None
+        }, user_id)
         main_playlist['videos'] = video_objects
         main_playlist['active_playlist_id'] = playlist_id
         main_playlist['active_playlist_name'] = playlist['name']
-        
-        save_json_file('playlist.json', main_playlist)
+        save_json_file('playlist.json', main_playlist, user_id)
         
         log_activity('playlist_activated', {
             'playlist_id': playlist_id,

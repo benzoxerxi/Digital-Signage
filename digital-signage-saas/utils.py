@@ -232,6 +232,9 @@ def get_all_devices_with_status(user_id=None):
             # Device-reported current video / name: from in-memory cache only (not stored on server)
             row['reported_current_video'] = _reported_current_video_cache.get((user_id, device_id))
             row['reported_current_video_name'] = _reported_current_video_name_cache.get((user_id, device_id))
+            # Fallback: if device hasn't echoed a display name yet, use the name set at Play time
+            if not row['reported_current_video_name']:
+                row['reported_current_video_name'] = get_current_video_display_name(user_id, device_id)
             last_seen = datetime.fromisoformat(device_data.get('last_seen', now.isoformat()))
             seconds_ago = (now - last_seen).total_seconds()
             row['online'] = seconds_ago <= Config.DEVICE_TIMEOUT
@@ -245,6 +248,8 @@ def get_all_devices_with_status(user_id=None):
             row['id'] = device_id
             row['reported_current_video'] = _reported_current_video_cache.get((user_id, device_id))
             row['reported_current_video_name'] = _reported_current_video_name_cache.get((user_id, device_id))
+            if not row['reported_current_video_name']:
+                row['reported_current_video_name'] = get_current_video_display_name(user_id, device_id)
             row['online'] = False
             row['last_seen_ago'] = None
             result.append(row)

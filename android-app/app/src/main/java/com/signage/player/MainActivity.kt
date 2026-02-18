@@ -315,8 +315,9 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 // Fallback: legacy playback state + playlist behavior
+                val cachedVideo = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_CACHED_VIDEO_FILENAME, null) ?: ""
                 val playbackState = withContext(Dispatchers.IO) {
-                    apiClient.getPlaybackState(connectionCode, deviceId, deviceName, fromSetup = false)
+                    apiClient.getPlaybackState(connectionCode, deviceId, deviceName, fromSetup = false, currentVideoFromCache = cachedVideo)
                 }
 
                 if (playbackState.removed == true) {

@@ -387,13 +387,14 @@ def get_playback_state():
     
     user_id = user.id
     from_setup = request.args.get('from_setup') == '1'
+    reported_current_video = request.args.get('current_video')  # from device cache (APK sends in heartbeat)
     device_info = {
         'user_agent': request.headers.get('User-Agent', ''),
         'ip': request.remote_addr
     }
     
     try:
-        device_data = update_device_heartbeat(device_id, device_name, device_info, user_id, from_setup=from_setup)
+        device_data = update_device_heartbeat(device_id, device_name, device_info, user_id, from_setup=from_setup, reported_current_video=reported_current_video)
         if device_data is None:
             return jsonify({
                 'removed': True,

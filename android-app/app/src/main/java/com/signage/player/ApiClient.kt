@@ -187,12 +187,13 @@ class ApiClient {
         }
     }
 
-    suspend fun getPlaybackState(connectionCode: String, deviceId: String, deviceName: String, fromSetup: Boolean = false): PlaybackState =
+    suspend fun getPlaybackState(connectionCode: String, deviceId: String, deviceName: String, fromSetup: Boolean = false, currentVideoFromCache: String? = null): PlaybackState =
         withContext(Dispatchers.IO) {
             val codeParam = if (connectionCode.isNotEmpty()) "code=${connectionCode}" else ""
             val deviceParams = "device_id=${deviceId}&device_name=${deviceName}"
             val setupParam = if (fromSetup) "&from_setup=1" else ""
-            val url = "$baseUrl/api/playback/state?$deviceParams${if (codeParam.isNotEmpty()) "&$codeParam" else ""}$setupParam"
+            val cacheParam = "&current_video=" + java.net.URLEncoder.encode(currentVideoFromCache ?: "", "UTF-8")
+            val url = "$baseUrl/api/playback/state?$deviceParams${if (codeParam.isNotEmpty()) "&$codeParam" else ""}$setupParam$cacheParam"
             val request = Request.Builder()
                 .url(url)
                 .get()

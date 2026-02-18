@@ -13,6 +13,10 @@ from config import Config
 # Global lock for device operations
 device_lock = threading.Lock()
 
+# In-memory only: device-reported current video (from heartbeat). Not persisted to disk.
+# Key: (user_id, device_id) -> reported_current_video string
+_reported_current_video_cache = {}
+
 
 def get_tenant_path(user_id=None):
     """Get the base path for a tenant's data"""
@@ -139,9 +143,9 @@ def _clear_removed_device(user_id, device_id):
     save_json_file('removed_devices.json', list(removed), user_id)
 
 
-def update_device_heartbeat(device_id, device_name=None, device_info=None, user_id=None, from_setup=False):
+def update_device_heartbeat(device_id, device_name=None, device_info=None, user_id=None, from_setup=False, reported_current_video=None):
     """Update device information for tenant. If device was removed from panel and from_setup is False, returns None (caller should respond with removed=True to APK).
-    log_activity is called outside the lock to avoid blocking other heartbeats (DB commit can be slow)."""
+    reported_current_video: from device cache (APK heartbeat). Kept in memory only for dashboard display; not stored to server disk."""
     if user_id is None:
         user_id = current_user.id
 
@@ -171,9 +175,16 @@ def update_device_heartbeat(device_id, device_name=None, device_info=None, user_
 
         if device_info:
             devices[device_id]['info'].update(device_info)
+        # Device-reported current video: in-memory only, not persisted to disk
+        if reported_current_video is not None:
+            key = (user_id, device_id)
+            if reported_current_video:
+                _reported_current_video_cache[key] = reported_current_video
+            else:
+                _reported_current_video_cache[key] = None
 
         save_json_file('devices.json', devices, user_id)
-        result = devices[device_id]
+        result = dict(devices[device_id])
 
     if is_new_device:
         log_activity('device_connected', {'device_id': device_id, 'name': device_name}, user_id)
@@ -201,6 +212,8 @@ def get_all_devices_with_status(user_id=None):
         try:
             row = dict(device_data)
             row['id'] = device_id
+            # Device-reported current video: from in-memory cache only (not stored on server)
+            row['reported_current_video'] = _reported_current_video_cache.get((user_id, device_id))
             last_seen = datetime.fromisoformat(device_data.get('last_seen', now.isoformat()))
             seconds_ago = (now - last_seen).total_seconds()
             row['online'] = seconds_ago <= Config.DEVICE_TIMEOUT
@@ -212,6 +225,7 @@ def get_all_devices_with_status(user_id=None):
         except Exception:
             row = dict(device_data)
             row['id'] = device_id
+            row['reported_current_video'] = _reported_current_video_cache.get((user_id, device_id))
             row['online'] = False
             row['last_seen_ago'] = None
             result.append(row)

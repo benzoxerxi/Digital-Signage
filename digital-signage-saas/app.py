@@ -138,6 +138,12 @@ app.register_blueprint(main_bp)
 from routes_api import api_bp
 app.register_blueprint(api_bp, url_prefix='/api')
 
+try:
+    from routes_google_drive import drive_bp
+    app.register_blueprint(drive_bp)
+except ImportError:
+    pass  # Google Drive optional if deps not installed
+
 from routes_admin import admin_bp
 app.register_blueprint(admin_bp, url_prefix='/admin')
 

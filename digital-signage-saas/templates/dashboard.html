@@ -1276,6 +1276,16 @@
                 </div>
                 <div id="videoList" class="video-list"></div>
             </div>
+            
+            <div class="card" style="margin-top: 24px;">
+                <div class="card-header">
+                    <h2 class="card-title">Google Drive</h2>
+                    <button type="button" class="btn btn-primary btn-small" id="driveConnectBtn" onclick="connectGoogleDrive()">Connect Google Drive</button>
+                    <button type="button" class="btn btn-secondary btn-small" id="driveDisconnectBtn" style="display: none;" onclick="disconnectGoogleDrive()">Disconnect</button>
+                </div>
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">Connect your own Google account to play videos from a Drive folder. Devices stream from Drive (server stays light) and cache videos locally.</p>
+                <div id="driveFileList" class="video-list"></div>
+            </div>
         </div>
         
         <!-- Playlists Tab -->
@@ -1513,6 +1523,7 @@
                 loadGroups(),
                 loadAnalytics()
             ]);
+            if (typeof loadDriveStatus === 'function') loadDriveStatus();
             updateStats();
         }
         
@@ -1523,6 +1534,7 @@
             
             event.target.classList.add('active');
             document.getElementById(tabName + 'Tab').classList.add('active');
+            if (tabName === 'content' && typeof loadDriveStatus === 'function') loadDriveStatus();
         }
         
         function renderDeviceCard(device) {
@@ -1797,6 +1809,76 @@
             } catch (error) {
                 showToast('Failed to delete video', 'error');
             }
+        }
+        
+        function connectGoogleDrive() { window.location = '/api/auth/google/drive'; }
+        async function loadDriveStatus() {
+            try {
+                const r = await fetch('/api/drive/status');
+                const data = await r.json();
+                const connectBtn = document.getElementById('driveConnectBtn');
+                const disconnectBtn = document.getElementById('driveDisconnectBtn');
+                const listEl = document.getElementById('driveFileList');
+                if (data.connected) {
+                    if (connectBtn) connectBtn.style.display = 'none';
+                    if (disconnectBtn) disconnectBtn.style.display = 'inline-block';
+                    await loadDriveFiles(data.folder_id || 'root');
+                } else {
+                    if (connectBtn) connectBtn.style.display = 'inline-block';
+                    if (disconnectBtn) disconnectBtn.style.display = 'none';
+                    if (listEl) listEl.innerHTML = '<div class="empty-state"><p>Connect your Google account to list videos from Drive.</p></div>';
+                }
+            } catch (e) {
+                const listEl = document.getElementById('driveFileList');
+                if (listEl) listEl.innerHTML = '<div class="empty-state"><p>Google Drive not configured or unavailable.</p></div>';
+            }
+        }
+        async function loadDriveFiles(folderId) {
+            const listEl = document.getElementById('driveFileList');
+            if (!listEl) return;
+            try {
+                const r = await fetch('/api/drive/files?folder_id=' + encodeURIComponent(folderId || 'root'));
+                const data = await r.json();
+                if (data.error && !data.files) {
+                    listEl.innerHTML = '<div class="empty-state"><p>' + (data.error || 'Failed to load') + '</p></div>';
+                    return;
+                }
+                const files = data.files || [];
+                const folders = data.folders || [];
+                let html = '';
+                folders.forEach(f => {
+                    html += '<div class="video-item"><div class="video-thumb">📁</div><div class="video-info"><div class="video-name">' + (f.name || f.id) + '</div></div><button class="btn btn-secondary btn-small" onclick="loadDriveFiles(\'' + f.id + '\')">Open</button></div>';
+                });
+                files.forEach(v => {
+                    const sizeMb = v.size ? (v.size / (1024*1024)).toFixed(1) + ' MB' : '';
+                    const safeName = (v.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    html += '<div class="video-item"><div class="video-thumb">🎬</div><div class="video-info"><div class="video-name">' + (v.name || v.id) + '</div><div class="video-meta">' + sizeMb + ' (Drive)</div></div><div class="video-actions"><button class="btn btn-primary btn-small" onclick="playDriveVideo(\'' + v.id + '\', \'' + safeName + '\')">▶ Play</button></div></div>';
+                });
+                if (files.length === 0 && folders.length === 0) html += '<div class="empty-state"><p>No video files in this folder.</p></div>';
+                listEl.innerHTML = html || '<div class="empty-state"><p>No files</p></div>';
+            } catch (e) {
+                listEl.innerHTML = '<div class="empty-state"><p>Failed to load Drive files.</p></div>';
+            }
+        }
+        async function playDriveVideo(driveFileId, name) {
+            try {
+                const payload = { drive_file_id: driveFileId };
+                if (selectedDevices.length > 0) payload.device_ids = selectedDevices;
+                const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Playing "' + (name || 'Drive video') + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
+                    await loadDevices();
+                } else showToast(result.error || 'Failed to play', 'error');
+            } catch (e) { showToast('Failed to play Drive video', 'error'); }
+        }
+        async function disconnectGoogleDrive() {
+            if (!confirm('Disconnect Google Drive? You can reconnect anytime.')) return;
+            try {
+                await fetch('/api/drive/disconnect', { method: 'POST' });
+                showToast('Drive disconnected', 'success');
+                loadDriveStatus();
+            } catch (e) { showToast('Failed to disconnect', 'error'); }
         }
         
         // File upload
@@ -2571,6 +2653,7 @@
                 loadGroups(),
                 loadAnalytics()
             ]);
+            if (typeof loadDriveStatus === 'function') loadDriveStatus();
             updateStats();
         }
         
@@ -2581,6 +2664,7 @@
             
             event.target.classList.add('active');
             document.getElementById(tabName + 'Tab').classList.add('active');
+            if (tabName === 'content' && typeof loadDriveStatus === 'function') loadDriveStatus();
         }
         
         function renderDeviceCard(device) {
@@ -2855,6 +2939,76 @@
             } catch (error) {
                 showToast('Failed to delete video', 'error');
             }
+        }
+        
+        function connectGoogleDrive() { window.location = '/api/auth/google/drive'; }
+        async function loadDriveStatus() {
+            try {
+                const r = await fetch('/api/drive/status');
+                const data = await r.json();
+                const connectBtn = document.getElementById('driveConnectBtn');
+                const disconnectBtn = document.getElementById('driveDisconnectBtn');
+                const listEl = document.getElementById('driveFileList');
+                if (data.connected) {
+                    if (connectBtn) connectBtn.style.display = 'none';
+                    if (disconnectBtn) disconnectBtn.style.display = 'inline-block';
+                    await loadDriveFiles(data.folder_id || 'root');
+                } else {
+                    if (connectBtn) connectBtn.style.display = 'inline-block';
+                    if (disconnectBtn) disconnectBtn.style.display = 'none';
+                    if (listEl) listEl.innerHTML = '<div class="empty-state"><p>Connect your Google account to list videos from Drive.</p></div>';
+                }
+            } catch (e) {
+                const listEl = document.getElementById('driveFileList');
+                if (listEl) listEl.innerHTML = '<div class="empty-state"><p>Google Drive not configured or unavailable.</p></div>';
+            }
+        }
+        async function loadDriveFiles(folderId) {
+            const listEl = document.getElementById('driveFileList');
+            if (!listEl) return;
+            try {
+                const r = await fetch('/api/drive/files?folder_id=' + encodeURIComponent(folderId || 'root'));
+                const data = await r.json();
+                if (data.error && !data.files) {
+                    listEl.innerHTML = '<div class="empty-state"><p>' + (data.error || 'Failed to load') + '</p></div>';
+                    return;
+                }
+                const files = data.files || [];
+                const folders = data.folders || [];
+                let html = '';
+                folders.forEach(f => {
+                    html += '<div class="video-item"><div class="video-thumb">📁</div><div class="video-info"><div class="video-name">' + (f.name || f.id) + '</div></div><button class="btn btn-secondary btn-small" onclick="loadDriveFiles(\'' + f.id + '\')">Open</button></div>';
+                });
+                files.forEach(v => {
+                    const sizeMb = v.size ? (v.size / (1024*1024)).toFixed(1) + ' MB' : '';
+                    const safeName = (v.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    html += '<div class="video-item"><div class="video-thumb">🎬</div><div class="video-info"><div class="video-name">' + (v.name || v.id) + '</div><div class="video-meta">' + sizeMb + ' (Drive)</div></div><div class="video-actions"><button class="btn btn-primary btn-small" onclick="playDriveVideo(\'' + v.id + '\', \'' + safeName + '\')">▶ Play</button></div></div>';
+                });
+                if (files.length === 0 && folders.length === 0) html += '<div class="empty-state"><p>No video files in this folder.</p></div>';
+                listEl.innerHTML = html || '<div class="empty-state"><p>No files</p></div>';
+            } catch (e) {
+                listEl.innerHTML = '<div class="empty-state"><p>Failed to load Drive files.</p></div>';
+            }
+        }
+        async function playDriveVideo(driveFileId, name) {
+            try {
+                const payload = { drive_file_id: driveFileId };
+                if (selectedDevices.length > 0) payload.device_ids = selectedDevices;
+                const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Playing "' + (name || 'Drive video') + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
+                    await loadDevices();
+                } else showToast(result.error || 'Failed to play', 'error');
+            } catch (e) { showToast('Failed to play Drive video', 'error'); }
+        }
+        async function disconnectGoogleDrive() {
+            if (!confirm('Disconnect Google Drive? You can reconnect anytime.')) return;
+            try {
+                await fetch('/api/drive/disconnect', { method: 'POST' });
+                showToast('Drive disconnected', 'success');
+                loadDriveStatus();
+            } catch (e) { showToast('Failed to disconnect', 'error'); }
         }
         
         // File upload

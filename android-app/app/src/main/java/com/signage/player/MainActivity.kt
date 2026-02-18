@@ -362,7 +362,7 @@ class MainActivity : AppCompatActivity() {
                     if (playbackState.current_video != null) {
                         Log.d(TAG, "Server commanded to play: ${playbackState.current_video}")
                         doNotResumeFromPlaylist = false
-                        playSpecificVideo(playbackState.current_video)
+                        playSpecificVideo(playbackState.current_video, playbackState.video_url)
                     } else if (playbackState.command_id > 0) {
                         // Format/stop (command_id incremented, current_video cleared)
                         Log.d(TAG, "Stop/format command received - stopping all playback")
@@ -418,18 +418,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun playSpecificVideo(filename: String) {
+    /** Cache key for storage: sanitize drive:ID to drive_ID so filenames are filesystem-safe. */
+    private fun cacheKey(filename: String): String = filename.replace(":", "_")
+
+    private fun playSpecificVideo(filename: String, videoUrl: String? = null) {
+        val key = cacheKey(filename)
         scope.launch {
             try {
-                if (!videoCache.isCached(filename)) {
+                if (!videoCache.isCached(key)) {
                     Log.d(TAG, "Video not cached, downloading: $filename")
                     val videoData = withContext(Dispatchers.IO) {
-                        apiClient.downloadVideo(filename)
+                        if (!videoUrl.isNullOrEmpty()) {
+                            apiClient.downloadFromUrl(videoUrl)
+                        } else {
+                            apiClient.downloadVideo(filename)
+                        }
                     }
-                    videoCache.saveVideo(filename, videoData)
+                    videoCache.saveVideo(key, videoData)
                 }
 
-                val cachedFile = videoCache.getCachedFile(filename)
+                val cachedFile = videoCache.getCachedFile(key)
                 if (cachedFile != null && cachedFile.exists()) {
                     showScreensaver(false)
                     val mediaItem = MediaItem.fromUri(Uri.fromFile(cachedFile))
@@ -445,7 +453,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         .edit()
-                        .putString(KEY_CACHED_VIDEO_FILENAME, filename)
+                        .putString(KEY_CACHED_VIDEO_FILENAME, key)
                         .apply()
                     Log.d(TAG, "Playing commanded video (looping): $filename")
                 }
@@ -521,10 +529,15 @@ class MainActivity : AppCompatActivity() {
         scope.launch(Dispatchers.IO) {
             videos.forEach { video ->
                 try {
-                    if (!videoCache.isCached(video.filename)) {
+                    val key = cacheKey(video.filename)
+                    if (!videoCache.isCached(key)) {
                         Log.d(TAG, "Downloading: ${video.filename}")
-                        val videoData = apiClient.downloadVideo(video.filename)
-                        videoCache.saveVideo(video.filename, videoData)
+                        val videoData = if (!video.url.isNullOrEmpty()) {
+                            apiClient.downloadFromUrl(video.url)
+                        } else {
+                            apiClient.downloadVideo(video.filename)
+                        }
+                        videoCache.saveVideo(key, videoData)
                         Log.d(TAG, "Downloaded: ${video.filename}")
                     }
                 } catch (e: Exception) {
@@ -543,7 +556,8 @@ class MainActivity : AppCompatActivity() {
 
         showScreensaver(false)
         val video = currentPlaylist[currentVideoIndex]
-        val cachedFile = videoCache.getCachedFile(video.filename)
+        val key = cacheKey(video.filename)
+        val cachedFile = videoCache.getCachedFile(key)
 
         if (cachedFile != null && cachedFile.exists()) {
             val mediaItem = MediaItem.fromUri(Uri.fromFile(cachedFile))
@@ -555,7 +569,7 @@ class MainActivity : AppCompatActivity() {
             }
             getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
-                .putString(KEY_CACHED_VIDEO_FILENAME, video.filename)
+                .putString(KEY_CACHED_VIDEO_FILENAME, key)
                 .apply()
             Log.d(TAG, "Playing: ${video.name} (${currentVideoIndex + 1}/${currentPlaylist.size})")
         } else {

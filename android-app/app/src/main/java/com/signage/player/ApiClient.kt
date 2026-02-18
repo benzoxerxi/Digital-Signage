@@ -33,7 +33,8 @@ data class PlaybackState(
     val screenshot_requested: Boolean? = false,
     val clear_cache: Boolean? = false,
     val device_name: String? = null,  // Server's name for this device
-    val removed: Boolean = false  // Device was removed from panel; APK should show setup
+    val removed: Boolean = false,  // Device was removed from panel; APK should show setup
+    val video_url: String? = null  // Full or relative URL for playback (server file or Drive proxy)
 )
 
 data class ServerStatus(
@@ -209,9 +210,11 @@ class ApiClient {
                         screenshot_requested = false,
                         clear_cache = false,
                         device_name = null,
-                        removed = true
+                        removed = true,
+                        video_url = null
                     )
                 }
+                val videoUrl = json.optString("video_url", null).takeIf { !it.isNullOrEmpty() }
                 PlaybackState(
                     current_video = if (json.isNull("current_video")) null else json.getString("current_video"),
                     mode = json.optString("mode", "manual"),
@@ -219,7 +222,8 @@ class ApiClient {
                     screenshot_requested = json.optBoolean("screenshot_requested", false),
                     clear_cache = json.optBoolean("clear_cache", false),
                     device_name = json.optString("device_name", null),
-                    removed = false
+                    removed = false,
+                    video_url = videoUrl
                 )
             }
         }
@@ -275,6 +279,24 @@ class ApiClient {
             .get()
             .build()
 
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Unexpected code $response")
+            response.body!!.bytes()
+        }
+    }
+
+    /** Download video from any URL (e.g. server file or Drive proxy). URL may be relative (path) or absolute. */
+    suspend fun downloadFromUrl(urlOrPath: String): ByteArray = withContext(Dispatchers.IO) {
+        val fullUrl = if (urlOrPath.startsWith("http://") || urlOrPath.startsWith("https://")) {
+            urlOrPath
+        } else {
+            val path = if (urlOrPath.startsWith("/")) urlOrPath else "/$urlOrPath"
+            "$baseUrl$path"
+        }
+        val request = Request.Builder()
+            .url(fullUrl)
+            .get()
+            .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("Unexpected code $response")
             response.body!!.bytes()

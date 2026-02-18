@@ -45,19 +45,26 @@ def get_playlist():
         return jsonify({'error': 'Provide ?code= (9-digit) or log in'}), 401
 
     playlist = load_json_file('playlist.json', {'videos': [], 'settings': {'interval': 30, 'loop': True}}, user_id)
-    content_folder = get_content_folder(user_id)
-    if content_folder:
-        for video in playlist.get('videos', []):
-            filepath = os.path.join(content_folder, video['filename'])
-            if os.path.exists(filepath):
-                stat = os.stat(filepath)
-                video['size'] = f"{stat.st_size / (1024*1024):.1f} MB"
-                video['hash'] = get_file_hash(filepath)
-    # APK expects videos with filename, name, url (full URL with code for APK)
     base_url = request.url_root.rstrip('/')
+    code_suffix = f'?code={code_param}' if code_param else ''
+    content_folder = get_content_folder(user_id)
     for video in playlist.get('videos', []):
-        if 'url' not in video or not video['url'].startswith('http'):
-            video['url'] = f"{base_url}/api/video/{video['filename']}?code={code_param}" if code_param else f"{base_url}/api/video/{video['filename']}"
+        if video.get('drive_file_id'):
+            # Google Drive item: APK uses "drive:ID" as stable id, url for download
+            video['filename'] = f"drive:{video['drive_file_id']}"
+            video['url'] = f"{base_url}/api/video/drive/{video['drive_file_id']}{code_suffix}"
+            if not video.get('name'):
+                video['name'] = video.get('title', video['drive_file_id'])
+        else:
+            # Server file
+            if content_folder:
+                filepath = os.path.join(content_folder, video.get('filename', ''))
+                if os.path.exists(filepath):
+                    stat = os.stat(filepath)
+                    video['size'] = f"{stat.st_size / (1024*1024):.1f} MB"
+                    video['hash'] = get_file_hash(filepath)
+            if 'url' not in video or not str(video.get('url', '')).startswith('http'):
+                video['url'] = f"{base_url}/api/video/{video['filename']}{code_suffix}"
 
     return jsonify(playlist)
 
@@ -159,6 +166,48 @@ def upload_video():
     except Exception as e:
         print(f"Upload error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/video/drive/<file_id>')
+def get_drive_video(file_id):
+    """Stream a video from the user's Google Drive (proxy). Auth: ?code= (APK) or session."""
+    from flask import Response
+    from routes_google_drive import stream_drive_file
+    user_id = None
+    if current_user.is_authenticated:
+        user_id = current_user.id
+    if not user_id:
+        code_param = request.args.get('code')
+        if code_param:
+            from models import User
+            user = User.get_by_connection_code(code_param)
+            if user and user.is_active and user.is_subscription_active():
+                user_id = user.id
+        if not user_id:
+            user_id_param = request.args.get('user_id')
+            if user_id_param:
+                try:
+                    from models import User
+                    user = User.query.get(int(user_id_param))
+                    if user and user.is_active:
+                        user_id = user.id
+                except (ValueError, TypeError):
+                    pass
+    if not user_id:
+        return jsonify({'error': 'Invalid code or user_id'}), 400
+    try:
+        def generate():
+            for chunk in stream_drive_file(user_id, file_id):
+                yield chunk
+        return Response(
+            generate(),
+            mimetype='video/mp4',
+            headers={'Accept-Ranges': 'bytes'},
+        )
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 401
+    except Exception as e:
+        return jsonify({'error': 'Drive error', 'message': str(e)}), 500
 
 
 @api_bp.route('/video/<filename>')
@@ -374,12 +423,18 @@ def get_playback_state():
 
         if device_data.get('current_video'):
             # Only send the single commanded video; do not push playlist to device
+            cv = device_data['current_video']
+            if cv and cv.startswith('drive:'):
+                _id = cv.split(':', 1)[1]
+                video_url = f'/api/video/drive/{_id}?{video_param}'
+            else:
+                video_url = f'/api/video/{cv}?{video_param}' if cv else None
             response = {
-                'current_video': device_data['current_video'],
+                'current_video': cv,
                 'command_id': device_data['command_id'],
                 'mode': 'manual',
                 'last_update': device_data.get('last_seen'),
-                'video_url': f'/api/video/{device_data["current_video"]}?{video_param}',
+                'video_url': video_url,
                 'device_id': device_id,
                 'loop': playlist.get('settings', {}).get('loop', True),
                 'interval': playlist.get('settings', {}).get('interval', 30),
@@ -411,27 +466,25 @@ def get_playback_state():
 @api_bp.route('/playback/play', methods=['POST'])
 @login_required
 def play_video():
-    """Play a specific video on selected devices"""
+    """Play a specific video on selected devices. Accepts filename (server) or drive_file_id (Google Drive)."""
     if not current_user.is_subscription_active():
         return jsonify({'success': False, 'error': 'Subscription expired'}), 403
     
     data = request.json
     filename = data.get('filename')
+    drive_file_id = data.get('drive_file_id')
     device_ids = data.get('device_ids', [])
     
-    print("=" * 50)
-    print("PLAY VIDEO REQUEST")
-    print(f"Filename: {filename}")
-    print(f"Device IDs requested: {device_ids}")
-    print("=" * 50)
-    
-    if not filename:
-        return jsonify({'success': False, 'error': 'No filename provided'}), 400
-    
-    content_folder = get_content_folder()
-    filepath = os.path.join(content_folder, secure_filename(filename))
-    if not os.path.exists(filepath):
-        return jsonify({'success': False, 'error': 'Video not found'}), 404
+    if drive_file_id:
+        current_video_value = f'drive:{drive_file_id}'
+    elif filename:
+        current_video_value = filename
+        content_folder = get_content_folder()
+        filepath = os.path.join(content_folder, secure_filename(filename))
+        if not os.path.exists(filepath):
+            return jsonify({'success': False, 'error': 'Video not found'}), 404
+    else:
+        return jsonify({'success': False, 'error': 'No filename or drive_file_id provided'}), 400
     
     # Use tenant-scoped devices file so commands only affect current user's displays
     from flask_login import current_user as _cu
@@ -443,29 +496,23 @@ def play_video():
     if device_ids:
         for device_id in device_ids:
             if device_id in devices:
-                devices[device_id]['current_video'] = filename
+                devices[device_id]['current_video'] = current_video_value
                 devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
                 updated_count += 1
-                print(f"✅ Updated device: {device_id}")
             else:
                 print(f"❌ Device not found: {device_id}")
     else:
-        # Play on all devices
         for device_id in devices:
-            devices[device_id]['current_video'] = filename
+            devices[device_id]['current_video'] = current_video_value
             devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
-            print(f"✅ Updated device: {device_id} with video: {filename}")
         updated_count = len(devices)
     
     save_json_file('devices.json', devices, _cu.id)
-    print(f"Total devices updated: {updated_count}")
-    print("=" * 50)
-    
-    log_activity('video_played', {'filename': filename, 'device_count': updated_count})
+    log_activity('video_played', {'filename': current_video_value, 'device_count': updated_count})
     
     return jsonify({
         'success': True,
-        'filename': filename,
+        'filename': current_video_value,
         'devices_updated': updated_count,
         'target': 'selected' if device_ids else 'all'
     })

@@ -516,6 +516,24 @@
             flex: 1;
         }
         
+        /* Drive file list: more compact rows */
+        .drive-file-list .video-item {
+            padding: 8px 12px;
+            gap: 10px;
+            border-radius: 8px;
+        }
+        .drive-file-list .video-thumb {
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+        }
+        .drive-file-list .video-name {
+            font-size: 13px;
+        }
+        .drive-file-list .video-meta {
+            font-size: 11px;
+        }
+        
         .video-name {
             font-size: 14px;
             font-weight: 600;
@@ -1325,7 +1343,10 @@
                     <button type="button" class="btn btn-secondary btn-small" id="driveDisconnectBtn" style="display: none;" onclick="disconnectGoogleDrive()">Disconnect</button>
                 </div>
                 <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">Connect your own Google account to play videos from a Drive folder. Devices stream from Drive (server stays light) and cache videos locally.</p>
-                <div id="driveFileList" class="video-list"></div>
+                <div id="driveBackBar" style="display: none; margin-bottom: 8px;">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="driveBack()">← Back</button>
+                </div>
+                <div id="driveFileList" class="video-list drive-file-list"></div>
             </div>
         </div>
         
@@ -1894,6 +1915,11 @@
         }
         
         function connectGoogleDrive() { window.location = '/api/auth/google/drive'; }
+        var driveFolderStack = [];
+        var currentDriveFolderId = 'root';
+        function driveBack() {
+            if (driveFolderStack.length) loadDriveFiles(driveFolderStack.pop(), true);
+        }
         async function loadDriveStatus() {
             try {
                 const r = await fetch('/api/drive/status');
@@ -1904,10 +1930,17 @@
                 if (data.connected) {
                     if (connectBtn) connectBtn.style.display = 'none';
                     if (disconnectBtn) disconnectBtn.style.display = 'inline-block';
-                    await loadDriveFiles(data.folder_id || 'root');
+                    var atRoot = (driveFolderStack.length === 0 && currentDriveFolderId === 'root');
+                    if (atRoot) {
+                        driveFolderStack = [];
+                        currentDriveFolderId = 'root';
+                        await loadDriveFiles(data.folder_id || 'root');
+                    }
                 } else {
                     if (connectBtn) connectBtn.style.display = 'inline-block';
                     if (disconnectBtn) disconnectBtn.style.display = 'none';
+                    driveFolderStack = [];
+                    currentDriveFolderId = 'root';
                     if (listEl) listEl.innerHTML = '<div class="empty-state"><p>Connect your Google account to list videos from Drive.</p></div>';
                 }
             } catch (e) {
@@ -1915,11 +1948,15 @@
                 if (listEl) listEl.innerHTML = '<div class="empty-state"><p>Google Drive not configured or unavailable.</p></div>';
             }
         }
-        async function loadDriveFiles(folderId) {
+        async function loadDriveFiles(folderId, fromBack) {
             const listEl = document.getElementById('driveFileList');
             if (!listEl) return;
+            if (!fromBack && currentDriveFolderId !== undefined && currentDriveFolderId !== 'root') driveFolderStack.push(currentDriveFolderId);
+            currentDriveFolderId = folderId || 'root';
+            const backBar = document.getElementById('driveBackBar');
+            if (backBar) backBar.style.display = driveFolderStack.length ? 'block' : 'none';
             try {
-                const r = await fetch('/api/drive/files?folder_id=' + encodeURIComponent(folderId || 'root'));
+                const r = await fetch('/api/drive/files?folder_id=' + encodeURIComponent(currentDriveFolderId));
                 const data = await r.json();
                 if (data.error && !data.files) {
                     listEl.innerHTML = '<div class="empty-state"><p>' + (data.error || 'Failed to load') + '</p></div>';
@@ -1928,8 +1965,12 @@
                 const files = data.files || [];
                 const folders = data.folders || [];
                 let html = '';
+                const esc = function(s) { return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
                 folders.forEach(f => {
-                    html += '<div class="video-item"><div class="video-thumb">📁</div><div class="video-info"><div class="video-name">' + (f.name || f.id) + '</div></div><button class="btn btn-secondary btn-small" onclick="loadDriveFiles(\'' + f.id + '\')">Open</button></div>';
+                    const parentId = esc(currentDriveFolderId);
+                    const subId = esc(f.id);
+                    const name = (f.name || f.id).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    html += '<div class="video-item"><div class="video-thumb">📁</div><div class="video-info"><div class="video-name">' + name + '</div></div><button class="btn btn-secondary btn-small" onclick="driveFolderStack.push(\'' + parentId + '\'); loadDriveFiles(\'' + subId + '\')">Open</button></div>';
                 });
                 files.forEach(v => {
                     const sizeMb = v.size ? (v.size / (1024*1024)).toFixed(1) + ' MB' : '';
@@ -3059,6 +3100,11 @@
         }
         
         function connectGoogleDrive() { window.location = '/api/auth/google/drive'; }
+        var driveFolderStack = [];
+        var currentDriveFolderId = 'root';
+        function driveBack() {
+            if (driveFolderStack.length) loadDriveFiles(driveFolderStack.pop(), true);
+        }
         async function loadDriveStatus() {
             try {
                 const r = await fetch('/api/drive/status');
@@ -3069,10 +3115,17 @@
                 if (data.connected) {
                     if (connectBtn) connectBtn.style.display = 'none';
                     if (disconnectBtn) disconnectBtn.style.display = 'inline-block';
-                    await loadDriveFiles(data.folder_id || 'root');
+                    var atRoot = (driveFolderStack.length === 0 && currentDriveFolderId === 'root');
+                    if (atRoot) {
+                        driveFolderStack = [];
+                        currentDriveFolderId = 'root';
+                        await loadDriveFiles(data.folder_id || 'root');
+                    }
                 } else {
                     if (connectBtn) connectBtn.style.display = 'inline-block';
                     if (disconnectBtn) disconnectBtn.style.display = 'none';
+                    driveFolderStack = [];
+                    currentDriveFolderId = 'root';
                     if (listEl) listEl.innerHTML = '<div class="empty-state"><p>Connect your Google account to list videos from Drive.</p></div>';
                 }
             } catch (e) {
@@ -3080,11 +3133,15 @@
                 if (listEl) listEl.innerHTML = '<div class="empty-state"><p>Google Drive not configured or unavailable.</p></div>';
             }
         }
-        async function loadDriveFiles(folderId) {
+        async function loadDriveFiles(folderId, fromBack) {
             const listEl = document.getElementById('driveFileList');
             if (!listEl) return;
+            if (!fromBack && currentDriveFolderId !== undefined && currentDriveFolderId !== 'root') driveFolderStack.push(currentDriveFolderId);
+            currentDriveFolderId = folderId || 'root';
+            const backBar = document.getElementById('driveBackBar');
+            if (backBar) backBar.style.display = driveFolderStack.length ? 'block' : 'none';
             try {
-                const r = await fetch('/api/drive/files?folder_id=' + encodeURIComponent(folderId || 'root'));
+                const r = await fetch('/api/drive/files?folder_id=' + encodeURIComponent(currentDriveFolderId));
                 const data = await r.json();
                 if (data.error && !data.files) {
                     listEl.innerHTML = '<div class="empty-state"><p>' + (data.error || 'Failed to load') + '</p></div>';
@@ -3093,8 +3150,12 @@
                 const files = data.files || [];
                 const folders = data.folders || [];
                 let html = '';
+                const esc = function(s) { return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
                 folders.forEach(f => {
-                    html += '<div class="video-item"><div class="video-thumb">📁</div><div class="video-info"><div class="video-name">' + (f.name || f.id) + '</div></div><button class="btn btn-secondary btn-small" onclick="loadDriveFiles(\'' + f.id + '\')">Open</button></div>';
+                    const parentId = esc(currentDriveFolderId);
+                    const subId = esc(f.id);
+                    const name = (f.name || f.id).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    html += '<div class="video-item"><div class="video-thumb">📁</div><div class="video-info"><div class="video-name">' + name + '</div></div><button class="btn btn-secondary btn-small" onclick="driveFolderStack.push(\'' + parentId + '\'); loadDriveFiles(\'' + subId + '\')">Open</button></div>';
                 });
                 files.forEach(v => {
                     const sizeMb = v.size ? (v.size / (1024*1024)).toFixed(1) + ' MB' : '';

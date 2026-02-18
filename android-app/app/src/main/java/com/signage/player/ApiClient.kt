@@ -34,7 +34,8 @@ data class PlaybackState(
     val clear_cache: Boolean? = false,
     val device_name: String? = null,  // Server's name for this device
     val removed: Boolean = false,  // Device was removed from panel; APK should show setup
-    val video_url: String? = null  // Full or relative URL for playback (server file or Drive proxy)
+    val video_url: String? = null,  // Full or relative URL for playback (server file or Drive proxy)
+    val current_video_name: String? = null  // Display name (e.g. Drive file name) for dashboard
 )
 
 data class ServerStatus(
@@ -187,13 +188,14 @@ class ApiClient {
         }
     }
 
-    suspend fun getPlaybackState(connectionCode: String, deviceId: String, deviceName: String, fromSetup: Boolean = false, currentVideoFromCache: String? = null): PlaybackState =
+    suspend fun getPlaybackState(connectionCode: String, deviceId: String, deviceName: String, fromSetup: Boolean = false, currentVideoFromCache: String? = null, currentVideoNameFromCache: String? = null): PlaybackState =
         withContext(Dispatchers.IO) {
             val codeParam = if (connectionCode.isNotEmpty()) "code=${connectionCode}" else ""
             val deviceParams = "device_id=${deviceId}&device_name=${deviceName}"
             val setupParam = if (fromSetup) "&from_setup=1" else ""
             val cacheParam = "&current_video=" + java.net.URLEncoder.encode(currentVideoFromCache ?: "", "UTF-8")
-            val url = "$baseUrl/api/playback/state?$deviceParams${if (codeParam.isNotEmpty()) "&$codeParam" else ""}$setupParam$cacheParam"
+            val nameParam = "&current_video_name=" + java.net.URLEncoder.encode(currentVideoNameFromCache ?: "", "UTF-8")
+            val url = "$baseUrl/api/playback/state?$deviceParams${if (codeParam.isNotEmpty()) "&$codeParam" else ""}$setupParam$cacheParam$nameParam"
             val request = Request.Builder()
                 .url(url)
                 .get()
@@ -212,10 +214,12 @@ class ApiClient {
                         clear_cache = false,
                         device_name = null,
                         removed = true,
-                        video_url = null
+                        video_url = null,
+                        current_video_name = null
                     )
                 }
                 val videoUrl = json.optString("video_url", null).takeIf { !it.isNullOrEmpty() }
+                val currentVideoName = json.optString("current_video_name", null).takeIf { !it.isNullOrEmpty() }
                 PlaybackState(
                     current_video = if (json.isNull("current_video")) null else json.getString("current_video"),
                     mode = json.optString("mode", "manual"),
@@ -224,7 +228,8 @@ class ApiClient {
                     clear_cache = json.optBoolean("clear_cache", false),
                     device_name = json.optString("device_name", null),
                     removed = false,
-                    video_url = videoUrl
+                    video_url = videoUrl,
+                    current_video_name = currentVideoName
                 )
             }
         }

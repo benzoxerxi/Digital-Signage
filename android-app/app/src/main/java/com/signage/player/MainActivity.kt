@@ -68,6 +68,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_DEVICE_NAME = "device_name"
         private const val KEY_CACHED_VIDEO_FILENAME = "cached_video_filename"
+        private const val KEY_CACHED_VIDEO_DISPLAY_NAME = "cached_video_display_name"
         private const val UPDATE_INTERVAL = 3000L
         private const val SCREENSAVER_URL = "https://karchershop.ge/cdn/shop/files/logo_karcher_2015.svg?v=1683099671&width=600"
         private const val LOGO_URL = "https://images.seeklogo.com/logo-png/43/2/karcher-logo-png_seeklogo-437949.png"
@@ -315,9 +316,11 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 // Fallback: legacy playback state + playlist behavior
-                val cachedVideo = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_CACHED_VIDEO_FILENAME, null) ?: ""
+                val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val cachedVideo = prefs.getString(KEY_CACHED_VIDEO_FILENAME, null) ?: ""
+                val cachedVideoName = prefs.getString(KEY_CACHED_VIDEO_DISPLAY_NAME, null) ?: ""
                 val playbackState = withContext(Dispatchers.IO) {
-                    apiClient.getPlaybackState(connectionCode, deviceId, deviceName, fromSetup = false, currentVideoFromCache = cachedVideo)
+                    apiClient.getPlaybackState(connectionCode, deviceId, deviceName, fromSetup = false, currentVideoFromCache = cachedVideo, currentVideoNameFromCache = cachedVideoName)
                 }
 
                 if (playbackState.removed == true) {
@@ -364,6 +367,10 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "Server commanded to play: ${playbackState.current_video}")
                         doNotResumeFromPlaylist = false
                         playSpecificVideo(playbackState.current_video, playbackState.video_url)
+                        if (!playbackState.current_video_name.isNullOrEmpty()) {
+                            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                                .putString(KEY_CACHED_VIDEO_DISPLAY_NAME, playbackState.current_video_name).apply()
+                        }
                     } else if (playbackState.command_id > 0) {
                         // Format/stop (command_id incremented, current_video cleared)
                         Log.d(TAG, "Stop/format command received - stopping all playback")
@@ -402,6 +409,7 @@ class MainActivity : AppCompatActivity() {
                     getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         .edit()
                         .remove(KEY_CACHED_VIDEO_FILENAME)
+                        .remove(KEY_CACHED_VIDEO_DISPLAY_NAME)
                         .apply()
                 }
                 val sizeMB = cacheSize / (1024 * 1024)
@@ -571,6 +579,7 @@ class MainActivity : AppCompatActivity() {
             getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putString(KEY_CACHED_VIDEO_FILENAME, key)
+                .putString(KEY_CACHED_VIDEO_DISPLAY_NAME, video.name)
                 .apply()
             Log.d(TAG, "Playing: ${video.name} (${currentVideoIndex + 1}/${currentPlaylist.size})")
         } else {

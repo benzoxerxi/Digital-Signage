@@ -16,6 +16,10 @@ device_lock = threading.Lock()
 # In-memory only: device-reported current video (from heartbeat). Not persisted to disk.
 # Key: (user_id, device_id) -> reported_current_video string
 _reported_current_video_cache = {}
+# In-memory: display name for current video (so device can show Drive name). Key: (user_id, device_id) -> str
+_current_video_display_name_cache = {}
+# In-memory: device-reported display name (echoed in heartbeat). Not persisted. Key: (user_id, device_id) -> str
+_reported_current_video_name_cache = {}
 
 
 def get_tenant_path(user_id=None):
@@ -143,9 +147,23 @@ def _clear_removed_device(user_id, device_id):
     save_json_file('removed_devices.json', list(removed), user_id)
 
 
-def update_device_heartbeat(device_id, device_name=None, device_info=None, user_id=None, from_setup=False, reported_current_video=None):
+def set_current_video_display_name(user_id, device_id, name):
+    """Set display name for current video on device (e.g. Drive file name). In-memory only."""
+    key = (user_id, device_id)
+    if name:
+        _current_video_display_name_cache[key] = name
+    else:
+        _current_video_display_name_cache.pop(key, None)
+
+
+def get_current_video_display_name(user_id, device_id):
+    """Get display name for current video (for playback state response to APK)."""
+    return _current_video_display_name_cache.get((user_id, device_id))
+
+
+def update_device_heartbeat(device_id, device_name=None, device_info=None, user_id=None, from_setup=False, reported_current_video=None, reported_current_video_name=None):
     """Update device information for tenant. If device was removed from panel and from_setup is False, returns None (caller should respond with removed=True to APK).
-    reported_current_video: from device cache (APK heartbeat). Kept in memory only for dashboard display; not stored to server disk."""
+    reported_current_video / reported_current_video_name: from device (APK heartbeat). In memory only; not stored to disk."""
     if user_id is None:
         user_id = current_user.id
 
@@ -175,13 +193,12 @@ def update_device_heartbeat(device_id, device_name=None, device_info=None, user_
 
         if device_info:
             devices[device_id]['info'].update(device_info)
-        # Device-reported current video: in-memory only, not persisted to disk
+        # Device-reported current video / display name: in-memory only, not persisted to disk
+        key = (user_id, device_id)
         if reported_current_video is not None:
-            key = (user_id, device_id)
-            if reported_current_video:
-                _reported_current_video_cache[key] = reported_current_video
-            else:
-                _reported_current_video_cache[key] = None
+            _reported_current_video_cache[key] = reported_current_video if reported_current_video else None
+        if reported_current_video_name is not None:
+            _reported_current_video_name_cache[key] = reported_current_video_name if reported_current_video_name else None
 
         save_json_file('devices.json', devices, user_id)
         result = dict(devices[device_id])
@@ -212,8 +229,9 @@ def get_all_devices_with_status(user_id=None):
         try:
             row = dict(device_data)
             row['id'] = device_id
-            # Device-reported current video: from in-memory cache only (not stored on server)
+            # Device-reported current video / name: from in-memory cache only (not stored on server)
             row['reported_current_video'] = _reported_current_video_cache.get((user_id, device_id))
+            row['reported_current_video_name'] = _reported_current_video_name_cache.get((user_id, device_id))
             last_seen = datetime.fromisoformat(device_data.get('last_seen', now.isoformat()))
             seconds_ago = (now - last_seen).total_seconds()
             row['online'] = seconds_ago <= Config.DEVICE_TIMEOUT
@@ -226,6 +244,7 @@ def get_all_devices_with_status(user_id=None):
             row = dict(device_data)
             row['id'] = device_id
             row['reported_current_video'] = _reported_current_video_cache.get((user_id, device_id))
+            row['reported_current_video_name'] = _reported_current_video_name_cache.get((user_id, device_id))
             row['online'] = False
             row['last_seen_ago'] = None
             result.append(row)

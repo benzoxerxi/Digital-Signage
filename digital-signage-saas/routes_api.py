@@ -14,7 +14,8 @@ import json
 from utils import (
     load_json_file, save_json_file, get_content_folder, get_data_file_path,
     allowed_file, get_file_hash, get_connected_devices, get_all_devices_with_status,
-    get_device_count, update_device_heartbeat, add_removed_device, log_activity, get_storage_usage, device_lock
+    get_device_count, update_device_heartbeat, add_removed_device, log_activity, get_storage_usage, device_lock,
+    set_current_video_display_name, get_current_video_display_name
 )
 
 api_bp = Blueprint('api', __name__)
@@ -388,13 +389,14 @@ def get_playback_state():
     user_id = user.id
     from_setup = request.args.get('from_setup') == '1'
     reported_current_video = request.args.get('current_video')  # from device cache (APK sends in heartbeat)
+    reported_current_video_name = request.args.get('current_video_name')  # display name from device (e.g. Drive file name)
     device_info = {
         'user_agent': request.headers.get('User-Agent', ''),
         'ip': request.remote_addr
     }
     
     try:
-        device_data = update_device_heartbeat(device_id, device_name, device_info, user_id, from_setup=from_setup, reported_current_video=reported_current_video)
+        device_data = update_device_heartbeat(device_id, device_name, device_info, user_id, from_setup=from_setup, reported_current_video=reported_current_video, reported_current_video_name=reported_current_video_name)
         if device_data is None:
             return jsonify({
                 'removed': True,
@@ -430,6 +432,7 @@ def get_playback_state():
                 video_url = f'/api/video/drive/{_id}?{video_param}'
             else:
                 video_url = f'/api/video/{cv}?{video_param}' if cv else None
+            current_video_name = get_current_video_display_name(user_id, device_id)
             response = {
                 'current_video': cv,
                 'command_id': device_data['command_id'],
@@ -443,6 +446,8 @@ def get_playback_state():
                 'device_name': device_name_from_server,
                 'clear_cache': clear_cache
             }
+            if current_video_name:
+                response['current_video_name'] = current_video_name
             return jsonify(response)
         else:
             return jsonify({
@@ -475,6 +480,7 @@ def play_video():
     filename = data.get('filename')
     drive_file_id = data.get('drive_file_id')
     device_ids = data.get('device_ids', [])
+    display_name = data.get('name', '').strip() or None  # e.g. "valentines tv 1.mp4" for Drive
     
     if drive_file_id:
         current_video_value = f'drive:{drive_file_id}'
@@ -499,6 +505,7 @@ def play_video():
             if device_id in devices:
                 devices[device_id]['current_video'] = current_video_value
                 devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
+                set_current_video_display_name(_cu.id, device_id, display_name)
                 updated_count += 1
             else:
                 print(f"❌ Device not found: {device_id}")
@@ -506,6 +513,7 @@ def play_video():
         for device_id in devices:
             devices[device_id]['current_video'] = current_video_value
             devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
+            set_current_video_display_name(_cu.id, device_id, display_name)
         updated_count = len(devices)
     
     save_json_file('devices.json', devices, _cu.id)
@@ -536,12 +544,14 @@ def stop_playback():
                 devices[device_id]['current_video'] = None
                 devices[device_id]['status'] = 'idle'
                 devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
+                set_current_video_display_name(_cu.id, device_id, None)
                 updated_count += 1
     else:
         for device_id in devices:
             devices[device_id]['current_video'] = None
             devices[device_id]['status'] = 'idle'
             devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
+            set_current_video_display_name(_cu.id, device_id, None)
         updated_count = len(devices)
     
     save_json_file('devices.json', devices, _cu.id)

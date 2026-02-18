@@ -1683,7 +1683,7 @@
                     <div class="device-info">
                         <div class="info-row">
                             <span class="info-label">Current Video:</span>
-                            <span class="info-value">${device.reported_current_video || device.current_video || 'None'}</span>
+                            <span class="info-value">${device.reported_current_video_name || device.reported_current_video || device.current_video || 'None'}</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Last Seen:</span>
@@ -2051,7 +2051,7 @@
         }
         async function playDriveVideo(driveFileId, name) {
             try {
-                const payload = { drive_file_id: driveFileId };
+                const payload = { drive_file_id: driveFileId, name: name || '' };
                 if (selectedDevices.length > 0) payload.device_ids = selectedDevices;
                 const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 const result = await response.json();
@@ -2884,7 +2884,7 @@
                     <div class="device-info">
                         <div class="info-row">
                             <span class="info-label">Current Video:</span>
-                            <span class="info-value">${device.reported_current_video || device.current_video || 'None'}</span>
+                            <span class="info-value">${device.reported_current_video_name || device.reported_current_video || device.current_video || 'None'}</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Last Seen:</span>
@@ -3252,7 +3252,7 @@
         }
         async function playDriveVideo(driveFileId, name) {
             try {
-                const payload = { drive_file_id: driveFileId };
+                const payload = { drive_file_id: driveFileId, name: name || '' };
                 if (selectedDevices.length > 0) payload.device_ids = selectedDevices;
                 const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 const result = await response.json();

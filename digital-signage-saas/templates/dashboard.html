@@ -74,6 +74,7 @@
             max-width: 1600px;
             margin: 0 auto;
             padding: 24px;
+            overflow-x: hidden;
         }
         
         /* Header */
@@ -226,10 +227,23 @@
             background: var(--dark-2);
             border-radius: 12px;
             border: 1px solid var(--border);
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+        .tabs::-webkit-scrollbar {
+            height: 6px;
+        }
+        .tabs::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
         }
         
         .tab {
             flex: 1;
+            flex-shrink: 0;
+            min-width: 100px;
             padding: 12px 24px;
             background: transparent;
             border: none;
@@ -298,6 +312,11 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+        }
+        .card-header-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
         }
         
         .card-title {
@@ -619,25 +638,29 @@
         .upload-progress-container {
             margin-top: 20px;
             width: 100%;
-            max-width: 320px;
-            margin-left: auto;
-            margin-right: auto;
         }
         .upload-progress-label {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+        .upload-progress-pct {
+            color: var(--primary);
+            font-family: 'JetBrains Mono', monospace;
+            margin-left: 4px;
         }
         .upload-progress-bar-wrap {
-            height: 8px;
+            height: 12px;
             background: var(--dark-4);
             border-radius: 999px;
             overflow: hidden;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
         }
         .upload-progress-bar {
             height: 100%;
             width: 0%;
-            background: var(--primary);
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
             border-radius: 999px;
             transition: width 0.15s ease-out;
         }
@@ -1104,12 +1127,25 @@
             
             .card-header {
                 flex-direction: column;
-                align-items: flex-start;
+                align-items: stretch;
                 gap: 12px;
             }
             
-            .card-header .btn, .card-header .btn-small {
+            .card-header-actions {
                 width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            
+            .card-header-actions .btn,
+            .card-header-actions .btn-small {
+                flex: 1 1 calc(50% - 4px);
+                min-width: 0;
+                min-height: 44px;
+            }
+            
+            .card-header .btn, .card-header .btn-small {
                 min-height: 44px;
             }
             
@@ -1155,6 +1191,11 @@
             
             .header-stats {
                 grid-template-columns: 1fr;
+            }
+            
+            .card-header-actions .btn,
+            .card-header-actions .btn-small {
+                flex: 1 1 100%;
             }
         }
     
@@ -1210,7 +1251,7 @@
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Displays</h2>
-                    <div style="display: flex; gap: 8px;">
+                    <div class="card-header-actions">
                         <button class="btn btn-secondary btn-small" onclick="selectAllDevices()">Select All</button>
                         <button class="btn btn-secondary btn-small" onclick="deselectAllDevices()">Clear</button>
                         <button class="btn btn-secondary btn-small" onclick="selectOnlineDevices()">Online Only</button>
@@ -1460,6 +1501,20 @@
                 <div class="spinner"></div>
                 <p style="color: var(--text-muted); margin-top: 16px;">Requesting screenshot from display...</p>
             </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="playbackProgressModal">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Starting playback</h3>
+                <button class="modal-close" onclick="closeModal('playbackProgressModal')">×</button>
+            </div>
+            <p id="playbackProgressTargets" style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;"></p>
+            <div class="upload-progress-bar-wrap" style="margin-bottom: 8px;">
+                <div id="playbackProgressBar" class="upload-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div id="playbackProgressStatus" style="font-size: 14px; font-weight: 600; color: var(--text); margin-top: 8px;"></div>
         </div>
     </div>
     
@@ -1768,14 +1823,34 @@
             }
         }
         
+        function getPlaybackTargetNames() {
+            if (selectedDevices.length === 0) return 'All devices';
+            return selectedDevices.map(function(id) {
+                var d = allDevices.find(function(dev) { return dev.id === id; });
+                return d ? (d.name || id) : id;
+            }).join(', ');
+        }
+        
+        function setPlaybackProgress(pct, status) {
+            var bar = document.getElementById('playbackProgressBar');
+            var statusEl = document.getElementById('playbackProgressStatus');
+            if (bar) bar.style.width = (pct || 0) + '%';
+            if (statusEl) statusEl.textContent = status || '';
+        }
+        
         async function playVideo(filename, fromPlaylist = false) {
-            // Block direct video playback - only allow from playlists
             if (!fromPlaylist) {
                 showToast('❌ Videos can only be played from playlists. Go to Playlists tab.', 'error');
                 return;
             }
             
+            var targetsEl = document.getElementById('playbackProgressTargets');
+            if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
+            setPlaybackProgress(0, 'Sending to devices...');
+            openModal('playbackProgressModal');
+            
             try {
+                setPlaybackProgress(20, 'Sending to devices...');
                 const payload = {filename: filename};
                 if (selectedDevices.length > 0) {
                     payload.device_ids = selectedDevices;
@@ -1787,12 +1862,19 @@
                     body: JSON.stringify(payload)
                 });
                 
+                setPlaybackProgress(80, 'Updating displays...');
                 const result = await response.json();
                 if (result.success) {
-                    showToast(`Playing "${filename}" on ${result.target === 'all' ? 'all' : result.devices_updated} display(s)`, 'success');
+                    setPlaybackProgress(100, 'Done — playing on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)');
+                    showToast('Playing "' + filename + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
                     await loadDevices();
+                    setTimeout(function() { closeModal('playbackProgressModal'); }, 2000);
+                } else {
+                    setPlaybackProgress(100, 'Failed: ' + (result.error || 'Unknown error'));
+                    showToast('Playback failed: ' + (result.error || 'Unknown'), 'error');
                 }
             } catch (error) {
+                setPlaybackProgress(100, 'Failed: network error');
                 showToast('Failed to play video', 'error');
             }
         }
@@ -1926,6 +2008,14 @@
                     if (e.lengthComputable) {
                         const pct = Math.round((e.loaded / e.total) * 100);
                         bar.style.width = pct + '%';
+                        var pctEl = label.querySelector('.upload-progress-pct');
+                        if (!pctEl) {
+                            label.textContent = file.name + ' — ';
+                            pctEl = document.createElement('span');
+                            pctEl.className = 'upload-progress-pct';
+                            label.appendChild(pctEl);
+                        }
+                        pctEl.textContent = pct + '%';
                     }
                 };
                 xhr.onload = () => {
@@ -2898,14 +2988,34 @@
             }
         }
         
+        function getPlaybackTargetNames() {
+            if (selectedDevices.length === 0) return 'All devices';
+            return selectedDevices.map(function(id) {
+                var d = allDevices.find(function(dev) { return dev.id === id; });
+                return d ? (d.name || id) : id;
+            }).join(', ');
+        }
+        
+        function setPlaybackProgress(pct, status) {
+            var bar = document.getElementById('playbackProgressBar');
+            var statusEl = document.getElementById('playbackProgressStatus');
+            if (bar) bar.style.width = (pct || 0) + '%';
+            if (statusEl) statusEl.textContent = status || '';
+        }
+        
         async function playVideo(filename, fromPlaylist = false) {
-            // Block direct video playback - only allow from playlists
             if (!fromPlaylist) {
                 showToast('❌ Videos can only be played from playlists. Go to Playlists tab.', 'error');
                 return;
             }
             
+            var targetsEl = document.getElementById('playbackProgressTargets');
+            if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
+            setPlaybackProgress(0, 'Sending to devices...');
+            openModal('playbackProgressModal');
+            
             try {
+                setPlaybackProgress(20, 'Sending to devices...');
                 const payload = {filename: filename};
                 if (selectedDevices.length > 0) {
                     payload.device_ids = selectedDevices;
@@ -2917,12 +3027,19 @@
                     body: JSON.stringify(payload)
                 });
                 
+                setPlaybackProgress(80, 'Updating displays...');
                 const result = await response.json();
                 if (result.success) {
-                    showToast(`Playing "${filename}" on ${result.target === 'all' ? 'all' : result.devices_updated} display(s)`, 'success');
+                    setPlaybackProgress(100, 'Done — playing on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)');
+                    showToast('Playing "' + filename + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
                     await loadDevices();
+                    setTimeout(function() { closeModal('playbackProgressModal'); }, 2000);
+                } else {
+                    setPlaybackProgress(100, 'Failed: ' + (result.error || 'Unknown error'));
+                    showToast('Playback failed: ' + (result.error || 'Unknown'), 'error');
                 }
             } catch (error) {
+                setPlaybackProgress(100, 'Failed: network error');
                 showToast('Failed to play video', 'error');
             }
         }
@@ -3056,6 +3173,14 @@
                     if (e.lengthComputable) {
                         const pct = Math.round((e.loaded / e.total) * 100);
                         bar.style.width = pct + '%';
+                        var pctEl = label.querySelector('.upload-progress-pct');
+                        if (!pctEl) {
+                            label.textContent = file.name + ' — ';
+                            pctEl = document.createElement('span');
+                            pctEl.className = 'upload-progress-pct';
+                            label.appendChild(pctEl);
+                        }
+                        pctEl.textContent = pct + '%';
                     }
                 };
                 xhr.onload = () => {

@@ -75,6 +75,90 @@
             color: var(--primary);
         }
         
+        /* Burger button – hidden on desktop */
+        .navbar-burger {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            background: transparent;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            color: #333;
+            font-size: 1.4rem;
+            cursor: pointer;
+        }
+        .navbar-burger:hover {
+            background: #f5f5f5;
+            color: var(--primary);
+        }
+        
+        .nav-overlay {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .navbar-burger {
+                display: flex;
+            }
+            .nav-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                min-width: 100vw;
+                min-height: 100vh;
+                background: rgba(0, 0, 0, 0.4);
+                z-index: 1000;
+                opacity: 0;
+                transition: opacity 0.25s ease;
+                cursor: pointer;
+                pointer-events: none;
+            }
+            .nav-overlay.active {
+                display: block;
+                opacity: 1;
+                pointer-events: auto;
+            }
+            .navbar .nav-links {
+                display: flex;
+                position: fixed;
+                top: 0;
+                right: 0;
+                width: min(320px, 85vw);
+                height: 100vh;
+                height: 100dvh;
+                flex-direction: column;
+                gap: 0;
+                background: white;
+                box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
+                padding: 2rem 0;
+                border-left: 1px solid #eee;
+                z-index: 1001;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+                overflow: hidden;
+            }
+            .navbar .nav-links.open {
+                transform: translateX(0);
+            }
+            .navbar .nav-links a {
+                padding: 1rem 1.5rem;
+                border-bottom: 1px solid #f0f0f0;
+                flex-shrink: 0;
+            }
+            .navbar .nav-links a:last-child {
+                border-bottom: none;
+            }
+            .navbar .container {
+                position: relative;
+            }
+        }
+        
         .btn {
             padding: 0.6rem 1.5rem;
             border: none;
@@ -156,7 +240,8 @@
     <nav class="navbar">
         <div class="container">
             <a href="/" class="logo">🎬 Digital Signage</a>
-            <div class="nav-links">
+            <button type="button" class="navbar-burger" id="navbarBurger" aria-label="Open menu">☰</button>
+            <div class="nav-links" id="navLinks">
                 {% if current_user.is_authenticated %}
                     {% if current_user.is_admin %}
                         <a href="{{ url_for('admin.admin_dashboard') }}">Admin</a>
@@ -164,15 +249,18 @@
                     <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
                     <a href="{{ url_for('main.subscriptions') }}">Subscriptions</a>
                     <a href="{{ url_for('main.account') }}">Account</a>
+                    <a href="{{ url_for('main.rules') }}">Rules</a>
                     <a href="{{ url_for('auth.logout') }}">Logout</a>
                 {% else %}
                     <a href="{{ url_for('main.pricing') }}">Pricing</a>
+                    <a href="{{ url_for('main.rules') }}">Rules</a>
                     <a href="{{ url_for('auth.login') }}">Login</a>
                     <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Get Started</a>
                 {% endif %}
             </div>
         </div>
     </nav>
+    <div class="nav-overlay" id="navOverlay" aria-hidden="true"></div>
     
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -191,6 +279,39 @@
     {% block extra_js %}{% endblock %}
     
     <script>
+        // Burger menu (phones only) – full-height panel from right, no scroll
+        (function() {
+            var burger = document.getElementById('navbarBurger');
+            var navLinks = document.getElementById('navLinks');
+            var overlay = document.getElementById('navOverlay');
+            function closeMenu() {
+                if (navLinks) navLinks.classList.remove('open');
+                if (overlay) overlay.classList.remove('active');
+            }
+            function openMenu() {
+                if (overlay) overlay.classList.add('active');
+                if (navLinks) navLinks.classList.add('open');
+            }
+            function toggleMenu() {
+                if (navLinks && navLinks.classList.contains('open')) closeMenu();
+                else openMenu();
+            }
+            if (burger && navLinks) {
+                burger.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    toggleMenu();
+                });
+                if (overlay) {
+                    overlay.addEventListener('click', closeMenu);
+                    overlay.addEventListener('touchend', function(e) {
+                        if (e.target === overlay) closeMenu();
+                    });
+                }
+                navLinks.querySelectorAll('a').forEach(function(a) {
+                    a.addEventListener('click', closeMenu);
+                });
+            }
+        })();
         // Auto-dismiss flash messages after 5 seconds
         setTimeout(() => {
             document.querySelectorAll('.flash-message').forEach(msg => {

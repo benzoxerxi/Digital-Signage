@@ -50,64 +50,30 @@ class Config:
     STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY') or 'sk_test_...'
     STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET') or 'whsec_...'
     
-    # Subscription Plans
+    # Subscription Plans (Trial + $10 paid only)
     PLANS = {
         'free': {
-            'name': 'Free Trial',
+            'name': 'Trial',
             'price': 0,
-            'price_id': None,  # No Stripe price for free
-            'max_displays': 2,
-            'max_storage_gb': 5,
+            'price_id': None,
+            'max_displays': -1,   # Unlimited
+            'max_storage_gb': 50, # Server storage; content may be purged periodically
             'trial_days': 7,
             'features': [
-                '2 displays',
-                '5GB storage',
-                'Basic scheduling',
-                '7-day trial'
+                '7 days free',
+                'Unlimited displays',
+                'No support'
             ]
         },
-        'starter': {
-            'name': 'Starter',
-            'price': 29,
-            'price_id': 'price_starter',  # Replace with real Stripe price ID
-            'max_displays': 5,
-            'max_storage_gb': 20,
-            'features': [
-                '5 displays',
-                '20GB storage',
-                'Advanced scheduling',
-                'Email support',
-                'Device groups'
-            ]
-        },
-        'professional': {
-            'name': 'Professional',
-            'price': 79,
-            'price_id': 'price_professional',
-            'max_displays': 15,
-            'max_storage_gb': 100,
-            'features': [
-                '15 displays',
-                '100GB storage',
-                'All scheduling features',
-                'Priority support',
-                'Analytics dashboard',
-                'API access'
-            ]
-        },
-        'enterprise': {
-            'name': 'Enterprise',
-            'price': 199,
-            'price_id': 'price_enterprise',
-            'max_displays': -1,  # Unlimited
-            'max_storage_gb': 500,
+        'paid': {
+            'name': '$10 Plan',
+            'price': 10,
+            'price_id': os.environ.get('STRIPE_PRICE_PAID') or 'price_paid',  # Set in .env or Stripe Dashboard
+            'max_displays': -1,   # Unlimited
+            'max_storage_gb': 50,
             'features': [
                 'Unlimited displays',
-                '500GB storage',
-                'White-label option',
-                'Dedicated support',
-                'Custom integrations',
-                'SLA guarantee'
+                'Support on email'
             ]
         }
     }

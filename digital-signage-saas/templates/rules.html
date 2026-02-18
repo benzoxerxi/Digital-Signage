@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Rules – Free and Paid Users{% endblock %}
+{% block content %}
+<div style="max-width: 800px; margin: 2rem auto; padding: 2rem;">
+    <h1>Rules for free and paid users</h1>
+    <p style="color: #64748b; margin-bottom: 2rem;">These rules apply to all users of this Digital Signage service.</p>
+
+    <section style="margin-bottom: 2rem;">
+        <h2 style="font-size: 1.25rem; margin-bottom: 0.75rem;">Trial (free) users</h2>
+        <ul style="line-height: 1.8; color: #334155;">
+            <li>7 days free with unlimited displays.</li>
+            <li>No support is provided during or after the trial.</li>
+            <li>Videos and content may be removed from the server from time to time; we do not guarantee long-term storage.</li>
+            <li>Content is played from the device cache; devices will loop cached content until you format the cache or send new content.</li>
+        </ul>
+    </section>
+
+    <section style="margin-bottom: 2rem;">
+        <h2 style="font-size: 1.25rem; margin-bottom: 0.75rem;">Paid ($10) users</h2>
+        <ul style="line-height: 1.8; color: #334155;">
+            <li>Unlimited displays.</li>
+            <li>Support on email (as described on the Subscriptions page).</li>
+            <li>Videos and content may still be removed from the server from time to time; keep your own backups if needed.</li>
+            <li>Content is played from the device cache; devices will loop cached content until you format the cache or send new content.</li>
+        </ul>
+    </section>
+
+    <section style="margin-bottom: 2rem;">
+        <h2 style="font-size: 1.25rem; margin-bottom: 0.75rem;">Content and storage</h2>
+        <p style="line-height: 1.8; color: #334155;">
+            All videos uploaded on this website may be deleted from the server from time to time. We do not guarantee permanent storage of your files. For important content, keep your own backups. Playback on devices uses a local cache; content will loop on each device until you format the cache or push new content.
+        </p>
+    </section>
+
+    <p style="margin-top: 2rem;"><a href="{{ url_for('main.subscriptions') }}">Back to Subscriptions</a></p>
+</div>
+{% endblock %}

@@ -156,6 +156,32 @@
         font-size: 0.95rem;
         color: #92400e;
     }
+    .subs-notice-box {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+        color: #0c4a6e;
+    }
+    .subs-notice-box-warn {
+        background: #fef3c7;
+        border-color: #fcd34d;
+        color: #92400e;
+    }
+    .subs-rules-link {
+        margin-bottom: 2rem;
+        font-size: 0.95rem;
+    }
+    .subs-rules-link a {
+        color: var(--primary);
+        text-decoration: none;
+    }
+    .subs-rules-link a:hover { text-decoration: underline; }
+    .plans-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
 </style>
 {% endblock %}
 
@@ -163,7 +189,7 @@
 <div class="subs-page-wrap">
 <div class="subs-page">
     <h1>Subscriptions</h1>
-    <p class="subtitle">Manage your plan and activate a subscription after payment.</p>
+    <p class="subtitle">Manage your plan. Trial is 7 days free with unlimited displays; paid plan adds email support.</p>
 
     <div class="current-plan-card {% if not user.is_subscription_active() %}expired{% endif %}">
         <div>
@@ -173,11 +199,10 @@
             </span>
         </div>
         <div>
-            {% if user.plan != 'free' %}
-                <strong>{{ plans.get(user.plan, {}).name|default(user.plan) }}</strong> &middot;
-                ${{ plans.get(user.plan, {}).price|default(0) }}/month
+            {% if user.plan == 'paid' %}
+                <strong>{{ plans.get(user.plan, {}).name|default(user.plan) }}</strong> &middot; $10/month
             {% else %}
-                Free Trial &middot; {{ plans.free.max_displays }} displays, {{ plans.free.max_storage_gb }}GB storage
+                Trial &middot; 7 days free, unlimited displays, no support
             {% endif %}
         </div>
     </div>
@@ -188,13 +213,21 @@
     </div>
     {% endif %}
 
+    <div class="subs-notice-box">
+        <strong>How playback works:</strong> Videos are stored in the device cache and will loop until you format the cache or send new content to the device.
+    </div>
+    <div class="subs-notice-box subs-notice-box-warn">
+        <strong>Server storage:</strong> All videos uploaded on this website may be deleted from the server from time to time. Keep your own backups if needed.
+    </div>
+    <p class="subs-rules-link"><a href="{{ url_for('main.rules') }}">Rules for free and paid users</a></p>
+
     <h2 class="subs-section-title">Plans</h2>
     <div class="plans-grid">
         {% for plan_key, plan in plans.items() %}
         <div class="plan-card {% if plan_key == user.plan %}current{% endif %}">
             <h3>{{ plan.name }}</h3>
             <div class="price">
-                ${{ plan.price }}<span>/month</span>
+                {% if plan.price == 0 %}Free{% else %}${{ plan.price }}<span>/month</span>{% endif %}
             </div>
             <ul class="features-list">
                 {% for feature in plan.features %}
@@ -207,7 +240,7 @@
                 <span class="plan-default-note">Default for new accounts</span>
             {% else %}
                 <button type="button" class="btn btn-primary plan-subscribe-btn" data-plan="{{ plan_key }}" data-name="{{ plan.name }}">
-                    {{ 'Upgrade' if user.plan != 'free' else 'Subscribe' }} to {{ plan.name }}
+                    Subscribe to {{ plan.name }}
                 </button>
             {% endif %}
         </div>
@@ -216,33 +249,64 @@
 </div>
 </div>
 
+<div class="modal subs-payoneer-modal" id="payoneerModal">
+    <div class="modal-backdrop" onclick="closePayoneerModal()"></div>
+    <div class="subs-payoneer-content">
+        <div class="subs-payoneer-header">
+            <h3>Pay via Payoneer</h3>
+            <button type="button" class="subs-payoneer-close" onclick="closePayoneerModal()">×</button>
+        </div>
+        <div class="subs-payoneer-body">
+            <p class="subs-payoneer-intro">To activate the <strong id="payoneerPlanName">$10 Plan</strong>, send your payment via Payoneer:</p>
+            {% if payoneer_email %}
+            <div class="subs-payoneer-email">
+                <label>Payoneer account</label>
+                <div class="subs-payoneer-email-value">{{ payoneer_email }}</div>
+            </div>
+            <div class="subs-payoneer-amount">Amount: <strong>$10/month</strong></div>
+            {% if payoneer_instructions %}
+            <div class="subs-payoneer-instructions">{{ payoneer_instructions }}</div>
+            {% endif %}
+            <p class="subs-payoneer-after">After payment, we will activate your plan. {% if support_email %}Contact us at <a href="mailto:{{ support_email }}">{{ support_email }}</a> if needed.{% endif %}</p>
+            {% else %}
+            <p class="subs-payoneer-not-set">Payoneer is not configured yet. Please contact the administrator.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.subs-payoneer-modal { display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
+.subs-payoneer-modal.open { display: flex; }
+.subs-payoneer-modal .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+.subs-payoneer-content { position: relative; background: #fff; border-radius: 16px; max-width: 440px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); padding: 0; overflow: hidden; }
+.subs-payoneer-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid #eee; }
+.subs-payoneer-header h3 { margin: 0; font-size: 1.2rem; }
+.subs-payoneer-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666; line-height: 1; padding: 0 0.25rem; }
+.subs-payoneer-body { padding: 1.5rem; }
+.subs-payoneer-intro { margin-bottom: 1rem; color: #334155; }
+.subs-payoneer-email { margin-bottom: 0.75rem; }
+.subs-payoneer-email label { display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem; }
+.subs-payoneer-email-value { font-size: 1.1rem; font-weight: 600; color: var(--primary); word-break: break-all; }
+.subs-payoneer-amount { margin-bottom: 1rem; }
+.subs-payoneer-instructions { background: #f8fafc; border-radius: 8px; padding: 1rem; font-size: 0.9rem; color: #475569; white-space: pre-wrap; margin-bottom: 1rem; }
+.subs-payoneer-after { font-size: 0.9rem; color: #64748b; }
+.subs-payoneer-after a { color: var(--primary); }
+.subs-payoneer-not-set { color: #94a3b8; }
+</style>
+
 <script>
+function openPayoneerModal(planName) {
+    document.getElementById('payoneerPlanName').textContent = planName || '$10 Plan';
+    document.getElementById('payoneerModal').classList.add('open');
+}
+function closePayoneerModal() {
+    document.getElementById('payoneerModal').classList.remove('open');
+}
 document.querySelectorAll('.plan-subscribe-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
-        var plan = this.getAttribute('data-plan');
         var name = this.getAttribute('data-name');
-        this.disabled = true;
-        this.textContent = 'Redirecting...';
-        fetch('{{ url_for("main.create_checkout_session") }}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ plan: plan })
-        })
-        .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
-        .then(function(result) {
-            if (result.ok && result.data.url) {
-                window.location.href = result.data.url;
-            } else {
-                alert(result.data.message || result.data.error || 'Could not start checkout. Set STRIPE_SECRET_KEY and STRIPE_PUBLIC_KEY in .env to enable payments.');
-                btn.disabled = false;
-                btn.textContent = 'Subscribe to ' + name;
-            }
-        })
-        .catch(function() {
-            alert('Network error. Try again.');
-            btn.disabled = false;
-            btn.textContent = 'Subscribe to ' + name;
-        });
+        openPayoneerModal(name);
     });
 });
 </script>

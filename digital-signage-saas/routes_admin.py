@@ -50,7 +50,7 @@ def admin_bootstrap():
             email='admin@example.com',
             company_name='System Administrator',
             is_admin=True,
-            plan='enterprise',
+            plan='paid',
             subscription_status='active'
         )
         admin.set_password('admin123')
@@ -454,16 +454,21 @@ def admin_settings():
     """Admin settings page"""
     if request.method == 'POST':
         settings = load_admin_settings()
-        settings['site_name'] = request.form.get('site_name', 'Digital Signage').strip() or 'Digital Signage'
-        settings['support_email'] = request.form.get('support_email', '').strip()
-        try:
-            trial_days = int(request.form.get('default_trial_days', 7) or 7)
-            settings['default_trial_days'] = max(1, min(365, trial_days))
-        except (ValueError, TypeError):
-            settings['default_trial_days'] = 7
-        settings['maintenance_mode'] = request.form.get('maintenance_mode') == 'on'
+        if request.form.get('form_section') == 'payoneer':
+            settings['payoneer_email'] = request.form.get('payoneer_email', '').strip()
+            settings['payoneer_instructions'] = request.form.get('payoneer_instructions', '').strip()
+            flash('Payoneer settings saved.', 'success')
+        else:
+            settings['site_name'] = request.form.get('site_name', 'Digital Signage').strip() or 'Digital Signage'
+            settings['support_email'] = request.form.get('support_email', '').strip()
+            try:
+                trial_days = int(request.form.get('default_trial_days', 7) or 7)
+                settings['default_trial_days'] = max(1, min(365, trial_days))
+            except (ValueError, TypeError):
+                settings['default_trial_days'] = 7
+            settings['maintenance_mode'] = request.form.get('maintenance_mode') == 'on'
+            flash('Settings saved successfully', 'success')
         save_admin_settings(settings)
-        flash('Settings saved successfully', 'success')
         return redirect(url_for('admin.admin_settings'))
     return render_template('admin_settings.html', settings=load_admin_settings())
 

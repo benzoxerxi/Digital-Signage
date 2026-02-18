@@ -5,27 +5,58 @@
     <h1>Account Settings</h1>
     
     <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h2 style="margin-bottom: 1.5rem;">Account Information</h2>
+        <h2 style="margin-bottom: 1.5rem;">Edit profile</h2>
+        <form method="post" action="{{ url_for('main.account_update') }}" style="display: grid; gap: 1rem; max-width: 480px;">
+            <div>
+                <label for="username" style="display: block; margin-bottom: 0.35rem; font-weight: 600;">Username</label>
+                <input type="text" id="username" name="username" value="{{ user.username }}" required
+                       style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+            </div>
+            <div>
+                <label for="email" style="display: block; margin-bottom: 0.35rem; font-weight: 600;">Email</label>
+                <input type="email" id="email" name="email" value="{{ user.email }}" required
+                       style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+            </div>
+            <div>
+                <label for="company_name" style="display: block; margin-bottom: 0.35rem; font-weight: 600;">Company name</label>
+                <input type="text" id="company_name" name="company_name" value="{{ user.company_name or '' }}"
+                       placeholder="Optional"
+                       style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+            </div>
+            <button type="submit" style="padding: 0.65rem 1.5rem; background: #0066FF; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">Save profile</button>
+        </form>
+    </div>
+
+    <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2 style="margin-bottom: 1.5rem;">Change password</h2>
+        <form method="post" action="{{ url_for('main.account_change_password') }}" style="display: grid; gap: 1rem; max-width: 480px;">
+            <div>
+                <label for="current_password" style="display: block; margin-bottom: 0.35rem; font-weight: 600;">Current password</label>
+                <input type="password" id="current_password" name="current_password" required autocomplete="current-password"
+                       style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+            </div>
+            <div>
+                <label for="new_password" style="display: block; margin-bottom: 0.35rem; font-weight: 600;">New password</label>
+                <input type="password" id="new_password" name="new_password" required minlength="6" autocomplete="new-password"
+                       style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                <p style="margin-top: 0.35rem; font-size: 0.85rem; color: #666;">At least 6 characters</p>
+            </div>
+            <div>
+                <label for="confirm_password" style="display: block; margin-bottom: 0.35rem; font-weight: 600;">Confirm new password</label>
+                <input type="password" id="confirm_password" name="confirm_password" required minlength="6" autocomplete="new-password"
+                       style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+            </div>
+            <button type="submit" style="padding: 0.65rem 1.5rem; background: #0066FF; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">Change password</button>
+        </form>
+    </div>
+
+    <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2 style="margin-bottom: 1.5rem;">Account information</h2>
         
         <div style="display: grid; gap: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); border-radius: 8px; border: 2px solid #4CAF50;">
                 <strong>Connection Code (for APK):</strong>
                 <span style="font-family: monospace; font-size: 1.5rem; font-weight: bold; letter-spacing: 0.2em; color: #1B5E20;">{{ user.connection_code or '—' }}</span>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; padding: 0.75rem;">
-                <strong>Username:</strong>
-                <span>{{ user.username }}</span>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; padding: 0.75rem; background: #f8f9fa; border-radius: 4px;">
-                <strong>Email:</strong>
-                <span>{{ user.email }}</span>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; padding: 0.75rem;">
-                <strong>Company:</strong>
-                <span>{{ user.company_name or 'Not set' }}</span>
             </div>
             
             <div style="display: flex; justify-content: space-between; padding: 0.75rem; background: #f8f9fa; border-radius: 4px;">

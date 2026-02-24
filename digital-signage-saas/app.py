@@ -182,23 +182,25 @@ def init_db():
                 print(f"Migration note: {e}")
             db.session.rollback()
         
-        # Create admin user if doesn't exist
-        admin = User.query.filter_by(username='admin').first()
+        # Create admin user if doesn't exist (local dev; on Render use /admin/bootstrap)
+        _admin_user = os.environ.get('ADMIN_USERNAME', 'admin').strip() or 'admin'
+        _admin_pass = os.environ.get('ADMIN_PASSWORD', 'admin123')
+        admin = User.query.filter_by(username=_admin_user).first()
         if not admin:
             admin = User(
-                username='admin',
-                email='admin@example.com',
+                username=_admin_user,
+                email=f'{_admin_user}@example.com',
                 company_name='System Administrator',
                 is_admin=True,
                 plan='paid',
                 subscription_status='active'
             )
-            admin.set_password('admin123')  # CHANGE THIS!
+            admin.set_password(_admin_pass)
             admin.ensure_connection_code()
             db.session.add(admin)
             db.session.commit()
-            print("✅ Admin user created (username: admin, password: admin123)")
-            print("⚠️  CHANGE THE ADMIN PASSWORD IMMEDIATELY!")
+            print(f"✅ Admin user created (username: {_admin_user})")
+            print("⚠️  CHANGE THE ADMIN PASSWORD in production!")
         
         # Ensure all existing users have connection codes (migration)
         for user in User.query.filter(db.or_(User.connection_code.is_(None), User.connection_code == '')).all():

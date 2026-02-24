@@ -22,11 +22,32 @@ def _csv_escape(value):
     return s
 
 
+def _get_bootstrap_admin_credentials():
+    """Admin username/password from env; defaults: admin / admin123."""
+    username = (os.environ.get('ADMIN_USERNAME') or 'admin').strip()
+    password = os.environ.get('ADMIN_PASSWORD') or 'admin123'
+    if not username:
+        username = 'admin'
+    return username, password
+
+
+@admin_bp.route('/bootstrap/check')
+def admin_bootstrap_check():
+    """
+    Safe diagnostic: returns whether the bootstrap admin user exists.
+    Uses ADMIN_USERNAME if set, else 'admin'.
+    """
+    admin_username, _ = _get_bootstrap_admin_credentials()
+    admin = User.query.filter_by(username=admin_username).first()
+    return jsonify({'admin_exists': admin is not None})
+
+
 @admin_bp.route('/bootstrap')
 def admin_bootstrap():
     """
     One-time endpoint to create/reset admin user on Render.
     Requires ?token=YOUR_ADMIN_BOOTSTRAP_TOKEN (set ADMIN_BOOTSTRAP_TOKEN in Render env).
+    Optional: set ADMIN_USERNAME and ADMIN_PASSWORD to use a different admin login.
     Use once, then remove ADMIN_BOOTSTRAP_TOKEN for security.
     """
     required_token = os.environ.get('ADMIN_BOOTSTRAP_TOKEN')
@@ -35,10 +56,14 @@ def admin_bootstrap():
     if request.args.get('token') != required_token:
         return jsonify({'error': 'Invalid token'}), 403
 
-    admin = User.query.filter_by(username='admin').first()
+    admin_username, admin_password = _get_bootstrap_admin_credentials()
+    if len(admin_password) < 6:
+        return jsonify({'error': 'ADMIN_PASSWORD must be at least 6 characters'}), 400
+
+    admin = User.query.filter_by(username=admin_username).first()
     if admin:
-        admin.set_password('admin123')
-        admin.email = 'admin@example.com'
+        admin.set_password(admin_password)
+        admin.email = admin.email or f'{admin_username}@example.com'
         admin.is_admin = True
         admin.is_active = True
         admin.ensure_connection_code()
@@ -46,14 +71,14 @@ def admin_bootstrap():
         action = 'reset'
     else:
         admin = User(
-            username='admin',
-            email='admin@example.com',
+            username=admin_username,
+            email=f'{admin_username}@example.com',
             company_name='System Administrator',
             is_admin=True,
             plan='paid',
             subscription_status='active'
         )
-        admin.set_password('admin123')
+        admin.set_password(admin_password)
         admin.ensure_connection_code()
         db.session.add(admin)
         db.session.commit()
@@ -62,9 +87,9 @@ def admin_bootstrap():
     return jsonify({
         'success': True,
         'action': action,
-        'username': 'admin',
-        'password': 'admin123',
-        'message': 'Admin user ' + action + '. Login at /auth/login. Remove ADMIN_BOOTSTRAP_TOKEN from env for security.'
+        'username': admin_username,
+        'password': admin_password,
+        'message': f'Admin user "{admin_username}" {action}. Login at /auth/login. Remove ADMIN_BOOTSTRAP_TOKEN from env for security.'
     })
 
 

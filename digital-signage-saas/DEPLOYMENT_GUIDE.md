@@ -10,7 +10,13 @@ On **Render**, **Heroku**, and similar platforms, the server filesystem is **eph
 
 - **Render:** In the dashboard, add a **PostgreSQL** service, then in your Web Service add the Postgres instance as a "Database" dependency. Render will set `DATABASE_URL` automatically so users and data survive deploys.
 
-**First-time admin on Render:** The admin user is not auto-created when using Gunicorn. Add `ADMIN_BOOTSTRAP_TOKEN` (any secret string) to your Render env vars, deploy, then visit `https://your-app.onrender.com/admin/bootstrap?token=YOUR_TOKEN`. This creates admin / admin123. Remove `ADMIN_BOOTSTRAP_TOKEN` afterward for security.
+**Render Run Command (required):** Your Web Service must listen on the port Render gives you. In the service **Settings** → **Build & Deploy** → **Start Command**, use:
+```bash
+gunicorn -w 4 -b 0.0.0.0:$PORT app:app
+```
+Do **not** use a fixed port like `8080` — use `$PORT` or the site will not load.
+
+**First-time admin on Render:** See **[ADMIN_SETUP.md](ADMIN_SETUP.md)** for the easiest step-by-step (unlink old bootstrap, add token, open URL, login, remove token). Short version: add `ADMIN_BOOTSTRAP_TOKEN` (any secret string) to Render env, deploy, visit `https://your-app.onrender.com/admin/bootstrap?token=YOUR_TOKEN`, then log in at `/auth/login` with admin / admin123. Remove `ADMIN_BOOTSTRAP_TOKEN` afterward for security.
 - **Other hosts:** Create a PostgreSQL (or compatible) database and set the `DATABASE_URL` environment variable to its connection URL (e.g. `postgresql://user:password@host/dbname`).
 
 ## Part 1: Local Testing (Do This First!)

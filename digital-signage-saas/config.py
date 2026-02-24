@@ -15,8 +15,14 @@ class Config:
         if _database_url.startswith('postgres://'):
             _database_url = 'postgresql://' + _database_url[9:]
         SQLALCHEMY_DATABASE_URI = _database_url
+        # Avoid "SSL SYSCALL error: EOF detected" after redeploy or idle: ping before use, recycle connections
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            'pool_pre_ping': True,   # test connection before use; discard if dead
+            'pool_recycle': 300,    # recycle connections every 5 min (under typical server idle timeout)
+        }
     else:
         SQLALCHEMY_DATABASE_URI = 'sqlite:///signage.db'
+        SQLALCHEMY_ENGINE_OPTIONS = {}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Session

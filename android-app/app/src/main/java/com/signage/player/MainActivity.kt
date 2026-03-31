@@ -73,7 +73,7 @@ class MainActivity : AppCompatActivity() {
         private const val SCREENSAVER_URL = "https://karchershop.ge/cdn/shop/files/logo_karcher_2015.svg?v=1683099671&width=600"
         private const val LOGO_URL = "https://images.seeklogo.com/logo-png/43/2/karcher-logo-png_seeklogo-437949.png"
         /** Default server URL – no server input needed; user only enters 9-digit code */
-        private const val DEFAULT_SERVER_URL = "http://94.250.201.69/signage"
+        private const val DEFAULT_SERVER_URL = "https://benzos.uk/signage"
         /** Intent extra from watchdog: start pinned (lock task) when launched by watchdog */
         private const val EXTRA_START_PINNED = "com.signage.watchdog.START_PINNED"
     }
@@ -170,12 +170,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSetupScreen() {
         setContentView(R.layout.activity_setup)
+        val serverSection = findViewById<View>(R.id.server_section)
+        val serverInput = findViewById<android.widget.EditText>(R.id.server_input)
         val codeInput = findViewById<android.widget.EditText>(R.id.connection_code_input)
         val screenNameInput = findViewById<android.widget.EditText>(R.id.screen_name_input)
         val connectButton = findViewById<android.widget.Button>(R.id.connect_button)
         val logoView = findViewById<ImageView>(R.id.logo_view)
 
-        serverUrl = DEFAULT_SERVER_URL
+        if (serverUrl.isEmpty()) serverUrl = DEFAULT_SERVER_URL
+        serverSection.visibility = View.VISIBLE
+        serverInput.setText(serverUrl)
         if (connectionCode.isNotEmpty()) codeInput.setText(connectionCode)
         if (deviceName.isNotEmpty()) screenNameInput.setText(deviceName)
 
@@ -191,11 +195,15 @@ class MainActivity : AppCompatActivity() {
             when {
                 code.length != 9 -> Toast.makeText(this, "Please enter your 9-digit connection code", Toast.LENGTH_SHORT).show()
                 else -> {
+                    val inputUrl = serverInput.text.toString().trim()
+                    serverUrl = if (inputUrl.isNotEmpty()) inputUrl else DEFAULT_SERVER_URL
+
                     connectionCode = code
                     val name = screenNameInput.text.toString().trim()
                     deviceName = if (name.isNotEmpty()) name else "Android-${Build.MODEL}"
                     getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         .edit()
+                        .putString(KEY_SERVER_URL, serverUrl)
                         .putString(KEY_CONNECTION_CODE, connectionCode)
                         .putString(KEY_DEVICE_NAME, deviceName)
                         .apply()

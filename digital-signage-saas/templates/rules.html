@@ -2,9 +2,14 @@
 {% block title %}Rules – Free and Paid Users{% endblock %}
 {% block extra_css %}
 <style>
+    .rules-page-wrap {
+        min-height: calc(100vh - 120px);
+        background: #0c0118;
+        padding: 3.5rem 1.5rem 2.5rem;
+    }
     .rules-wrap {
         max-width: 800px;
-        margin: 2rem auto;
+        margin: 0 auto;
         padding: 2rem;
         color: #e5e7eb;
     }
@@ -26,6 +31,7 @@
 {% endblock %}
 
 {% block content %}
+<div class="rules-page-wrap">
 <div class="rules-wrap">
     <h1>Rules for free and paid users</h1>
     <p style="color: #9ca3af; margin-bottom: 2rem;">These rules apply to all users of this Digital Signage service.</p>
@@ -58,5 +64,6 @@
     </section>
 
     <p style="margin-top: 2rem;"><a href="{{ url_for('main.subscriptions') }}">Back to Subscriptions</a></p>
+</div>
 </div>
 {% endblock %}

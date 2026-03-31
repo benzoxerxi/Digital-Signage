@@ -2,9 +2,14 @@
 {% block title %}Account Settings{% endblock %}
 {% block extra_css %}
 <style>
+    .acct-page-wrap {
+        min-height: calc(100vh - 120px);
+        background: #0c0118;
+        padding: 3.5rem 1.5rem 2.5rem;
+    }
     .acct-wrap {
         max-width: 800px;
-        margin: 2rem auto;
+        margin: 0 auto;
         padding: 2rem;
         color: #e5e7eb;
     }
@@ -116,6 +121,7 @@
 {% endblock %}
 
 {% block content %}
+<div class="acct-page-wrap">
 <div class="acct-wrap">
     <h1>Account Settings</h1>
 
@@ -236,4 +242,6 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
 {% endblock %}

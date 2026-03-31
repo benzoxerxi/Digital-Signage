@@ -36,11 +36,18 @@
         text-decoration: none;
         color: #e5e7eb;
         white-space: nowrap;
+        cursor: pointer;
     }
     .acct-subnav a.active,
     .acct-subnav a:hover {
         background: rgba(124, 58, 237, 0.5);
         color: #f9fafb;
+    }
+    .acct-section {
+        display: none;
+    }
+    .acct-section.active {
+        display: block;
     }
     .acct-card {
         background: rgba(21, 2, 37, 0.9);
@@ -174,14 +181,14 @@
     <h1>Account Settings</h1>
 
     <nav class="acct-subnav">
-        <a href="#profile">Edit profile</a>
-        <a href="#password">Change password</a>
-        <a href="#info">Account information</a>
-        <a href="#config">Configuration</a>
-        <a href="#downloads">Downloads</a>
+        <a href="#profile" class="active" data-target="profile">Edit profile</a>
+        <a href="#password" data-target="password">Change password</a>
+        <a href="#info" data-target="info">Account information</a>
+        <a href="#config" data-target="config">Configuration</a>
+        <a href="#downloads" data-target="downloads">Downloads</a>
     </nav>
 
-    <div class="acct-card" id="profile">
+    <div class="acct-card acct-section active" id="profile">
         <h2>Edit profile</h2>
         <form method="post" action="{{ url_for('main.account_update') }}" class="acct-form">
             <div>
@@ -200,7 +207,7 @@
         </form>
     </div>
 
-    <div class="acct-card" id="password">
+    <div class="acct-card acct-section" id="password">
         <h2>Change password</h2>
         <form method="post" action="{{ url_for('main.account_change_password') }}" class="acct-form">
             <div>
@@ -220,7 +227,7 @@
         </form>
     </div>
 
-    <div class="acct-card" id="info">
+    <div class="acct-card acct-section" id="info">
         <h2>Account information</h2>
         <div style="display: grid; gap: 0.75rem;">
             <div class="conn-code-box">
@@ -240,7 +247,7 @@
         </div>
     </div>
 
-    <div class="apk-info-box" id="config">
+    <div class="apk-info-box acct-section" id="config">
         <h3>Android APK configuration</h3>
         <p>The app connects to the cloud automatically. Open the APK and enter <strong>only your 9-digit code</strong>:</p>
         <p><code>{{ user.connection_code or '—' }}</code></p>
@@ -248,7 +255,7 @@
         <code class="apk-url-box">{{ request.url_root.rstrip('/') }}/api/playback/state?code={{ user.connection_code or '' }}</code>
     </div>
 
-    <div class="acct-card" id="downloads">
+    <div class="acct-card acct-section" id="downloads">
         <h2>Downloads</h2>
         <p style="margin-bottom: 1rem; color: #9ca3af; font-size: 0.95rem;">
             Install these apps on your Android TV / player devices. First install the <strong style="color:#d1d5db">Watchdog</strong> (optional, for auto-restart), then the <strong style="color:#d1d5db">Signage Player</strong>.
@@ -273,7 +280,7 @@
     </div>
 
     {% if payments %}
-    <div class="acct-card">
+    <div class="acct-card acct-section" id="payments">
         <h2>Recent Payments</h2>
         <table class="pay-table">
             <thead>
@@ -298,4 +305,29 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        var navLinks = document.querySelectorAll('.acct-subnav a[data-target]');
+        var sections = document.querySelectorAll('.acct-section');
+
+        function showSection(targetId) {
+            sections.forEach(function (section) {
+                section.classList.toggle('active', section.id === targetId);
+            });
+            navLinks.forEach(function (link) {
+                link.classList.toggle('active', link.dataset.target === targetId);
+            });
+        }
+
+        navLinks.forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                showSection(link.dataset.target);
+            });
+        });
+    })();
+</script>
 {% endblock %}

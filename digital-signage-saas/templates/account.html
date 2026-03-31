@@ -1,144 +1,234 @@
 {% extends "base.html" %}
 {% block title %}Account Settings{% endblock %}
+{% block extra_css %}
+<style>
+    .acct-wrap {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 2rem;
+        color: #e5e7eb;
+    }
+    .acct-wrap h1 { color: #f9fafb; margin-bottom: 0.5rem; }
+    .acct-card {
+        background: rgba(21, 2, 37, 0.9);
+        border: 1px solid rgba(46, 16, 101, 0.6);
+        padding: 2rem;
+        border-radius: 14px;
+        margin: 1.5rem 0;
+    }
+    .acct-card h2 { color: #f9fafb; margin-bottom: 1.25rem; font-size: 1.15rem; }
+    .acct-card label { display: block; margin-bottom: 0.35rem; font-weight: 600; color: #d1d5db; font-size: 0.9rem; }
+    .acct-card input[type="text"],
+    .acct-card input[type="email"],
+    .acct-card input[type="password"] {
+        width: 100%;
+        padding: 0.65rem 0.85rem;
+        border: 1px solid rgba(46, 16, 101, 0.6);
+        border-radius: 8px;
+        font-size: 1rem;
+        background: rgba(12, 1, 24, 0.6);
+        color: #e5e7eb;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .acct-card input:focus {
+        outline: none;
+        border-color: #7c3aed;
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+    }
+    .acct-card input::placeholder { color: #6b7280; }
+    .acct-form { display: grid; gap: 1rem; max-width: 480px; }
+    .acct-btn {
+        padding: 0.65rem 1.5rem;
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: box-shadow 0.2s, transform 0.1s;
+    }
+    .acct-btn:hover {
+        box-shadow: 0 4px 18px rgba(249, 115, 22, 0.35);
+        transform: translateY(-1px);
+    }
+    .acct-hint { margin-top: 0.35rem; font-size: 0.85rem; color: #6b7280; }
+    .conn-code-box {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: rgba(22, 163, 74, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.4);
+        border-radius: 10px;
+    }
+    .conn-code-box strong { color: #86efac; }
+    .conn-code-val { font-family: monospace; font-size: 1.5rem; font-weight: bold; letter-spacing: 0.2em; color: #86efac; }
+    .info-row { display: flex; justify-content: space-between; padding: 0.75rem; border-radius: 6px; }
+    .info-row:nth-child(even) { background: rgba(12, 1, 24, 0.4); }
+    .info-row strong { color: #d1d5db; }
+    .apk-info-box {
+        background: rgba(124, 58, 237, 0.1);
+        border: 1px solid rgba(124, 58, 237, 0.35);
+        border-left: 4px solid #7c3aed;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin: 1.5rem 0;
+    }
+    .apk-info-box h3 { color: #f9fafb; margin-bottom: 0.5rem; }
+    .apk-info-box p { color: #d1d5db; margin-bottom: 0.5rem; }
+    .apk-info-box code { font-size: 1.25rem; font-weight: bold; letter-spacing: 0.15em; color: #c4b5fd; }
+    .apk-url-box {
+        display: block;
+        background: rgba(12, 1, 24, 0.5);
+        border: 1px solid rgba(46, 16, 101, 0.4);
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 0.875rem;
+        word-break: break-all;
+        color: #9ca3af;
+    }
+    .dl-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-radius: 10px;
+        background: rgba(12, 1, 24, 0.5);
+        border: 1px solid rgba(46, 16, 101, 0.4);
+    }
+    .dl-row + .dl-row { margin-top: 0.75rem; }
+    .dl-name { font-weight: 600; color: #f9fafb; margin-bottom: 0.2rem; }
+    .dl-desc { font-size: 0.85rem; color: #6b7280; }
+    .dl-btn {
+        padding: 0.65rem 1.25rem;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        color: white;
+        font-weight: 600;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .pay-table { width: 100%; border-collapse: collapse; }
+    .pay-table th { padding: 0.75rem; text-align: left; border-bottom: 1px solid rgba(46, 16, 101, 0.5); color: #d1d5db; font-size: 0.9rem; }
+    .pay-table td { padding: 0.75rem; border-bottom: 1px solid rgba(46, 16, 101, 0.25); color: #9ca3af; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="max-width: 800px; margin: 2rem auto; padding: 2rem;">
+<div class="acct-wrap">
     <h1>Account Settings</h1>
-    
-    <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h2 style="margin-bottom: 1.5rem;">Edit profile</h2>
-        <form method="post" action="{{ url_for('main.account_update') }}" style="display: grid; gap: 1rem; max-width: 480px;">
+
+    <div class="acct-card">
+        <h2>Edit profile</h2>
+        <form method="post" action="{{ url_for('main.account_update') }}" class="acct-form">
             <div>
-                <label for="username" style="display: block; margin-bottom: 0.35rem; font-weight: 600;">Username</label>
-                <input type="text" id="username" name="username" value="{{ user.username }}" required
-                       style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" value="{{ user.username }}" required>
             </div>
             <div>
-                <label for="email" style="display: block; margin-bottom: 0.35rem; font-weight: 600;">Email</label>
-                <input type="email" id="email" name="email" value="{{ user.email }}" required
-                       style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" value="{{ user.email }}" required>
             </div>
             <div>
-                <label for="company_name" style="display: block; margin-bottom: 0.35rem; font-weight: 600;">Company name</label>
-                <input type="text" id="company_name" name="company_name" value="{{ user.company_name or '' }}"
-                       placeholder="Optional"
-                       style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                <label for="company_name">Company name</label>
+                <input type="text" id="company_name" name="company_name" value="{{ user.company_name or '' }}" placeholder="Optional">
             </div>
-            <button type="submit" style="padding: 0.65rem 1.5rem; background: #0066FF; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">Save profile</button>
+            <button type="submit" class="acct-btn">Save profile</button>
         </form>
     </div>
 
-    <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h2 style="margin-bottom: 1.5rem;">Change password</h2>
-        <form method="post" action="{{ url_for('main.account_change_password') }}" style="display: grid; gap: 1rem; max-width: 480px;">
+    <div class="acct-card">
+        <h2>Change password</h2>
+        <form method="post" action="{{ url_for('main.account_change_password') }}" class="acct-form">
             <div>
-                <label for="current_password" style="display: block; margin-bottom: 0.35rem; font-weight: 600;">Current password</label>
-                <input type="password" id="current_password" name="current_password" required autocomplete="current-password"
-                       style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                <label for="current_password">Current password</label>
+                <input type="password" id="current_password" name="current_password" required autocomplete="current-password">
             </div>
             <div>
-                <label for="new_password" style="display: block; margin-bottom: 0.35rem; font-weight: 600;">New password</label>
-                <input type="password" id="new_password" name="new_password" required minlength="6" autocomplete="new-password"
-                       style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
-                <p style="margin-top: 0.35rem; font-size: 0.85rem; color: #666;">At least 6 characters</p>
+                <label for="new_password">New password</label>
+                <input type="password" id="new_password" name="new_password" required minlength="6" autocomplete="new-password">
+                <p class="acct-hint">At least 6 characters</p>
             </div>
             <div>
-                <label for="confirm_password" style="display: block; margin-bottom: 0.35rem; font-weight: 600;">Confirm new password</label>
-                <input type="password" id="confirm_password" name="confirm_password" required minlength="6" autocomplete="new-password"
-                       style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                <label for="confirm_password">Confirm new password</label>
+                <input type="password" id="confirm_password" name="confirm_password" required minlength="6" autocomplete="new-password">
             </div>
-            <button type="submit" style="padding: 0.65rem 1.5rem; background: #0066FF; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">Change password</button>
+            <button type="submit" class="acct-btn">Change password</button>
         </form>
     </div>
 
-    <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h2 style="margin-bottom: 1.5rem;">Account information</h2>
-        
-        <div style="display: grid; gap: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); border-radius: 8px; border: 2px solid #4CAF50;">
+    <div class="acct-card">
+        <h2>Account information</h2>
+        <div style="display: grid; gap: 0.75rem;">
+            <div class="conn-code-box">
                 <strong>Connection Code (for APK):</strong>
-                <span style="font-family: monospace; font-size: 1.5rem; font-weight: bold; letter-spacing: 0.2em; color: #1B5E20;">{{ user.connection_code or '—' }}</span>
+                <span class="conn-code-val">{{ user.connection_code or '—' }}</span>
             </div>
-            
-            <div style="display: flex; justify-content: space-between; padding: 0.75rem; background: #f8f9fa; border-radius: 4px;">
+            <div class="info-row">
                 <strong>Plan:</strong>
                 <span style="text-transform: capitalize;">{{ user.plan }}</span>
             </div>
-            
-            <div style="display: flex; justify-content: space-between; padding: 0.75rem;">
+            <div class="info-row">
                 <strong>Status:</strong>
-                <span style="text-transform: capitalize; color: {% if user.subscription_status == 'active' %}#00E676{% elif user.subscription_status == 'trial' %}#FFB300{% else %}#FF3D00{% endif %}; font-weight: bold;">
+                <span style="text-transform: capitalize; font-weight: bold; color: {% if user.subscription_status == 'active' %}#22c55e{% elif user.subscription_status == 'trial' %}#facc15{% else %}#ef4444{% endif %};">
                     {{ user.subscription_status }}
                 </span>
             </div>
         </div>
     </div>
-    
-    <div style="background: #E3F2FD; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #0066FF; margin: 2rem 0;">
-        <h3 style="margin-bottom: 0.5rem;">📱 Android APK configuration</h3>
-        <p style="margin-bottom: 0.75rem;">The app connects to the cloud automatically. Open the APK and enter <strong>only your 9-digit code</strong>:</p>
-        <p style="margin-bottom: 1rem;"><code style="font-size: 1.25rem; font-weight: bold; letter-spacing: 0.15em;">{{ user.connection_code or '—' }}</code></p>
-        <p style="margin-bottom: 0.5rem; font-size: 0.9rem; color: #555;">API URL (for reference):</p>
-        <code style="display: block; background: white; padding: 0.75rem 1rem; border-radius: 6px; font-family: monospace; font-size: 0.875rem; word-break: break-all;">
-            {{ request.url_root.rstrip('/') }}/api/playback/state?code={{ user.connection_code or '' }}
-        </code>
+
+    <div class="apk-info-box">
+        <h3>Android APK configuration</h3>
+        <p>The app connects to the cloud automatically. Open the APK and enter <strong>only your 9-digit code</strong>:</p>
+        <p><code>{{ user.connection_code or '—' }}</code></p>
+        <p style="font-size: 0.9rem; color: #9ca3af; margin-top: 0.75rem;">API URL (for reference):</p>
+        <code class="apk-url-box">{{ request.url_root.rstrip('/') }}/api/playback/state?code={{ user.connection_code or '' }}</code>
     </div>
 
-    <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h2 style="margin-bottom: 1.5rem;">Downloads</h2>
-        <p style="margin-bottom: 1rem; color: #555; font-size: 0.95rem;">
-            Install these apps on your Android TV / player devices. First install the <strong>Watchdog</strong> (optional, for auto-restart), then the <strong>Signage Player</strong>.
+    <div class="acct-card">
+        <h2>Downloads</h2>
+        <p style="margin-bottom: 1rem; color: #9ca3af; font-size: 0.95rem;">
+            Install these apps on your Android TV / player devices. First install the <strong style="color:#d1d5db">Watchdog</strong> (optional, for auto-restart), then the <strong style="color:#d1d5db">Signage Player</strong>.
         </p>
-        <div style="display: grid; gap: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-radius: 8px; background: #F5F5F5;">
-                <div>
-                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Signage Player APK</div>
-                    <div style="font-size: 0.85rem; color: #666;">
-                        Main app that shows your layouts and playlists.
-                    </div>
-                </div>
-                <a href="{{ url_for('static', filename='apk/Signage Player.apk') }}"
-                   style="padding: 0.65rem 1.25rem; border-radius: 999px; background: #0066FF; color: white; font-weight: 600; text-decoration: none;">
-                    Download
-                </a>
+        <div class="dl-row">
+            <div>
+                <div class="dl-name">Signage Player APK</div>
+                <div class="dl-desc">Main app that shows your layouts and playlists.</div>
             </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-radius: 8px; background: #F5F5F5;">
-                <div>
-                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Watchdog APK</div>
-                    <div style="font-size: 0.85rem; color: #666;">
-                        Optional helper that keeps the player running and restarts it if needed.
-                    </div>
-                </div>
-                <a href="{{ url_for('static', filename='apk/watchdog.apk') }}"
-                   style="padding: 0.65rem 1.25rem; border-radius: 999px; background: #0066FF; color: white; font-weight: 600; text-decoration: none;">
-                    Download
-                </a>
-            </div>
+            <a href="{{ url_for('static', filename='apk/Signage Player.apk') }}" class="dl-btn">Download</a>
         </div>
-        <p style="margin-top: 0.75rem; font-size: 0.8rem; color: #777;">
-            Place your APK files on the server at <code>static/apk/Signage Player.apk</code> and <code>static/apk/watchdog.apk</code>.
+        <div class="dl-row">
+            <div>
+                <div class="dl-name">Watchdog APK</div>
+                <div class="dl-desc">Optional helper that keeps the player running and restarts it if needed.</div>
+            </div>
+            <a href="{{ url_for('static', filename='apk/watchdog.apk') }}" class="dl-btn">Download</a>
+        </div>
+        <p style="margin-top: 0.75rem; font-size: 0.8rem; color: #6b7280;">
+            Place your APK files on the server at <code style="color:#9ca3af">static/apk/Signage Player.apk</code> and <code style="color:#9ca3af">static/apk/watchdog.apk</code>.
         </p>
     </div>
-    
+
     {% if payments %}
-    <div style="background: white; padding: 2rem; border-radius: 8px; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h2 style="margin-bottom: 1.5rem;">Recent Payments</h2>
-        <table style="width: 100%; border-collapse: collapse;">
+    <div class="acct-card">
+        <h2>Recent Payments</h2>
+        <table class="pay-table">
             <thead>
-                <tr style="border-bottom: 2px solid #e0e0e0;">
-                    <th style="padding: 0.75rem; text-align: left;">Date</th>
-                    <th style="padding: 0.75rem; text-align: left;">Amount</th>
-                    <th style="padding: 0.75rem; text-align: left;">Plan</th>
-                    <th style="padding: 0.75rem; text-align: left;">Status</th>
+                <tr>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Plan</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody>
                 {% for payment in payments %}
-                <tr style="border-bottom: 1px solid #f0f0f0;">
-                    <td style="padding: 0.75rem;">{{ payment.created_at.strftime('%Y-%m-%d') }}</td>
-                    <td style="padding: 0.75rem;">${{ payment.amount }}</td>
-                    <td style="padding: 0.75rem;">{{ payment.plan }}</td>
-                    <td style="padding: 0.75rem;">{{ payment.status }}</td>
+                <tr>
+                    <td>{{ payment.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>${{ payment.amount }}</td>
+                    <td>{{ payment.plan }}</td>
+                    <td>{{ payment.status }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -5,32 +5,33 @@
 <style>
     .subs-page-wrap {
         min-height: calc(100vh - 120px);
-        background: #f1f5f9;
+        background: #0c0118;
         padding: 3.5rem 1.5rem 2.5rem;
     }
     .subs-page {
         max-width: 1200px;
         margin: 0 auto;
-        background: #fff;
+        background: rgba(21, 2, 37, 0.9);
+        border: 1px solid rgba(46, 16, 101, 0.6);
         border-radius: 20px;
-        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 4px 40px rgba(12, 1, 24, 0.7);
         padding: 2.5rem 2rem;
     }
     .subs-page h1 {
         font-size: clamp(1.5rem, 4vw, 2rem);
         font-weight: 700;
         letter-spacing: -0.02em;
-        color: #0f172a;
+        color: #f9fafb;
         margin-bottom: 0.35rem;
     }
     .subs-page .subtitle {
-        color: #64748b;
+        color: #9ca3af;
         font-size: 1rem;
         margin-bottom: 2.25rem;
     }
     .current-plan-card {
-        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-        border: 1px solid #a7f3d0;
+        background: rgba(22, 163, 74, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.35);
         border-radius: 16px;
         padding: 1.5rem 1.75rem;
         margin-bottom: 2rem;
@@ -39,18 +40,17 @@
         align-items: center;
         flex-wrap: wrap;
         gap: 1rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
     .current-plan-card.expired {
-        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-        border-color: #fecaca;
+        background: rgba(239, 68, 68, 0.1);
+        border-color: rgba(239, 68, 68, 0.35);
     }
     .current-plan-card .plan-name {
         font-size: 1.2rem;
         font-weight: 700;
-        color: #065f46;
+        color: #86efac;
     }
-    .current-plan-card.expired .plan-name { color: #991b1b; }
+    .current-plan-card.expired .plan-name { color: #fca5a5; }
     .current-plan-card .status {
         padding: 0.35rem 0.75rem;
         border-radius: 999px;
@@ -59,16 +59,16 @@
         letter-spacing: 0.02em;
     }
     .current-plan-card .status.active { background: #059669; color: white; }
-    .current-plan-card .status.trial { background: #f59e0b; color: white; }
+    .current-plan-card .status.trial { background: #d97706; color: white; }
     .current-plan-card .status.expired { background: #dc2626; color: white; }
     .current-plan-card > div:last-child {
-        color: #475569;
+        color: #9ca3af;
         font-size: 0.95rem;
     }
     .subs-section-title {
         font-size: 1.15rem;
         font-weight: 600;
-        color: #0f172a;
+        color: #f9fafb;
         margin-bottom: 1.25rem;
     }
     .plans-grid {
@@ -77,38 +77,37 @@
         gap: 1rem;
     }
     .plan-card {
-        background: #fafafa;
-        border: 1px solid #e2e8f0;
+        background: rgba(12, 1, 24, 0.7);
+        border: 1px solid rgba(46, 16, 101, 0.6);
         border-radius: 14px;
         padding: 1.75rem;
         text-align: center;
         transition: border-color 0.2s, box-shadow 0.2s;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     .plan-card:hover {
-        border-color: var(--primary);
-        box-shadow: 0 4px 16px rgba(0, 102, 255, 0.1);
+        border-color: rgba(167, 139, 250, 0.6);
+        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.15);
     }
     .plan-card.current {
-        border-color: var(--primary);
-        background: #f0f9ff;
+        border-color: #7c3aed;
+        background: rgba(124, 58, 237, 0.1);
         border-width: 2px;
-        box-shadow: 0 2px 8px rgba(0, 102, 255, 0.12);
+        box-shadow: 0 2px 12px rgba(124, 58, 237, 0.2);
     }
     .plan-card h3 {
         font-size: 1.2rem;
         font-weight: 600;
-        color: #0f172a;
+        color: #f9fafb;
         margin-bottom: 0.5rem;
     }
     .plan-card .price {
         font-size: 1.75rem;
         font-weight: 700;
-        color: var(--primary);
+        color: #f97316;
     }
     .plan-card .price span {
         font-size: 0.95rem;
-        color: #64748b;
+        color: #9ca3af;
         font-weight: 500;
     }
     .plan-card .features-list {
@@ -119,7 +118,7 @@
     }
     .plan-card .features-list li {
         padding: 0.35rem 0;
-        color: #475569;
+        color: #9ca3af;
         font-size: 0.9rem;
     }
     .plan-card .features-list li::before {
@@ -136,49 +135,49 @@
         font-weight: 600;
     }
     .plan-card .btn:disabled {
-        opacity: 0.8;
+        opacity: 0.6;
         cursor: default;
-        background: #cbd5e1;
-        border-color: #cbd5e1;
-        color: #64748b;
+        background: rgba(46, 16, 101, 0.4);
+        border-color: rgba(46, 16, 101, 0.4);
+        color: #6b7280;
     }
     .plan-card .plan-default-note {
         margin-top: 0.75rem;
-        color: #64748b;
+        color: #6b7280;
         font-size: 0.875rem;
     }
     .payment-message {
-        background: #fffbeb;
-        border: 1px solid #fde68a;
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.35);
         border-radius: 12px;
         padding: 1rem 1.25rem;
         margin-bottom: 2rem;
         font-size: 0.95rem;
-        color: #92400e;
+        color: #fcd34d;
     }
     .subs-notice-box {
-        background: #f0f9ff;
-        border: 1px solid #bae6fd;
+        background: rgba(56, 189, 248, 0.08);
+        border: 1px solid rgba(56, 189, 248, 0.25);
         border-radius: 12px;
         padding: 1rem 1.25rem;
         margin-bottom: 1rem;
         font-size: 0.95rem;
-        color: #0c4a6e;
+        color: #bae6fd;
     }
     .subs-notice-box-warn {
-        background: #fef3c7;
-        border-color: #fcd34d;
-        color: #92400e;
+        background: rgba(245, 158, 11, 0.08);
+        border-color: rgba(245, 158, 11, 0.3);
+        color: #fcd34d;
     }
     .subs-rules-link {
         margin-bottom: 2rem;
         font-size: 0.95rem;
     }
     .subs-rules-link a {
-        color: var(--primary);
+        color: #c4b5fd;
         text-decoration: none;
     }
-    .subs-rules-link a:hover { text-decoration: underline; }
+    .subs-rules-link a:hover { text-decoration: underline; color: #f97316; }
     .plans-grid {
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     }
@@ -278,21 +277,21 @@
 <style>
 .subs-payoneer-modal { display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
 .subs-payoneer-modal.open { display: flex; }
-.subs-payoneer-modal .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
-.subs-payoneer-content { position: relative; background: #fff; border-radius: 16px; max-width: 440px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); padding: 0; overflow: hidden; }
-.subs-payoneer-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid #eee; }
-.subs-payoneer-header h3 { margin: 0; font-size: 1.2rem; }
-.subs-payoneer-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666; line-height: 1; padding: 0 0.25rem; }
+.subs-payoneer-modal .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
+.subs-payoneer-content { position: relative; background: rgba(21, 2, 37, 0.98); border: 1px solid rgba(46, 16, 101, 0.7); border-radius: 16px; max-width: 440px; width: 100%; box-shadow: 0 20px 60px rgba(12, 1, 24, 0.8); padding: 0; overflow: hidden; }
+.subs-payoneer-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(46, 16, 101, 0.5); }
+.subs-payoneer-header h3 { margin: 0; font-size: 1.2rem; color: #f9fafb; }
+.subs-payoneer-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af; line-height: 1; padding: 0 0.25rem; }
 .subs-payoneer-body { padding: 1.5rem; }
-.subs-payoneer-intro { margin-bottom: 1rem; color: #334155; }
+.subs-payoneer-intro { margin-bottom: 1rem; color: #d1d5db; }
 .subs-payoneer-email { margin-bottom: 0.75rem; }
-.subs-payoneer-email label { display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem; }
-.subs-payoneer-email-value { font-size: 1.1rem; font-weight: 600; color: var(--primary); word-break: break-all; }
-.subs-payoneer-amount { margin-bottom: 1rem; }
-.subs-payoneer-instructions { background: #f8fafc; border-radius: 8px; padding: 1rem; font-size: 0.9rem; color: #475569; white-space: pre-wrap; margin-bottom: 1rem; }
-.subs-payoneer-after { font-size: 0.9rem; color: #64748b; }
-.subs-payoneer-after a { color: var(--primary); }
-.subs-payoneer-not-set { color: #94a3b8; }
+.subs-payoneer-email label { display: block; font-size: 0.85rem; color: #9ca3af; margin-bottom: 0.25rem; }
+.subs-payoneer-email-value { font-size: 1.1rem; font-weight: 600; color: #f97316; word-break: break-all; }
+.subs-payoneer-amount { margin-bottom: 1rem; color: #e5e7eb; }
+.subs-payoneer-instructions { background: rgba(12, 1, 24, 0.5); border: 1px solid rgba(46, 16, 101, 0.4); border-radius: 8px; padding: 1rem; font-size: 0.9rem; color: #9ca3af; white-space: pre-wrap; margin-bottom: 1rem; }
+.subs-payoneer-after { font-size: 0.9rem; color: #9ca3af; }
+.subs-payoneer-after a { color: #c4b5fd; }
+.subs-payoneer-not-set { color: #6b7280; }
 </style>
 
 <script>

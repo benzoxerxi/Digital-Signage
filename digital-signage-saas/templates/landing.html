@@ -5,7 +5,7 @@
 {% block extra_css %}
 <style>
     .landing-shell {
-        background: #020617;
+        background: #0c0118;
     }
 
     .landing-main {
@@ -15,7 +15,11 @@
     }
 
     .hero {
-        background: radial-gradient(circle at top left, #1d4ed8 0%, #020617 45%, #020617 100%);
+        background:
+          radial-gradient(ellipse 80% 60% at 0% 0%, rgba(124, 58, 237, 0.55) 0%, transparent 55%),
+          radial-gradient(ellipse 70% 50% at 100% 0%, rgba(219, 39, 119, 0.35) 0%, transparent 50%),
+          radial-gradient(ellipse 60% 50% at 50% 100%, rgba(29, 78, 216, 0.3) 0%, transparent 55%),
+          #0c0118;
         color: #e5e7eb;
         padding: 4.5rem 0 4rem 0;
     }
@@ -33,12 +37,12 @@
         gap: 0.5rem;
         padding: 0.25rem 0.75rem;
         border-radius: 999px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(46, 16, 101, 0.6);
+        border: 1px solid rgba(167, 139, 250, 0.35);
         font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 0.12em;
-        color: #93c5fd;
+        color: #c4b5fd;
         margin-bottom: 1.25rem;
     }
 
@@ -54,7 +58,7 @@
         font-size: 1.05rem;
         line-height: 1.7;
         max-width: 32rem;
-        color: #cbd5f5;
+        color: #c4b5fd;
         margin-bottom: 1.75rem;
     }
 
@@ -85,9 +89,12 @@
     }
 
     .hero-cta .btn-primary {
-        padding: 0.85rem 1.6rem;
+        padding: 0.95rem 2.3rem;
         border-radius: 999px;
         font-size: 0.95rem;
+        background: linear-gradient(135deg, #fb923c 0%, #f97316 35%, #c2410c 100%);
+        box-shadow: 0 0 0 1px rgba(248, 250, 252, 0.06),
+                    0 18px 45px rgba(12, 1, 24, 0.9);
     }
 
     .hero-cta .btn-secondary {
@@ -96,13 +103,13 @@
         font-size: 0.9rem;
         background: transparent;
         border-width: 1px;
-        border-color: rgba(148, 163, 184, 0.6);
+        border-color: rgba(167, 139, 250, 0.4);
         color: #e5e7eb;
     }
 
     .hero-cta .btn-secondary:hover {
-        background: rgba(15, 23, 42, 0.8);
-        color: #e5e7eb;
+        background: rgba(46, 16, 101, 0.5);
+        color: #f9fafb;
     }
 
     .hero-note {
@@ -115,10 +122,10 @@
     }
 
     .hero-card {
-        background: radial-gradient(circle at top, rgba(56, 189, 248, 0.18) 0, rgba(15, 23, 42, 0.95) 55%, #020617 100%);
+        background: radial-gradient(circle at top, rgba(124, 58, 237, 0.22) 0%, rgba(21, 2, 37, 0.95) 55%, #0c0118 100%);
         border-radius: 24px;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        box-shadow: 0 24px 70px rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(167, 139, 250, 0.2);
+        box-shadow: 0 24px 70px rgba(12, 1, 24, 0.9);
         padding: 1.75rem 1.75rem 1.5rem 1.75rem;
         color: #e5e7eb;
         position: relative;
@@ -144,8 +151,8 @@
         padding: 0.25rem 0.6rem;
         border-radius: 999px;
         background: rgba(22, 163, 74, 0.15);
-        color: #bbf7d0;
-        border: 1px solid rgba(22, 163, 74, 0.6);
+        color: #86efac;
+        border: 1px solid rgba(34, 197, 94, 0.5);
     }
 
     .hero-card-metric {
@@ -177,8 +184,8 @@
     .hero-card-item {
         padding: 0.7rem 0.75rem;
         border-radius: 10px;
-        background: rgba(15, 23, 42, 0.8);
-        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(12, 1, 24, 0.7);
+        border: 1px solid rgba(46, 16, 101, 0.7);
         display: flex;
         flex-direction: column;
         gap: 0.15rem;
@@ -196,7 +203,7 @@
     .hero-card-footer {
         margin-top: 1.1rem;
         padding-top: 0.9rem;
-        border-top: 1px dashed rgba(148, 163, 184, 0.35);
+        border-top: 1px dashed rgba(167, 139, 250, 0.25);
         font-size: 0.8rem;
         color: #9ca3af;
     }
@@ -209,15 +216,15 @@
         position: absolute;
         inset: 0;
         pointer-events: none;
-        opacity: 0.25;
-        background: radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.6) 0, transparent 45%),
-                    radial-gradient(circle at 85% 90%, rgba(59, 130, 246, 0.6) 0, transparent 45%);
+        opacity: 0.3;
+        background: radial-gradient(circle at 15% 10%, rgba(167, 139, 250, 0.6) 0%, transparent 45%),
+                    radial-gradient(circle at 85% 90%, rgba(124, 58, 237, 0.5) 0%, transparent 45%);
         mix-blend-mode: screen;
     }
 
     .trust-strip {
         padding: 1.75rem 0 0 0;
-        border-top: 1px solid rgba(30, 64, 175, 0.3);
+        border-top: 1px solid rgba(46, 16, 101, 0.6);
         margin-top: 2.25rem;
         display: flex;
         flex-wrap: wrap;
@@ -244,8 +251,8 @@
     .trust-chip {
         padding: 0.25rem 0.7rem;
         border-radius: 999px;
-        border: 1px solid rgba(55, 65, 81, 0.9);
-        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(46, 16, 101, 0.8);
+        background: rgba(21, 2, 37, 0.8);
     }
 
     .section {
@@ -286,11 +293,11 @@
     }
 
     .feature-card {
-        background: rgba(15, 23, 42, 0.9);
-        border-radius: 16px;
-        border: 1px solid rgba(31, 41, 55, 1);
-        padding: 1.5rem 1.4rem 1.4rem 1.4rem;
-        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.75);
+        background: radial-gradient(ellipse 80% 60% at top left, rgba(124, 58, 237, 0.14) 0%, rgba(21, 2, 37, 0.97) 50%, #0c0118 100%);
+        border-radius: 18px;
+        border: 1px solid rgba(46, 16, 101, 0.7);
+        padding: 1.7rem 1.5rem 1.5rem 1.5rem;
+        box-shadow: 0 20px 50px rgba(12, 1, 24, 0.9);
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
@@ -298,7 +305,7 @@
 
     .feature-pill {
         font-size: 0.75rem;
-        color: #a5b4fc;
+        color: #c4b5fd;
         text-transform: uppercase;
         letter-spacing: 0.16em;
     }
@@ -318,7 +325,7 @@
         color: #6b7280;
         margin-top: auto;
         padding-top: 0.75rem;
-        border-top: 1px solid rgba(31, 41, 55, 1);
+        border-top: 1px solid rgba(46, 16, 101, 0.5);
     }
 
     .split-grid {
@@ -376,13 +383,13 @@
         width: 1.4rem;
         height: 1.4rem;
         border-radius: 999px;
-        background: rgba(37, 99, 235, 0.2);
-        border: 1px solid rgba(59, 130, 246, 0.9);
+        background: rgba(124, 58, 237, 0.25);
+        border: 1px solid rgba(167, 139, 250, 0.7);
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 0.75rem;
-        color: #bfdbfe;
+        color: #c4b5fd;
     }
 
     .step-label {
@@ -395,9 +402,9 @@
         margin-top: 3.5rem;
         padding: 3.25rem 1.75rem;
         border-radius: 20px;
-        background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.07) 0, rgba(15, 23, 42, 0.96) 52%, #020617 100%);
-        border: 1px solid rgba(31, 41, 55, 1);
-        box-shadow: 0 22px 60px rgba(15, 23, 42, 0.9);
+        background: radial-gradient(circle at top left, rgba(124, 58, 237, 0.1) 0%, rgba(21, 2, 37, 0.96) 52%, #0c0118 100%);
+        border: 1px solid rgba(46, 16, 101, 0.7);
+        box-shadow: 0 22px 60px rgba(12, 1, 24, 0.9);
     }
 
     .pricing-header {
@@ -428,9 +435,9 @@
     }
 
     .pricing-card {
-        background: rgba(15, 23, 42, 0.95);
+        background: rgba(21, 2, 37, 0.95);
         border-radius: 16px;
-        border: 1px solid rgba(31, 41, 55, 1);
+        border: 1px solid rgba(46, 16, 101, 0.6);
         padding: 1.75rem 1.5rem 1.6rem 1.5rem;
         display: flex;
         flex-direction: column;
@@ -453,8 +460,8 @@
         font-size: 0.7rem;
         padding: 0.2rem 0.55rem;
         border-radius: 999px;
-        border: 1px solid rgba(59, 130, 246, 0.8);
-        color: #bfdbfe;
+        border: 1px solid rgba(167, 139, 250, 0.6);
+        color: #c4b5fd;
         text-transform: uppercase;
         letter-spacing: 0.12em;
     }
@@ -509,8 +516,8 @@
         margin-top: 3.25rem;
         padding: 2.2rem 2rem;
         border-radius: 18px;
-        border: 1px solid rgba(37, 99, 235, 0.6);
-        background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(56, 189, 248, 0.08));
+        border: 1px solid rgba(124, 58, 237, 0.5);
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(167, 139, 250, 0.06));
         display: flex;
         flex-wrap: wrap;
         justify-content: space-between;
@@ -556,7 +563,7 @@
         padding: 1.75rem 0 0 0;
         font-size: 0.8rem;
         color: #6b7280;
-        border-top: 1px solid rgba(31, 41, 55, 1);
+        border-top: 1px solid rgba(46, 16, 101, 0.5);
         margin-top: 3rem;
         text-align: center;
     }
@@ -861,7 +868,7 @@
                         Start 7‑day free trial
                     </a>
                     <div class="cta-final-small">
-                        Or <a href="{{ BASE_PATH }}{{ url_for('auth.login') }}" style="color:#bfdbfe;text-decoration:underline;">log in</a> if you already have an account.
+                        Or <a href="{{ BASE_PATH }}{{ url_for('auth.login') }}" style="color:#c4b5fd;text-decoration:underline;">log in</a> if you already have an account.
                     </div>
                 </div>
             </div>

@@ -12,14 +12,18 @@
         justify-content: center;
         min-height: calc(100vh - 80px);
         padding: 2rem 1rem;
-        background: linear-gradient(160deg, #f0f4ff 0%, #e8eeff 50%, #f5f7fa 100%);
+        background:
+          radial-gradient(ellipse 60% 50% at 30% 20%, rgba(124, 58, 237, 0.25) 0%, transparent 60%),
+          radial-gradient(ellipse 50% 40% at 80% 80%, rgba(219, 39, 119, 0.15) 0%, transparent 55%),
+          #0c0118;
     }
     .auth-popup {
         width: 100%;
         max-width: 400px;
-        background: #fff;
+        background: rgba(21, 2, 37, 0.95);
+        border: 1px solid rgba(46, 16, 101, 0.7);
         border-radius: 20px;
-        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
+        box-shadow: 0 25px 60px rgba(12, 1, 24, 0.8);
         padding: 2.5rem 2rem;
         animation: authPop 0.35s ease-out;
     }
@@ -30,13 +34,13 @@
     .auth-popup h1 {
         font-size: 1.5rem;
         font-weight: 700;
-        color: #1a1a2e;
+        color: #f9fafb;
         text-align: center;
         margin-bottom: 0.35rem;
     }
     .auth-popup .subtitle {
         text-align: center;
-        color: #64748b;
+        color: #9ca3af;
         font-size: 0.9375rem;
         margin-bottom: 1.75rem;
     }
@@ -48,23 +52,25 @@
         margin-bottom: 0.4rem;
         font-weight: 600;
         font-size: 0.875rem;
-        color: #334155;
+        color: #d1d5db;
     }
     .auth-popup .form-group input {
         width: 100%;
         max-width: 100%;
         padding: 0.75rem 1rem;
-        border: 1px solid #e2e8f0;
+        border: 1px solid rgba(46, 16, 101, 0.6);
         border-radius: 10px;
         font-size: 1rem;
         transition: border-color 0.2s, box-shadow 0.2s;
-        background: #fafafa;
+        background: rgba(12, 1, 24, 0.6);
+        color: #e5e7eb;
     }
+    .auth-popup .form-group input::placeholder { color: #6b7280; }
     .auth-popup .form-group input:focus {
         outline: none;
-        border-color: var(--primary);
-        background: #fff;
-        box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.12);
+        border-color: #7c3aed;
+        background: rgba(12, 1, 24, 0.8);
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
     }
     .auth-popup .form-group.checkbox {
         display: flex;
@@ -72,8 +78,8 @@
         gap: 0.5rem;
         margin-bottom: 1.5rem;
     }
-    .auth-popup .form-group.checkbox input { width: auto; }
-    .auth-popup .form-group.checkbox label { margin-bottom: 0; font-weight: 500; }
+    .auth-popup .form-group.checkbox input { width: auto; accent-color: #7c3aed; }
+    .auth-popup .form-group.checkbox label { margin-bottom: 0; font-weight: 500; color: #9ca3af; }
     .auth-popup .btn-submit {
         width: 100%;
         padding: 0.875rem 1.25rem;
@@ -81,29 +87,30 @@
         font-weight: 600;
         border-radius: 10px;
         border: none;
-        background: var(--primary);
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
         color: #fff;
         cursor: pointer;
-        transition: background 0.2s, transform 0.1s;
+        transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
     }
     .auth-popup .btn-submit:hover {
-        background: var(--primary-dark);
+        background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
         transform: translateY(-1px);
+        box-shadow: 0 4px 18px rgba(249, 115, 22, 0.35);
     }
     .auth-popup .auth-links {
         text-align: center;
         margin-top: 1.5rem;
         padding-top: 1.25rem;
-        border-top: 1px solid #f1f5f9;
+        border-top: 1px solid rgba(46, 16, 101, 0.5);
         font-size: 0.9375rem;
-        color: #64748b;
+        color: #9ca3af;
     }
     .auth-popup .auth-links a {
-        color: var(--primary);
+        color: #c4b5fd;
         text-decoration: none;
         font-weight: 600;
     }
-    .auth-popup .auth-links a:hover { text-decoration: underline; }
+    .auth-popup .auth-links a:hover { text-decoration: underline; color: #f97316; }
 </style>
 {% endblock %}
 

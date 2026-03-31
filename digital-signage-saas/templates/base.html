@@ -13,31 +13,34 @@
         }
         
         :root {
-            --primary: #0066FF;
-            --primary-dark: #0052CC;
-            --secondary: #00D9FF;
-            --success: #00E676;
-            --warning: #FFB300;
-            --danger: #FF3D00;
-            --dark: #0A0E27;
-            --dark-2: #141B3D;
-            --dark-3: #1E2749;
-            --text: #E4E7EB;
-            --text-muted: #8B92A8;
-            --border: #2A3459;
+            --primary: #f97316;
+            --primary-dark: #ea580c;
+            --secondary: #22d3ee;
+            --success: #22c55e;
+            --warning: #facc15;
+            --danger: #ef4444;
+            --dark: #0c0118;
+            --dark-2: #150225;
+            --dark-3: #1e0636;
+            --text: #e5e7eb;
+            --text-muted: #9ca3af;
+            --border: #2e1065;
             --white: #FFFFFF;
         }
         
         body {
             font-family: 'Inter', -apple-system, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: var(--text);
+            background: #0c0118;
         }
         
         .navbar {
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 1rem 0;
+            background: rgba(12, 1, 24, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 1px 0 rgba(46, 16, 101, 0.5);
+            padding: 0.75rem 0;
             position: sticky;
             top: 0;
             z-index: 100;
@@ -53,10 +56,12 @@
         }
         
         .navbar .logo {
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 700;
-            color: var(--primary);
+            color: #f9fafb;
             text-decoration: none;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
         }
         
         .navbar .nav-links {
@@ -67,12 +72,13 @@
         
         .navbar .nav-links a {
             text-decoration: none;
-            color: #333;
+            color: #d1d5db;
             font-weight: 500;
+            font-size: 0.9rem;
         }
         
         .navbar .nav-links a:hover {
-            color: var(--primary);
+            color: #f97316;
         }
         
         /* Burger button – hidden on desktop */
@@ -84,15 +90,15 @@
             height: 44px;
             padding: 0;
             background: transparent;
-            border: 1px solid #ddd;
+            border: 1px solid rgba(46, 16, 101, 0.8);
             border-radius: 8px;
-            color: #333;
+            color: #d1d5db;
             font-size: 1.4rem;
             cursor: pointer;
         }
         .navbar-burger:hover {
-            background: #f5f5f5;
-            color: var(--primary);
+            background: rgba(46, 16, 101, 0.4);
+            color: #f97316;
         }
         
         .nav-overlay {
@@ -134,10 +140,10 @@
                 height: 100dvh;
                 flex-direction: column;
                 gap: 0;
-                background: white;
-                box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
+                background: #0c0118;
+                box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
                 padding: 2rem 0;
-                border-left: 1px solid #eee;
+                border-left: 1px solid #2e1065;
                 z-index: 1001;
                 transform: translateX(100%);
                 transition: transform 0.3s ease;
@@ -148,7 +154,7 @@
             }
             .navbar .nav-links a {
                 padding: 1rem 1.5rem;
-                border-bottom: 1px solid #f0f0f0;
+                border-bottom: 1px solid rgba(46, 16, 101, 0.5);
                 flex-shrink: 0;
             }
             .navbar .nav-links a:last-child {
@@ -172,25 +178,26 @@
         }
         
         .btn-primary {
-            background: var(--primary);
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
             color: white;
         }
         
         .btn-primary:hover {
-            background: var(--primary-dark);
+            background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+            box-shadow: 0 4px 18px rgba(249, 115, 22, 0.4);
         }
         
         .btn-secondary {
             background: transparent;
-            color: var(--primary);
-            border: 2px solid var(--primary);
+            color: #d1d5db;
+            border: 1px solid rgba(148, 163, 184, 0.5);
         }
         
         .btn-secondary:hover {
-            background: var(--primary);
-            color: white;
+            background: rgba(46, 16, 101, 0.4);
+            color: #f9fafb;
+            border-color: rgba(148, 163, 184, 0.8);
         }
         
         .flash-messages {
@@ -204,9 +211,10 @@
             padding: 1rem 1.5rem;
             margin-bottom: 1rem;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
             animation: slideIn 0.3s;
             min-width: 300px;
+            backdrop-filter: blur(12px);
         }
         
         @keyframes slideIn {
@@ -215,21 +223,21 @@
         }
         
         .flash-message.success {
-            background: #D4EDDA;
-            color: #155724;
-            border-left: 4px solid #28A745;
+            background: rgba(22, 163, 74, 0.15);
+            color: #bbf7d0;
+            border-left: 4px solid #22c55e;
         }
         
         .flash-message.error {
-            background: #F8D7DA;
-            color: #721C24;
-            border-left: 4px solid #DC3545;
+            background: rgba(239, 68, 68, 0.15);
+            color: #fecaca;
+            border-left: 4px solid #ef4444;
         }
         
         .flash-message.info {
-            background: #D1ECF1;
-            color: #0C5460;
-            border-left: 4px solid #17A2B8;
+            background: rgba(56, 189, 248, 0.15);
+            color: #bae6fd;
+            border-left: 4px solid #38bdf8;
         }
         
         {% block extra_css %}{% endblock %}

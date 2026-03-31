@@ -65,7 +65,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:visibility="gone">
+                android:visibility="visible">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -81,7 +81,7 @@
                     android:id="@+id/server_input"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
-                    android:hint="192.168.1.100:5000"
+                    android:hint="https://benzos.uk/signage"
                     android:inputType="textUri"
                     android:padding="16dp"
                     android:background="@drawable/input_background"
@@ -92,7 +92,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Enter the IP address and port of your server"
+                    android:text="Change only if using a different server"
                     android:textSize="12sp"
                     android:textColor="#999999"
                     android:layout_marginTop="8dp"

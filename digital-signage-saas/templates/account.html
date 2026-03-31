@@ -8,18 +8,24 @@
         padding: 3.5rem 1.5rem 2.5rem;
     }
     .acct-wrap {
-        max-width: 800px;
+        max-width: 700px;
         margin: 0 auto;
-        padding: 2rem;
+        padding: 1rem;
         color: #e5e7eb;
     }
-    .acct-wrap h1 { color: #f9fafb; margin-bottom: 0.5rem; }
+    .acct-wrap h1 {
+        color: #f9fafb;
+        margin-bottom: 0.75rem;
+        font-size: 2rem;
+        letter-spacing: -0.02em;
+    }
     .acct-card {
         background: rgba(21, 2, 37, 0.9);
         border: 1px solid rgba(46, 16, 101, 0.6);
-        padding: 2rem;
+        padding: 1.35rem 1.25rem;
         border-radius: 14px;
-        margin: 1.5rem 0;
+        margin: 0.95rem 0;
+        box-shadow: 0 8px 24px rgba(12, 1, 24, 0.35);
     }
     .acct-card h2 { color: #f9fafb; margin-bottom: 1.25rem; font-size: 1.15rem; }
     .acct-card label { display: block; margin-bottom: 0.35rem; font-weight: 600; color: #d1d5db; font-size: 0.9rem; }
@@ -75,9 +81,9 @@
         background: rgba(124, 58, 237, 0.1);
         border: 1px solid rgba(124, 58, 237, 0.35);
         border-left: 4px solid #7c3aed;
-        padding: 1.5rem;
+        padding: 1.15rem 1.1rem;
         border-radius: 10px;
-        margin: 1.5rem 0;
+        margin: 0.95rem 0;
     }
     .apk-info-box h3 { color: #f9fafb; margin-bottom: 0.5rem; }
     .apk-info-box p { color: #d1d5db; margin-bottom: 0.5rem; }
@@ -117,6 +123,25 @@
     .pay-table { width: 100%; border-collapse: collapse; }
     .pay-table th { padding: 0.75rem; text-align: left; border-bottom: 1px solid rgba(46, 16, 101, 0.5); color: #d1d5db; font-size: 0.9rem; }
     .pay-table td { padding: 0.75rem; border-bottom: 1px solid rgba(46, 16, 101, 0.25); color: #9ca3af; }
+    @media (max-width: 720px) {
+        .acct-page-wrap { padding: 2rem 0.9rem 1.5rem; }
+        .acct-wrap { padding: 0; }
+        .acct-wrap h1 { font-size: 1.7rem; }
+        .conn-code-box {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.4rem;
+        }
+        .conn-code-val {
+            letter-spacing: 0.12em;
+            font-size: 1.2rem;
+        }
+        .dl-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.8rem;
+        }
+    }
 </style>
 {% endblock %}
 

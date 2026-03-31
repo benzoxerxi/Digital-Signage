@@ -7,6 +7,8 @@ from datetime import timedelta
 class Config:
     # Flask settings
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    # Optional URL prefix when app is served under a subpath (e.g. /signage)
+    BASE_PATH = os.environ.get('BASE_PATH', '').rstrip('/')
     
     # Database: use DATABASE_URL in production so users/data persist across deploys (e.g. Render Postgres)
     _database_url = os.environ.get('DATABASE_URL')

@@ -239,23 +239,23 @@
     <!-- Navigation -->
     <nav class="navbar">
         <div class="container">
-            <a href="/" class="logo">🎬 Digital Signage</a>
+            <a href="{{ BASE_PATH }}{{ url_for('main.landing') }}" class="logo">🎬 Digital Signage</a>
             <button type="button" class="navbar-burger" id="navbarBurger" aria-label="Open menu">☰</button>
             <div class="nav-links" id="navLinks">
                 {% if current_user.is_authenticated %}
                     {% if current_user.is_admin %}
-                        <a href="{{ url_for('admin.admin_dashboard') }}">Admin</a>
+                        <a href="{{ BASE_PATH }}{{ url_for('admin.admin_dashboard') }}">Admin</a>
                     {% endif %}
-                    <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
-                    <a href="{{ url_for('main.subscriptions') }}">Subscriptions</a>
-                    <a href="{{ url_for('main.account') }}">Account</a>
-                    <a href="{{ url_for('main.rules') }}">Rules</a>
-                    <a href="{{ url_for('auth.logout') }}">Logout</a>
+                    <a href="{{ BASE_PATH }}{{ url_for('main.dashboard') }}">Dashboard</a>
+                    <a href="{{ BASE_PATH }}{{ url_for('main.subscriptions') }}">Subscriptions</a>
+                    <a href="{{ BASE_PATH }}{{ url_for('main.account') }}">Account</a>
+                    <a href="{{ BASE_PATH }}{{ url_for('main.rules') }}">Rules</a>
+                    <a href="{{ BASE_PATH }}{{ url_for('auth.logout') }}">Logout</a>
                 {% else %}
-                    <a href="{{ url_for('main.pricing') }}">Pricing</a>
-                    <a href="{{ url_for('main.rules') }}">Rules</a>
-                    <a href="{{ url_for('auth.login') }}">Login</a>
-                    <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Get Started</a>
+                    <a href="{{ BASE_PATH }}{{ url_for('main.pricing') }}">Pricing</a>
+                    <a href="{{ BASE_PATH }}{{ url_for('main.rules') }}">Rules</a>
+                    <a href="{{ BASE_PATH }}{{ url_for('auth.login') }}">Login</a>
+                    <a href="{{ BASE_PATH }}{{ url_for('auth.register') }}" class="btn btn-primary">Get Started</a>
                 {% endif %}
             </div>
         </div>

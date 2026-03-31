@@ -34,6 +34,17 @@ CORS(app)
 # Initialize extensions
 db.init_app(app)
 
+
+@app.context_processor
+def inject_base_path():
+    """Inject BASE_PATH into all templates so URLs can be prefixed when served under a subpath."""
+    base_path = app.config.get('BASE_PATH', '')
+    # Ensure empty string or a value starting with slash, without trailing slash
+    if base_path and not base_path.startswith('/'):
+        base_path = '/' + base_path
+    base_path = base_path.rstrip('/')
+    return {'BASE_PATH': base_path}
+
 # Ensure tables exist and migrations run when app is loaded (e.g. under gunicorn)
 with app.app_context():
     db.create_all()

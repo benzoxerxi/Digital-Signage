@@ -224,8 +224,8 @@
         <h1>Professional digital signage, simplified</h1>
         <p>Manage and distribute content to unlimited displays from one dashboard. Built for businesses, retail, and venues.</p>
         <div class="cta-buttons">
-            <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Start free trial</a>
-            <a href="{{ url_for('main.pricing') }}" class="btn btn-secondary">View pricing</a>
+            <a href="{{ BASE_PATH }}{{ url_for('auth.register') }}" class="btn btn-primary">Start free trial</a>
+            <a href="{{ BASE_PATH }}{{ url_for('main.pricing') }}" class="btn btn-secondary">View pricing</a>
         </div>
     </div>
 </section>
@@ -286,7 +286,7 @@
                             <li>{{ feature }}</li>
                         {% endfor %}
                     </ul>
-                    <a href="{{ url_for('auth.register') }}?plan={{ plan_key }}" class="btn btn-primary">Get Started</a>
+                    <a href="{{ BASE_PATH }}{{ url_for('auth.register') }}?plan={{ plan_key }}" class="btn btn-primary">Get Started</a>
                 </div>
                 {% endif %}
             {% endfor %}
@@ -302,7 +302,7 @@
     <div class="container">
         <h2>Ready to transform your displays?</h2>
         <p>Join businesses using one platform to manage screens and engage audiences.</p>
-        <a href="{{ url_for('auth.register') }}" class="btn btn-primary" style="background: white; color: var(--primary);">Start your free trial</a>
+        <a href="{{ BASE_PATH }}{{ url_for('auth.register') }}" class="btn btn-primary" style="background: white; color: var(--primary);">Start your free trial</a>
     </div>
 </section>
 

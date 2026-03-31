@@ -21,7 +21,12 @@
           radial-gradient(ellipse 60% 50% at 50% 100%, rgba(29, 78, 216, 0.3) 0%, transparent 55%),
           #0c0118;
         color: #e5e7eb;
-        padding: 4.5rem 0 4rem 0;
+        padding: 4.5rem 1.5rem 4rem 1.5rem;
+    }
+
+    .hero-inner {
+        max-width: 1120px;
+        margin: 0 auto;
     }
 
     .hero-grid {
@@ -608,9 +613,9 @@
 
 {% block content %}
 <div class="landing-shell">
-    <main class="landing-main">
-        <!-- HERO -->
-        <section class="hero">
+    <!-- HERO (full-width) -->
+    <section class="hero">
+        <div class="hero-inner">
             <div class="hero-grid">
                 <!-- Left: copy -->
                 <div>
@@ -691,8 +696,10 @@
                     </div>
                 </div>
             </div>
-        </section>
+        </div>
+    </section>
 
+    <main class="landing-main">
         <!-- WHY SECTION (3 cards like Adoptium benefits) -->
         <section class="section">
             <header class="section-header">

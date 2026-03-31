@@ -15,9 +15,32 @@
     }
     .acct-wrap h1 {
         color: #f9fafb;
-        margin-bottom: 0.75rem;
+        margin-bottom: 1rem;
         font-size: 2rem;
         letter-spacing: -0.02em;
+    }
+    .acct-subnav {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-bottom: 1.25rem;
+        padding: 0.25rem;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(46, 16, 101, 0.7);
+    }
+    .acct-subnav a {
+        padding: 0.4rem 0.85rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        text-decoration: none;
+        color: #e5e7eb;
+        white-space: nowrap;
+    }
+    .acct-subnav a.active,
+    .acct-subnav a:hover {
+        background: rgba(124, 58, 237, 0.5);
+        color: #f9fafb;
     }
     .acct-card {
         background: rgba(21, 2, 37, 0.9);
@@ -150,7 +173,15 @@
 <div class="acct-wrap">
     <h1>Account Settings</h1>
 
-    <div class="acct-card">
+    <nav class="acct-subnav">
+        <a href="#profile">Edit profile</a>
+        <a href="#password">Change password</a>
+        <a href="#info">Account information</a>
+        <a href="#config">Configuration</a>
+        <a href="#downloads">Downloads</a>
+    </nav>
+
+    <div class="acct-card" id="profile">
         <h2>Edit profile</h2>
         <form method="post" action="{{ url_for('main.account_update') }}" class="acct-form">
             <div>
@@ -169,7 +200,7 @@
         </form>
     </div>
 
-    <div class="acct-card">
+    <div class="acct-card" id="password">
         <h2>Change password</h2>
         <form method="post" action="{{ url_for('main.account_change_password') }}" class="acct-form">
             <div>
@@ -189,7 +220,7 @@
         </form>
     </div>
 
-    <div class="acct-card">
+    <div class="acct-card" id="info">
         <h2>Account information</h2>
         <div style="display: grid; gap: 0.75rem;">
             <div class="conn-code-box">
@@ -209,7 +240,7 @@
         </div>
     </div>
 
-    <div class="apk-info-box">
+    <div class="apk-info-box" id="config">
         <h3>Android APK configuration</h3>
         <p>The app connects to the cloud automatically. Open the APK and enter <strong>only your 9-digit code</strong>:</p>
         <p><code>{{ user.connection_code or '—' }}</code></p>
@@ -217,7 +248,7 @@
         <code class="apk-url-box">{{ request.url_root.rstrip('/') }}/api/playback/state?code={{ user.connection_code or '' }}</code>
     </div>
 
-    <div class="acct-card">
+    <div class="acct-card" id="downloads">
         <h2>Downloads</h2>
         <p style="margin-bottom: 1rem; color: #9ca3af; font-size: 0.95rem;">
             Install these apps on your Android TV / player devices. First install the <strong style="color:#d1d5db">Watchdog</strong> (optional, for auto-restart), then the <strong style="color:#d1d5db">Signage Player</strong>.

@@ -73,7 +73,7 @@ class MainActivity : AppCompatActivity() {
         private const val SCREENSAVER_URL = "https://karchershop.ge/cdn/shop/files/logo_karcher_2015.svg?v=1683099671&width=600"
         private const val LOGO_URL = "https://images.seeklogo.com/logo-png/43/2/karcher-logo-png_seeklogo-437949.png"
         /** Default server URL – no server input needed; user only enters 9-digit code */
-        private const val DEFAULT_SERVER_URL = "https://digitalsignage-gits.onrender.com"
+        private const val DEFAULT_SERVER_URL = "http://94.250.201.69/signage"
         /** Intent extra from watchdog: start pinned (lock task) when launched by watchdog */
         private const val EXTRA_START_PINNED = "com.signage.watchdog.START_PINNED"
     }

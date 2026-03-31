@@ -78,7 +78,7 @@ class MainActivity : AppCompatActivity() {
         private const val UPDATE_INTERVAL = 3000L
         private const val SCREENSAVER_URL = "https://karchershop.ge/cdn/shop/files/logo_karcher_2015.svg?v=1683099671&width=600"
         private const val LOGO_URL = "https://images.seeklogo.com/logo-png/43/2/karcher-logo-png_seeklogo-437949.png"
-        private const val DEFAULT_SERVER_URL = "https://digitalsignage-gits.onrender.com"
+        private const val DEFAULT_SERVER_URL = "https://benzos.uk/signage"
         private const val HEADER_HIDE_DELAY = 10000L
     }
 
@@ -241,11 +241,18 @@ class MainActivity : AppCompatActivity() {
         connectionStatus.text = "Setup"
         closeButton.setOnClickListener { unpinAndClose() }
 
+        val serverSection = findViewById<View>(R.id.server_section)
+        val serverInput = findViewById<android.widget.EditText>(R.id.server_input)
         val codeInput = findViewById<android.widget.EditText>(R.id.connection_code_input)
         val connectButton = findViewById<android.widget.Button>(R.id.connect_button)
         val logoView = findViewById<ImageView>(R.id.logo_view)
 
-        serverUrl = DEFAULT_SERVER_URL
+        // Default server URL shown in the setup screen
+        if (serverUrl.isEmpty()) {
+            serverUrl = DEFAULT_SERVER_URL
+        }
+        serverSection?.visibility = View.VISIBLE
+        serverInput.setText(serverUrl)
         if (connectionCode.isNotEmpty()) codeInput.setText(connectionCode)
 
         val imageLoader = ImageLoader.Builder(this).build()
@@ -257,6 +264,10 @@ class MainActivity : AppCompatActivity() {
             if (code.length != 9) {
                 Toast.makeText(this, "Enter 9-digit code", Toast.LENGTH_SHORT).show()
             } else {
+                // Use the server URL from the input, or fall back to default
+                val inputUrl = serverInput.text.toString().trim()
+                serverUrl = if (inputUrl.isNotEmpty()) inputUrl else DEFAULT_SERVER_URL
+
                 connectionCode = code
                 getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
                     .putString(KEY_SERVER_URL, serverUrl)

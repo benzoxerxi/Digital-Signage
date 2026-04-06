@@ -1468,6 +1468,7 @@
         <div class="tabs">
             <button type="button" class="tab active" data-tab="devices" onclick="switchTab('devices', this)">🖥️ Devices</button>
             <button type="button" class="tab" data-tab="content" onclick="switchTab('content', this)">📹 Content</button>
+            <button type="button" class="tab" data-tab="programs" onclick="switchTab('programs', this)">🎨 Programs</button>
             <button type="button" class="tab" data-tab="playlists" onclick="switchTab('playlists', this)">📋 Playlists</button>
             <button type="button" class="tab" data-tab="schedules" onclick="switchTab('schedules', this)">⏰ Schedules</button>
             <button type="button" class="tab" data-tab="analytics" onclick="switchTab('analytics', this)">📊 Analytics</button>
@@ -1576,6 +1577,18 @@
                     </div>
                     <div id="driveFileList" class="video-list drive-file-list"></div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Programs Tab -->
+        <div id="programsTab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Programs</h2>
+                    <button type="button" class="btn btn-primary btn-small" onclick="openCreateProgramModal()">+ New Program</button>
+                </div>
+                <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Create multi-zone layouts with video &amp; image layers positioned on a canvas.</p>
+                <div id="programList"></div>
             </div>
         </div>
         
@@ -1738,6 +1751,40 @@
         </div>
     </div>
     
+    <div class="modal" id="createProgramModal">
+        <div class="modal-content" style="max-width:440px">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New Program</h3>
+                <button type="button" class="modal-close" onclick="closeModal('createProgramModal')">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">* Name</label>
+                <input type="text" class="form-input" id="programNewName" placeholder="Enter the name">
+            </div>
+            <div class="form-group">
+                <label class="form-label">* Size</label>
+                <select class="form-select" id="programNewSize">
+                    <option value="1920x1080">1920×1080 (Horizontal)</option>
+                    <option value="3840x2160">3840×2160 (4K Horizontal)</option>
+                    <option value="1080x1920">1080×1920 (Vertical)</option>
+                    <option value="2160x3840">2160×3840 (4K Vertical)</option>
+                    <option value="1920x360">1920×360 (Ultra-wide)</option>
+                    <option value="custom">Custom</option>
+                </select>
+            </div>
+            <div class="form-group" id="programCustomSize" style="display:none">
+                <div style="display:flex;gap:8px;">
+                    <div style="flex:1"><label class="form-label" style="font-size:12px">Width</label><input type="number" class="form-input" id="programCustomW" value="1920" min="320" max="7680"></div>
+                    <div style="flex:1"><label class="form-label" style="font-size:12px">Height</label><input type="number" class="form-input" id="programCustomH" value="1080" min="240" max="4320"></div>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createProgramModal')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createProgram()">OK</button>
+            </div>
+        </div>
+    </div>
+    
     <div class="modal" id="deviceDetailModal">
         <div class="modal-content" style="max-width: 480px;">
             <div class="modal-header">
@@ -1850,6 +1897,7 @@
                 loadDevices(),
                 loadVideos(),
                 loadPlaylists(),
+                loadPrograms(),
                 loadSchedules(),
                 loadGroups(),
                 loadAnalytics()
@@ -2722,6 +2770,76 @@
             }
         }
         
+        // Programs
+        async function loadPrograms() {
+            try {
+                var r = await fetch('/api/programs');
+                var data = await r.json();
+                allPrograms = data.programs || [];
+                var list = document.getElementById('programList');
+                if (!list) return;
+                if (allPrograms.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎨</div><p>No programs yet. Click + New Program.</p></div>';
+                    return;
+                }
+                list.innerHTML = allPrograms.map(function(p) {
+                    return '<div class="group-card" style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
+                        + '<div style="flex:1;min-width:0">'
+                        + '<div class="group-name">' + (p.name || 'Untitled') + '</div>'
+                        + '<div style="font-size:11px;color:var(--text-muted)">' + p.width + '×' + p.height + ' · ' + (p.elements ? p.elements.length : 0) + ' layer(s)</div>'
+                        + '</div>'
+                        + '<a href="/program-editor/' + p.id + '" class="btn btn-primary btn-small">✏️ Edit</a>'
+                        + '<button type="button" class="btn btn-danger btn-small" onclick="deleteProgram(\'' + p.id + '\')">🗑️</button>'
+                        + '</div>';
+                }).join('');
+            } catch(e) { console.error('loadPrograms', e); }
+        }
+
+        function openCreateProgramModal() {
+            document.getElementById('programNewName').value = '';
+            document.getElementById('programNewSize').value = '1920x1080';
+            document.getElementById('programCustomSize').style.display = 'none';
+            openModal('createProgramModal');
+        }
+
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.id === 'programNewSize') {
+                document.getElementById('programCustomSize').style.display = e.target.value === 'custom' ? 'block' : 'none';
+            }
+        });
+
+        async function createProgram() {
+            var name = document.getElementById('programNewName').value.trim();
+            if (!name) { showToast('Enter a program name', 'error'); return; }
+            var sel = document.getElementById('programNewSize').value;
+            var w, h;
+            if (sel === 'custom') {
+                w = +document.getElementById('programCustomW').value || 1920;
+                h = +document.getElementById('programCustomH').value || 1080;
+            } else {
+                var parts = sel.split('x');
+                w = +parts[0]; h = +parts[1];
+            }
+            try {
+                var r = await fetch('/api/programs', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: name, width: w, height: h }) });
+                var res = await r.json();
+                if (res.success) {
+                    closeModal('createProgramModal');
+                    window.location.href = '/program-editor/' + res.program.id;
+                } else {
+                    showToast(res.error || 'Failed', 'error');
+                }
+            } catch(e) { showToast('Failed to create program', 'error'); }
+        }
+
+        async function deleteProgram(pid) {
+            if (!confirm('Delete this program?')) return;
+            try {
+                var r = await fetch('/api/programs/' + pid, { method: 'DELETE' });
+                if (r.ok) { showToast('Program deleted', 'success'); await loadPrograms(); }
+            } catch(e) { showToast('Failed to delete', 'error'); }
+        }
+
         // Groups
         async function loadGroups() {
             try {
@@ -3155,6 +3273,7 @@
         let allDevices = [];
         let allVideos = [];
         let allPlaylists = [];
+        let allPrograms = [];
         let allSchedules = [];
         let selectedScheduleDays = [];
         let editingDeviceId = null;
@@ -3170,6 +3289,7 @@
                 loadDevices(),
                 loadVideos(),
                 loadPlaylists(),
+                loadPrograms(),
                 loadSchedules(),
                 loadGroups(),
                 loadAnalytics()
@@ -3983,6 +4103,76 @@
             }
         }
         
+        // Programs
+        async function loadPrograms() {
+            try {
+                var r = await fetch('/api/programs');
+                var data = await r.json();
+                allPrograms = data.programs || [];
+                var list = document.getElementById('programList');
+                if (!list) return;
+                if (allPrograms.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎨</div><p>No programs yet. Click + New Program.</p></div>';
+                    return;
+                }
+                list.innerHTML = allPrograms.map(function(p) {
+                    return '<div class="group-card" style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
+                        + '<div style="flex:1;min-width:0">'
+                        + '<div class="group-name">' + (p.name || 'Untitled') + '</div>'
+                        + '<div style="font-size:11px;color:var(--text-muted)">' + p.width + '×' + p.height + ' · ' + (p.elements ? p.elements.length : 0) + ' layer(s)</div>'
+                        + '</div>'
+                        + '<a href="/program-editor/' + p.id + '" class="btn btn-primary btn-small">✏️ Edit</a>'
+                        + '<button type="button" class="btn btn-danger btn-small" onclick="deleteProgram(\'' + p.id + '\')">🗑️</button>'
+                        + '</div>';
+                }).join('');
+            } catch(e) { console.error('loadPrograms', e); }
+        }
+
+        function openCreateProgramModal() {
+            document.getElementById('programNewName').value = '';
+            document.getElementById('programNewSize').value = '1920x1080';
+            document.getElementById('programCustomSize').style.display = 'none';
+            openModal('createProgramModal');
+        }
+
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.id === 'programNewSize') {
+                document.getElementById('programCustomSize').style.display = e.target.value === 'custom' ? 'block' : 'none';
+            }
+        });
+
+        async function createProgram() {
+            var name = document.getElementById('programNewName').value.trim();
+            if (!name) { showToast('Enter a program name', 'error'); return; }
+            var sel = document.getElementById('programNewSize').value;
+            var w, h;
+            if (sel === 'custom') {
+                w = +document.getElementById('programCustomW').value || 1920;
+                h = +document.getElementById('programCustomH').value || 1080;
+            } else {
+                var parts = sel.split('x');
+                w = +parts[0]; h = +parts[1];
+            }
+            try {
+                var r = await fetch('/api/programs', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: name, width: w, height: h }) });
+                var res = await r.json();
+                if (res.success) {
+                    closeModal('createProgramModal');
+                    window.location.href = '/program-editor/' + res.program.id;
+                } else {
+                    showToast(res.error || 'Failed', 'error');
+                }
+            } catch(e) { showToast('Failed to create program', 'error'); }
+        }
+
+        async function deleteProgram(pid) {
+            if (!confirm('Delete this program?')) return;
+            try {
+                var r = await fetch('/api/programs/' + pid, { method: 'DELETE' });
+                if (r.ok) { showToast('Program deleted', 'success'); await loadPrograms(); }
+            } catch(e) { showToast('Failed to delete', 'error'); }
+        }
+
         // Groups
         async function loadGroups() {
             try {

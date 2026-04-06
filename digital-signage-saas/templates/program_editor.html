@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+{% block title %}Program Editor{% endblock %}
+
+{% block extra_styles %}
+<style>
+    :root,[data-theme="dark"]{
+        --pe-bg:#0d1117;--pe-panel:#161b22;--pe-border:#30363d;
+        --pe-text:#e6edf3;--pe-muted:#8b949e;--pe-primary:#3b82f6;
+        --pe-canvas-bg:#000;--pe-handle:#3b82f6;
+    }
+    [data-theme="light"]{
+        --pe-bg:#f6f8fa;--pe-panel:#fff;--pe-border:#d0d7de;
+        --pe-text:#1f2328;--pe-muted:#656d76;--pe-primary:#2563eb;
+        --pe-canvas-bg:#1a1a1a;--pe-handle:#2563eb;
+    }
+    body{margin:0;overflow:hidden;background:var(--pe-bg);font-family:'Inter',sans-serif;color:var(--pe-text)}
+
+    .pe-toolbar{
+        position:fixed;top:0;left:0;right:0;height:48px;background:var(--pe-panel);
+        border-bottom:1px solid var(--pe-border);display:flex;align-items:center;
+        padding:0 16px;gap:12px;z-index:100;
+    }
+    .pe-toolbar-title{font-weight:600;font-size:15px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .pe-btn{
+        padding:6px 14px;border-radius:6px;font-size:13px;font-weight:500;
+        cursor:pointer;border:1px solid var(--pe-border);background:var(--pe-panel);
+        color:var(--pe-text);transition:background .15s;
+    }
+    .pe-btn:hover{background:var(--pe-border)}
+    .pe-btn-primary{background:var(--pe-primary);color:#fff;border-color:var(--pe-primary)}
+    .pe-btn-primary:hover{opacity:.9}
+    .pe-btn-danger{color:#ef4444;border-color:#ef4444}
+    .pe-btn-danger:hover{background:#ef4444;color:#fff}
+    .pe-size{font-size:12px;color:var(--pe-muted);letter-spacing:.03em}
+
+    .pe-sidebar{
+        position:fixed;left:0;top:48px;bottom:0;width:72px;background:var(--pe-panel);
+        border-right:1px solid var(--pe-border);display:flex;flex-direction:column;
+        align-items:center;gap:4px;padding:12px 0;z-index:90;overflow-y:auto;
+    }
+    .pe-tool{
+        width:56px;padding:8px 0;border-radius:8px;text-align:center;font-size:22px;
+        cursor:pointer;user-select:none;color:var(--pe-muted);transition:background .15s,color .15s;
+        border:none;background:none;
+    }
+    .pe-tool:hover,.pe-tool.active{background:rgba(59,130,246,.15);color:var(--pe-primary)}
+    .pe-tool span{display:block;font-size:10px;margin-top:2px;font-weight:500}
+
+    .pe-canvas-wrap{
+        position:fixed;left:72px;top:48px;right:280px;bottom:0;
+        display:flex;align-items:center;justify-content:center;
+        background:var(--pe-bg);overflow:auto;
+    }
+    .pe-artboard{
+        position:relative;background:var(--pe-canvas-bg);
+        box-shadow:0 4px 40px rgba(0,0,0,.5);overflow:hidden;flex-shrink:0;
+    }
+    .pe-element{
+        position:absolute;border:2px solid transparent;cursor:move;
+        user-select:none;overflow:hidden;
+    }
+    .pe-element:hover,.pe-element.active{border-color:var(--pe-handle)}
+    .pe-element.active .pe-resize{display:block}
+    .pe-resize{
+        display:none;position:absolute;width:10px;height:10px;
+        background:var(--pe-handle);border-radius:2px;
+    }
+    .pe-resize.se{right:-5px;bottom:-5px;cursor:se-resize}
+    .pe-resize.sw{left:-5px;bottom:-5px;cursor:sw-resize}
+    .pe-resize.ne{right:-5px;top:-5px;cursor:ne-resize}
+    .pe-resize.nw{left:-5px;top:-5px;cursor:nw-resize}
+    .pe-el-label{
+        position:absolute;bottom:0;left:0;right:0;padding:4px 6px;
+        font-size:10px;color:#fff;background:rgba(0,0,0,.65);
+        text-align:center;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .pe-el-preview{width:100%;height:100%;object-fit:cover;pointer-events:none}
+
+    .pe-props{
+        position:fixed;right:0;top:48px;bottom:0;width:280px;background:var(--pe-panel);
+        border-left:1px solid var(--pe-border);overflow-y:auto;padding:16px;z-index:90;
+    }
+    .pe-props h4{font-size:13px;font-weight:600;margin-bottom:10px;color:var(--pe-muted);text-transform:uppercase;letter-spacing:.04em}
+    .pe-prop-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+    .pe-prop-row label{width:36px;font-size:12px;color:var(--pe-muted);flex-shrink:0}
+    .pe-prop-row input{
+        flex:1;padding:5px 8px;border-radius:4px;border:1px solid var(--pe-border);
+        background:var(--pe-bg);color:var(--pe-text);font-size:12px;
+    }
+    .pe-content-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+    .pe-content-item{
+        padding:8px 10px;border-radius:6px;border:1px solid var(--pe-border);
+        font-size:12px;cursor:grab;display:flex;align-items:center;gap:8px;
+        background:var(--pe-bg);transition:border-color .15s;
+    }
+    .pe-content-item:hover{border-color:var(--pe-primary)}
+    .pe-content-icon{font-size:18px;flex-shrink:0}
+    .pe-content-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+    .pe-layers-list{display:flex;flex-direction:column;gap:4px;margin-top:10px}
+    .pe-layer-row{
+        padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;
+        border:1px solid transparent;background:var(--pe-bg);
+        display:flex;align-items:center;gap:8px;
+    }
+    .pe-layer-row.active{border-color:var(--pe-primary);background:rgba(59,130,246,.08)}
+    .pe-layer-z{color:var(--pe-muted);font-size:10px;width:18px;text-align:center}
+    .pe-layer-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="peApp">
+    <div class="pe-toolbar">
+        <a href="/dashboard" class="pe-btn">← Back</a>
+        <div class="pe-toolbar-title" id="peTitle">Program</div>
+        <span class="pe-size" id="peSizeLabel">1920 × 1080</span>
+        <button class="pe-btn pe-btn-primary" onclick="peAutoSave()">💾 Save</button>
+    </div>
+
+    <div class="pe-sidebar">
+        <button class="pe-tool" title="Add Video" onclick="peSetTool('video')">🎬<span>Video</span></button>
+        <button class="pe-tool" title="Add Image" onclick="peSetTool('image')">🖼️<span>Image</span></button>
+    </div>
+
+    <div class="pe-canvas-wrap" id="peCanvasWrap">
+        <div class="pe-artboard" id="peArtboard"></div>
+    </div>
+
+    <div class="pe-props" id="peProps">
+        <div id="pePropSection" style="display:none">
+            <h4>Properties</h4>
+            <div class="pe-prop-row"><label>X</label><input type="number" id="pePropX" onchange="pePropChange()"></div>
+            <div class="pe-prop-row"><label>Y</label><input type="number" id="pePropY" onchange="pePropChange()"></div>
+            <div class="pe-prop-row"><label>W</label><input type="number" id="pePropW" onchange="pePropChange()"></div>
+            <div class="pe-prop-row"><label>H</label><input type="number" id="pePropH" onchange="pePropChange()"></div>
+            <div class="pe-prop-row"><label>Z</label><input type="number" id="pePropZ" onchange="pePropChange()"></div>
+            <div style="margin-top:8px">
+                <button class="pe-btn pe-btn-danger" style="width:100%" onclick="peDeleteSelected()">🗑️ Remove</button>
+            </div>
+        </div>
+
+        <div style="margin-top:20px">
+            <h4>Layers</h4>
+            <div class="pe-layers-list" id="peLayers"></div>
+        </div>
+
+        <div style="margin-top:20px">
+            <h4>Content Library</h4>
+            <div class="pe-content-list" id="peContentList">
+                <div style="color:var(--pe-muted);font-size:12px">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    var PROGRAM_ID = '{{ program_id }}';
+    var program = null;
+    var elements = [];
+    var activeId = null;
+    var allContent = [];
+    var artboard, artboardW = 1920, artboardH = 1080;
+    var drag = null;
+    var scale = 1;
+    var nextId = 1;
+
+    function $(id) { return document.getElementById(id); }
+
+    async function init() {
+        artboard = $('peArtboard');
+        try {
+            var r = await fetch('/api/programs/' + PROGRAM_ID);
+            if (!r.ok) { alert('Program not found'); return; }
+            program = await r.json();
+            artboardW = program.width;
+            artboardH = program.height;
+            elements = (program.elements || []).map(function(el, i) {
+                el._id = el.id || ('el_' + (++nextId));
+                return el;
+            });
+            $('peTitle').textContent = program.name;
+            $('peSizeLabel').textContent = artboardW + ' × ' + artboardH;
+        } catch(e) { console.error(e); }
+        fitArtboard();
+        renderElements();
+        loadContent();
+        window.addEventListener('resize', fitArtboard);
+        artboard.addEventListener('mousedown', onArtboardDown);
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Delete' && activeId) peDeleteSelected();
+        });
+    }
+
+    function fitArtboard() {
+        var wrap = $('peCanvasWrap');
+        var padX = 80, padY = 60;
+        var maxW = wrap.clientWidth - padX;
+        var maxH = wrap.clientHeight - padY;
+        scale = Math.min(maxW / artboardW, maxH / artboardH, 1);
+        artboard.style.width = (artboardW * scale) + 'px';
+        artboard.style.height = (artboardH * scale) + 'px';
+    }
+
+    function renderElements() {
+        artboard.innerHTML = '';
+        elements.sort(function(a, b) { return (a.zIndex || 0) - (b.zIndex || 0); });
+        elements.forEach(function(el) {
+            var div = document.createElement('div');
+            div.className = 'pe-element' + (el._id === activeId ? ' active' : '');
+            div.setAttribute('data-id', el._id);
+            div.style.left = (el.x * scale) + 'px';
+            div.style.top = (el.y * scale) + 'px';
+            div.style.width = (el.width * scale) + 'px';
+            div.style.height = (el.height * scale) + 'px';
+            div.style.zIndex = el.zIndex || 0;
+
+            if (el.type === 'image' && el.src) {
+                var img = document.createElement('img');
+                img.className = 'pe-el-preview';
+                img.src = el.src;
+                div.appendChild(img);
+            } else {
+                div.style.background = 'rgba(59,130,246,0.15)';
+                var icon = document.createElement('div');
+                icon.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:36px;opacity:.5;pointer-events:none;';
+                icon.textContent = el.type === 'video' ? '▶' : '🖼️';
+                div.appendChild(icon);
+            }
+
+            var label = document.createElement('div');
+            label.className = 'pe-el-label';
+            label.textContent = el.name || (el.type + ' layer');
+            div.appendChild(label);
+
+            ['se','sw','ne','nw'].forEach(function(corner) {
+                var h = document.createElement('div');
+                h.className = 'pe-resize ' + corner;
+                h.setAttribute('data-corner', corner);
+                div.appendChild(h);
+            });
+            artboard.appendChild(div);
+        });
+        renderLayers();
+        updateProps();
+    }
+
+    function renderLayers() {
+        var list = $('peLayers');
+        var sorted = elements.slice().sort(function(a, b) { return (b.zIndex || 0) - (a.zIndex || 0); });
+        if (sorted.length === 0) {
+            list.innerHTML = '<div style="color:var(--pe-muted);font-size:12px">No layers yet. Drag content onto the canvas.</div>';
+            return;
+        }
+        list.innerHTML = sorted.map(function(el) {
+            return '<div class="pe-layer-row' + (el._id === activeId ? ' active' : '') + '" onclick="peSelectById(\'' + el._id + '\')">'
+                + '<span class="pe-layer-z">' + (el.zIndex || 0) + '</span>'
+                + '<span class="pe-layer-name">' + (el.name || el.type) + '</span>'
+                + '</div>';
+        }).join('');
+    }
+
+    function updateProps() {
+        var el = elements.find(function(e) { return e._id === activeId; });
+        $('pePropSection').style.display = el ? 'block' : 'none';
+        if (!el) return;
+        $('pePropX').value = Math.round(el.x);
+        $('pePropY').value = Math.round(el.y);
+        $('pePropW').value = Math.round(el.width);
+        $('pePropH').value = Math.round(el.height);
+        $('pePropZ').value = el.zIndex || 0;
+    }
+
+    window.pePropChange = function() {
+        var el = elements.find(function(e) { return e._id === activeId; });
+        if (!el) return;
+        el.x = +$('pePropX').value || 0;
+        el.y = +$('pePropY').value || 0;
+        el.width = Math.max(20, +$('pePropW').value || 100);
+        el.height = Math.max(20, +$('pePropH').value || 100);
+        el.zIndex = +$('pePropZ').value || 0;
+        renderElements();
+    };
+
+    window.peDeleteSelected = function() {
+        elements = elements.filter(function(e) { return e._id !== activeId; });
+        activeId = null;
+        renderElements();
+    };
+
+    window.peSelectById = function(id) {
+        activeId = id;
+        renderElements();
+    };
+
+    function onArtboardDown(e) {
+        var resizeHandle = e.target.closest('.pe-resize');
+        var elDiv = e.target.closest('.pe-element');
+        if (!elDiv) { activeId = null; renderElements(); return; }
+        var id = elDiv.getAttribute('data-id');
+        activeId = id;
+        renderElements();
+        var el = elements.find(function(e) { return e._id === id; });
+        if (!el) return;
+        e.preventDefault();
+        var rect = artboard.getBoundingClientRect();
+        if (resizeHandle) {
+            drag = {
+                type: 'resize',
+                corner: resizeHandle.getAttribute('data-corner'),
+                el: el,
+                startX: e.clientX,
+                startY: e.clientY,
+                origX: el.x, origY: el.y, origW: el.width, origH: el.height
+            };
+        } else {
+            drag = {
+                type: 'move',
+                el: el,
+                startX: e.clientX,
+                startY: e.clientY,
+                origX: el.x, origY: el.y
+            };
+        }
+    }
+
+    function onMouseMove(e) {
+        if (!drag) return;
+        var dx = (e.clientX - drag.startX) / scale;
+        var dy = (e.clientY - drag.startY) / scale;
+        if (drag.type === 'move') {
+            drag.el.x = Math.max(0, Math.min(artboardW - drag.el.width, drag.origX + dx));
+            drag.el.y = Math.max(0, Math.min(artboardH - drag.el.height, drag.origY + dy));
+        } else if (drag.type === 'resize') {
+            var c = drag.corner;
+            var nw = drag.origW, nh = drag.origH, nx = drag.origX, ny = drag.origY;
+            if (c === 'se') { nw = Math.max(30, drag.origW + dx); nh = Math.max(30, drag.origH + dy); }
+            else if (c === 'sw') { nw = Math.max(30, drag.origW - dx); nh = Math.max(30, drag.origH + dy); nx = drag.origX + (drag.origW - nw); }
+            else if (c === 'ne') { nw = Math.max(30, drag.origW + dx); nh = Math.max(30, drag.origH - dy); ny = drag.origY + (drag.origH - nh); }
+            else if (c === 'nw') { nw = Math.max(30, drag.origW - dx); nh = Math.max(30, drag.origH - dy); nx = drag.origX + (drag.origW - nw); ny = drag.origY + (drag.origH - nh); }
+            drag.el.x = Math.max(0, nx); drag.el.y = Math.max(0, ny);
+            drag.el.width = nw; drag.el.height = nh;
+        }
+        renderElements();
+    }
+
+    function onMouseUp() { if (drag) { drag = null; } }
+
+    async function loadContent() {
+        var listEl = $('peContentList');
+        try {
+            var r = await fetch('/api/playlist');
+            var data = await r.json();
+            allContent = (data.videos || []).map(function(v) {
+                var isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(v.filename || '');
+                return { filename: v.filename, name: v.name || v.filename, url: v.url, type: isImage ? 'image' : 'video' };
+            });
+        } catch(e) { allContent = []; }
+        try {
+            var r2 = await fetch('/api/drive/files?folder_id=root');
+            var d2 = await r2.json();
+            (d2.files || []).forEach(function(f) {
+                var isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f.name || '');
+                allContent.push({ filename: 'drive:' + f.id, name: f.name, url: '/api/video/drive/' + f.id, type: isImage ? 'image' : 'video', drive: true });
+            });
+        } catch(e) {}
+        if (allContent.length === 0) {
+            listEl.innerHTML = '<div style="color:var(--pe-muted);font-size:12px">No content. Upload videos/images first.</div>';
+            return;
+        }
+        listEl.innerHTML = allContent.map(function(c, i) {
+            return '<div class="pe-content-item" draggable="true" ondragstart="peDragContent(event,' + i + ')" ondblclick="peAddContent(' + i + ')">'
+                + '<span class="pe-content-icon">' + (c.type === 'video' ? '🎬' : '🖼️') + '</span>'
+                + '<span class="pe-content-name">' + (c.name || c.filename) + '</span>'
+                + '</div>';
+        }).join('');
+    }
+
+    window.peDragContent = function(e, idx) {
+        e.dataTransfer.setData('text/plain', '' + idx);
+    };
+
+    $('peCanvasWrap').addEventListener('dragover', function(e) { e.preventDefault(); });
+    $('peCanvasWrap').addEventListener('drop', function(e) {
+        e.preventDefault();
+        var idx = +e.dataTransfer.getData('text/plain');
+        if (isNaN(idx) || !allContent[idx]) return;
+        var rect = artboard.getBoundingClientRect();
+        var cx = (e.clientX - rect.left) / scale;
+        var cy = (e.clientY - rect.top) / scale;
+        addElement(allContent[idx], cx - 100, cy - 75);
+    });
+
+    window.peAddContent = function(idx) {
+        if (!allContent[idx]) return;
+        var cx = artboardW / 2 - 150;
+        var cy = artboardH / 2 - 100;
+        addElement(allContent[idx], cx, cy);
+    };
+
+    function addElement(content, x, y) {
+        var id = 'el_' + (++nextId) + '_' + Date.now();
+        var el = {
+            _id: id, id: id,
+            type: content.type || 'video',
+            src: content.url || '',
+            name: content.name || content.filename || 'Layer',
+            x: Math.max(0, x || 0),
+            y: Math.max(0, y || 0),
+            width: 300,
+            height: 200,
+            zIndex: elements.length
+        };
+        elements.push(el);
+        activeId = id;
+        renderElements();
+    }
+
+    window.peSetTool = function(type) {
+        addElement({ type: type, name: type === 'video' ? 'Video zone' : 'Image zone', url: '' },
+            artboardW / 2 - 150, artboardH / 2 - 100);
+    };
+
+    window.peAutoSave = async function() {
+        var payload = {
+            elements: elements.map(function(el) {
+                return { id: el._id || el.id, type: el.type, src: el.src, name: el.name, x: el.x, y: el.y, width: el.width, height: el.height, zIndex: el.zIndex || 0 };
+            })
+        };
+        try {
+            var r = await fetch('/api/programs/' + PROGRAM_ID, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            var res = await r.json();
+            if (res.success) {
+                var btn = document.querySelector('.pe-btn-primary');
+                btn.textContent = '✓ Saved';
+                setTimeout(function() { btn.textContent = '💾 Save'; }, 1200);
+            }
+        } catch(e) { alert('Save failed'); }
+    };
+
+    init();
+})();
+</script>
+{% endblock %}

@@ -1027,55 +1027,95 @@ def delete_group(group_id):
 
 
 # ============================================================================
-# SCREEN LAYOUT (custom size + video layers)
+# PROGRAMS (multi-zone layouts with drag-and-drop editor)
 # ============================================================================
 
-@api_bp.route('/layout', methods=['GET'])
+@api_bp.route('/programs', methods=['GET'])
 @login_required
-def get_layout():
-    """Get screen layout config (size + layers) for current user"""
-    data = load_json_file('layout.json', {
-        'screen_width': 1920,
-        'screen_height': 1080,
-        'layers': []
-    })
+def get_programs():
+    data = load_json_file('programs.json', {'programs': []})
     return jsonify(data)
 
 
-@api_bp.route('/layout', methods=['POST'])
+@api_bp.route('/programs', methods=['POST'])
 @login_required
-def save_layout():
-    """Save screen layout config (size + layers)"""
-    data = request.get_json() or {}
-    screen_width = int(data.get('screen_width', 1920))
-    screen_height = int(data.get('screen_height', 1080))
-    layers = data.get('layers', [])
-    # Clamp size
-    screen_width = max(320, min(7680, screen_width))
-    screen_height = max(240, min(4320, screen_height))
-    # Normalize layers: each has video, x, y, width, height, z_index
-    out_layers = []
-    for i, L in enumerate(layers):
-        out_layers.append({
-            'id': L.get('id') or f'layer_{i}',
-            'video': L.get('video') or '',
-            'x': float(L.get('x', 0)),
-            'y': float(L.get('y', 0)),
-            'width': float(L.get('width', 100)),
-            'height': float(L.get('height', 100)),
-            'width_units': L.get('width_units') or '%',
-            'height_units': L.get('height_units') or '%',
-            'z_index': int(L.get('z_index', i)),
-        })
-    out_layers.sort(key=lambda x: x['z_index'])
-    layout = {
-        'screen_width': screen_width,
-        'screen_height': screen_height,
-        'layers': out_layers,
+def create_program():
+    if not current_user.is_subscription_active():
+        return jsonify({'success': False, 'error': 'Subscription expired'}), 403
+    data = request.json or {}
+    name = (data.get('name') or '').strip()
+    width = int(data.get('width', 1920))
+    height = int(data.get('height', 1080))
+    if not name:
+        return jsonify({'success': False, 'error': 'Name is required'}), 400
+    width = max(320, min(7680, width))
+    height = max(240, min(4320, height))
+    import time
+    program = {
+        'id': f'prog_{int(time.time()*1000)}',
+        'name': name,
+        'width': width,
+        'height': height,
+        'elements': [],
+        'created': datetime.now().isoformat(),
     }
-    save_json_file('layout.json', layout)
-    log_activity('layout_updated', {'screen_width': screen_width, 'screen_height': screen_height, 'layers_count': len(out_layers)})
-    return jsonify({'success': True, 'layout': layout})
+    programs = load_json_file('programs.json', {'programs': []})
+    programs['programs'].append(program)
+    save_json_file('programs.json', programs)
+    log_activity('program_created', {'program_id': program['id'], 'name': name})
+    return jsonify({'success': True, 'program': program})
+
+
+@api_bp.route('/programs/<program_id>', methods=['GET'])
+@login_required
+def get_program(program_id):
+    programs = load_json_file('programs.json', {'programs': []})
+    prog = next((p for p in programs['programs'] if p['id'] == program_id), None)
+    if not prog:
+        return jsonify({'error': 'Program not found'}), 404
+    return jsonify(prog)
+
+
+@api_bp.route('/programs/<program_id>', methods=['PUT'])
+@login_required
+def update_program(program_id):
+    if not current_user.is_subscription_active():
+        return jsonify({'success': False, 'error': 'Subscription expired'}), 403
+    programs = load_json_file('programs.json', {'programs': []})
+    prog = next((p for p in programs['programs'] if p['id'] == program_id), None)
+    if not prog:
+        return jsonify({'success': False, 'error': 'Program not found'}), 404
+    data = request.json or {}
+    if 'name' in data:
+        prog['name'] = (data['name'] or '').strip() or prog['name']
+    if 'elements' in data:
+        elements = []
+        for i, el in enumerate(data['elements']):
+            elements.append({
+                'id': el.get('id') or f'el_{i}',
+                'type': el.get('type', 'video'),
+                'src': el.get('src', ''),
+                'name': el.get('name', ''),
+                'x': float(el.get('x', 0)),
+                'y': float(el.get('y', 0)),
+                'width': float(el.get('width', 200)),
+                'height': float(el.get('height', 200)),
+                'zIndex': int(el.get('zIndex', i)),
+            })
+        prog['elements'] = elements
+    save_json_file('programs.json', programs)
+    log_activity('program_updated', {'program_id': program_id})
+    return jsonify({'success': True, 'program': prog})
+
+
+@api_bp.route('/programs/<program_id>', methods=['DELETE'])
+@login_required
+def delete_program(program_id):
+    programs = load_json_file('programs.json', {'programs': []})
+    programs['programs'] = [p for p in programs['programs'] if p['id'] != program_id]
+    save_json_file('programs.json', programs)
+    log_activity('program_deleted', {'program_id': program_id})
+    return jsonify({'success': True})
 
 
 # ============================================================================

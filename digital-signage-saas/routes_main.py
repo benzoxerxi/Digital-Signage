@@ -39,6 +39,15 @@ def dashboard():
     return render_template('dashboard.html', user=current_user)
 
 
+@main_bp.route('/program-editor/<program_id>')
+@login_required
+def program_editor(program_id):
+    """Visual program editor with drag-and-drop canvas"""
+    if not current_user.is_subscription_active():
+        return render_template('subscription_expired.html', user=current_user)
+    return render_template('program_editor.html', user=current_user, program_id=program_id)
+
+
 @main_bp.route('/account', methods=['GET'])
 @login_required
 def account():

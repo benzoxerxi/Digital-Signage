@@ -1012,6 +1012,9 @@
             border: 1px solid var(--border);
             margin-bottom: 12px;
         }
+        #groupList .group-card {
+            margin-bottom: 0;
+        }
         
         .group-header {
             display: flex;
@@ -1046,52 +1049,47 @@
             font-size: 12px;
         }
         
-        /* Device Groups: compact, inside Displays card, expandable */
+        /* Device Groups: always visible; cards in a horizontal-flow grid */
         .device-groups-wrap {
             margin-top: 20px;
             padding-top: 16px;
             border-top: 1px solid var(--border);
         }
-        .device-groups-toggle {
+        .device-groups-header {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 0;
-            cursor: pointer;
+            gap: 12px;
+            padding: 6px 0 12px;
             font-size: 13px;
             color: var(--text-muted);
-            user-select: none;
-        }
-        .device-groups-toggle:hover {
-            color: var(--text);
-        }
-        .device-groups-chevron {
-            font-size: 10px;
-            transition: transform 0.2s;
-        }
-        .device-groups-wrap.expanded .device-groups-chevron {
-            transform: rotate(90deg);
         }
         .device-groups-label {
             flex: 1;
             font-weight: 600;
+            color: var(--text);
+            font-size: 14px;
         }
         .device-groups-content {
-            display: none;
-            margin-top: 12px;
-            padding-left: 18px;
+            display: block;
+            margin-top: 0;
+            padding-left: 0;
         }
-        .device-groups-wrap.expanded .device-groups-content {
+        #groupList {
             display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            align-items: stretch;
+        }
+        #groupList > .empty-state {
+            grid-column: 1 / -1;
         }
         .device-groups-content .group-card {
-            padding: 10px 12px;
+            padding: 14px 16px;
             margin-bottom: 0;
             min-width: 0;
             display: flex;
             flex-direction: column;
+            height: 100%;
         }
         .device-groups-content .group-name {
             font-size: 13px;
@@ -1114,11 +1112,10 @@
             padding: 4px 10px;
             font-size: 11px;
         }
-        @media (max-width: 1200px) {
-            .device-groups-wrap.expanded .device-groups-content { grid-template-columns: repeat(4, 1fr); }
-        }
         @media (max-width: 640px) {
-            .device-groups-wrap.expanded .device-groups-content { grid-template-columns: repeat(2, 1fr); }
+            #groupList {
+                grid-template-columns: 1fr;
+            }
         }
         
         /* Loading spinner */
@@ -1389,11 +1386,11 @@
         
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('devices')">🖥️ Devices</button>
-            <button class="tab" onclick="switchTab('content')">📹 Content</button>
-            <button class="tab" onclick="switchTab('playlists')">📋 Playlists</button>
-            <button class="tab" onclick="switchTab('schedules')">⏰ Schedules</button>
-            <button class="tab" onclick="switchTab('analytics')">📊 Analytics</button>
+            <button type="button" class="tab active" data-tab="devices" onclick="switchTab('devices', this)">🖥️ Devices</button>
+            <button type="button" class="tab" data-tab="content" onclick="switchTab('content', this)">📹 Content</button>
+            <button type="button" class="tab" data-tab="playlists" onclick="switchTab('playlists', this)">📋 Playlists</button>
+            <button type="button" class="tab" data-tab="schedules" onclick="switchTab('schedules', this)">⏰ Schedules</button>
+            <button type="button" class="tab" data-tab="analytics" onclick="switchTab('analytics', this)">📊 Analytics</button>
         </div>
         
         <!-- Devices Tab -->
@@ -1424,12 +1421,11 @@
                     <div id="deviceGridOffline" class="device-grid device-grid-offline"></div>
                 </div>
                 <div class="device-groups-wrap">
-                    <div class="device-groups-toggle" onclick="toggleDeviceGroups()" role="button" tabindex="0" aria-expanded="false" id="deviceGroupsToggle">
-                        <span class="device-groups-chevron" id="deviceGroupsChevron">▶</span>
+                    <div class="device-groups-header">
                         <span class="device-groups-label">Device Groups</span>
-                        <button type="button" class="btn btn-primary btn-small" onclick="event.stopPropagation(); openCreateGroupModal();">+ Create</button>
+                        <button type="button" class="btn btn-primary btn-small" onclick="openCreateGroupModal();">+ Create</button>
                     </div>
-                    <div id="deviceGroupsContent" class="device-groups-content" aria-hidden="true">
+                    <div id="deviceGroupsContent" class="device-groups-content" aria-hidden="false">
                         <div id="groupList"></div>
                     </div>
                 </div>
@@ -1754,18 +1750,20 @@
         }
         
         // Tab switching
-        function switchTab(tabName) {
+        function switchTab(tabName, tabButton) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            
-            event.target.classList.add('active');
-            document.getElementById(tabName + 'Tab').classList.add('active');
+            const btn = tabButton || document.querySelector('.tab[data-tab="' + tabName + '"]');
+            if (btn) btn.classList.add('active');
+            const panel = document.getElementById(tabName + 'Tab');
+            if (panel) panel.classList.add('active');
             if (tabName === 'content' && typeof loadDriveStatus === 'function') loadDriveStatus();
         }
         
         function renderDeviceCard(device) {
             return `
                 <div class="device-card ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
+                     data-device-id="${device.id}"
                      onclick="toggleDevice('${device.id}', event)">
                     <div class="device-status">
                         <div class="status-dot"></div>
@@ -2629,10 +2627,10 @@
                             }).join('')}
                         </div>
                         <div style="display: flex; gap: 8px; margin-top: 12px;">
-                            <button class="btn btn-success btn-small" onclick="selectGroup('${group.id}')">
+                            <button type="button" class="btn btn-success btn-small" onclick="selectGroup('${group.id}')">
                                 ✓ Select Group
                             </button>
-                            <button class="btn btn-danger btn-small" onclick="deleteGroup('${group.id}')">
+                            <button type="button" class="btn btn-danger btn-small" onclick="deleteGroup('${group.id}')">
                                 🗑️
                             </button>
                         </div>
@@ -2643,17 +2641,6 @@
             }
         }
         
-        function toggleDeviceGroups() {
-            var wrap = document.querySelector('.device-groups-wrap');
-            var toggle = document.getElementById('deviceGroupsToggle');
-            var content = document.getElementById('deviceGroupsContent');
-            if (wrap && toggle && content) {
-                wrap.classList.toggle('expanded');
-                var isExpanded = wrap.classList.contains('expanded');
-                toggle.setAttribute('aria-expanded', isExpanded);
-                content.setAttribute('aria-hidden', !isExpanded);
-            }
-        }
         function openCreateGroupModal() {
             const select = document.getElementById('groupDevices');
             select.innerHTML = allDevices.map(d => 
@@ -2689,16 +2676,35 @@
             }
         }
         
+        function applyDeviceSelectionToCards() {
+            document.querySelectorAll('.device-card[data-device-id]').forEach(function(card) {
+                var id = card.getAttribute('data-device-id');
+                if (selectedDevices.indexOf(id) !== -1) {
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+            });
+            updateSelectionBar();
+        }
+
         async function selectGroup(groupId) {
-            const response = await fetch('/api/groups');
-            const data = await response.json();
-            const group = data.groups.find(g => g.id === groupId);
-            
-            if (group) {
-                selectedDevices = group.device_ids;
-                switchTab('devices');
-                await loadDevices();
-                showToast(`Selected ${group.name}`, 'success');
+            try {
+                const response = await fetch('/api/groups');
+                const data = await response.json();
+                const group = (data.groups || []).find(g => g.id === groupId);
+                if (!group) return;
+                selectedDevices = group.device_ids.slice();
+                const devicesPanel = document.getElementById('devicesTab');
+                if (devicesPanel && !devicesPanel.classList.contains('active')) {
+                    const tabBtn = document.querySelector('.tab[data-tab="devices"]');
+                    switchTab('devices', tabBtn);
+                }
+                applyDeviceSelectionToCards();
+                showToast('Selected ' + group.name, 'success');
+            } catch (e) {
+                console.error(e);
+                showToast('Could not select group', 'error');
             }
         }
         
@@ -3051,18 +3057,20 @@
         }
         
         // Tab switching
-        function switchTab(tabName) {
+        function switchTab(tabName, tabButton) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            
-            event.target.classList.add('active');
-            document.getElementById(tabName + 'Tab').classList.add('active');
+            const btn = tabButton || document.querySelector('.tab[data-tab="' + tabName + '"]');
+            if (btn) btn.classList.add('active');
+            const panel = document.getElementById(tabName + 'Tab');
+            if (panel) panel.classList.add('active');
             if (tabName === 'content' && typeof loadDriveStatus === 'function') loadDriveStatus();
         }
         
         function renderDeviceCard(device) {
             return `
                 <div class="device-card ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
+                     data-device-id="${device.id}"
                      onclick="toggleDevice('${device.id}', event)">
                     <div class="device-status">
                         <div class="status-dot"></div>
@@ -3867,10 +3875,10 @@
                             }).join('')}
                         </div>
                         <div style="display: flex; gap: 8px; margin-top: 12px;">
-                            <button class="btn btn-success btn-small" onclick="selectGroup('${group.id}')">
+                            <button type="button" class="btn btn-success btn-small" onclick="selectGroup('${group.id}')">
                                 ✓ Select Group
                             </button>
-                            <button class="btn btn-danger btn-small" onclick="deleteGroup('${group.id}')">
+                            <button type="button" class="btn btn-danger btn-small" onclick="deleteGroup('${group.id}')">
                                 🗑️
                             </button>
                         </div>
@@ -3881,17 +3889,6 @@
             }
         }
         
-        function toggleDeviceGroups() {
-            var wrap = document.querySelector('.device-groups-wrap');
-            var toggle = document.getElementById('deviceGroupsToggle');
-            var content = document.getElementById('deviceGroupsContent');
-            if (wrap && toggle && content) {
-                wrap.classList.toggle('expanded');
-                var isExpanded = wrap.classList.contains('expanded');
-                toggle.setAttribute('aria-expanded', isExpanded);
-                content.setAttribute('aria-hidden', !isExpanded);
-            }
-        }
         function openCreateGroupModal() {
             const select = document.getElementById('groupDevices');
             select.innerHTML = allDevices.map(d => 
@@ -3927,16 +3924,35 @@
             }
         }
         
+        function applyDeviceSelectionToCards() {
+            document.querySelectorAll('.device-card[data-device-id]').forEach(function(card) {
+                var id = card.getAttribute('data-device-id');
+                if (selectedDevices.indexOf(id) !== -1) {
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+            });
+            updateSelectionBar();
+        }
+
         async function selectGroup(groupId) {
-            const response = await fetch('/api/groups');
-            const data = await response.json();
-            const group = data.groups.find(g => g.id === groupId);
-            
-            if (group) {
-                selectedDevices = group.device_ids;
-                switchTab('devices');
-                await loadDevices();
-                showToast(`Selected ${group.name}`, 'success');
+            try {
+                const response = await fetch('/api/groups');
+                const data = await response.json();
+                const group = (data.groups || []).find(g => g.id === groupId);
+                if (!group) return;
+                selectedDevices = group.device_ids.slice();
+                const devicesPanel = document.getElementById('devicesTab');
+                if (devicesPanel && !devicesPanel.classList.contains('active')) {
+                    const tabBtn = document.querySelector('.tab[data-tab="devices"]');
+                    switchTab('devices', tabBtn);
+                }
+                applyDeviceSelectionToCards();
+                showToast('Selected ' + group.name, 'success');
+            } catch (e) {
+                console.error(e);
+                showToast('Could not select group', 'error');
             }
         }
         

@@ -355,8 +355,8 @@
         
         .device-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+            gap: 10px;
         }
         
         .device-grid-offline .device-card {
@@ -365,13 +365,93 @@
         
         .device-card {
             background: var(--dark-3);
-            border-radius: 12px;
+            border-radius: 10px;
             border: 2px solid var(--border);
             padding: 20px;
             cursor: pointer;
             transition: all 0.3s;
             position: relative;
             overflow: hidden;
+        }
+        
+        .device-card.device-tile {
+            padding: 10px 10px 10px 12px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 6px;
+            min-height: 0;
+        }
+        
+        .device-card.device-tile:hover {
+            transform: translateY(-1px);
+        }
+        
+        .device-tile-main {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .device-tile .device-status {
+            margin-bottom: 6px;
+        }
+        
+        .device-tile .device-status span {
+            font-size: 10px !important;
+            letter-spacing: 0.04em;
+        }
+        
+        .device-tile .device-name {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 0;
+            padding: 2px 4px;
+            line-height: 1.25;
+            word-break: break-word;
+        }
+        
+        .device-tile-info-btn {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--dark-4);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+        
+        .device-tile-info-btn:hover {
+            background: var(--dark-3);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .device-detail-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        
+        .device-detail-body .info-row {
+            flex-wrap: wrap;
+            gap: 4px 12px;
+        }
+        
+        .device-detail-mono {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-size: 11px;
+            word-break: break-all;
+            text-align: right;
+            max-width: 100%;
         }
         
         .device-card::before {
@@ -1658,6 +1738,35 @@
         </div>
     </div>
     
+    <div class="modal" id="deviceDetailModal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="deviceDetailTitle">Display</h3>
+                <button type="button" class="modal-close" onclick="closeModal('deviceDetailModal')">×</button>
+            </div>
+            <div class="device-detail-body">
+                <div class="info-row">
+                    <span class="info-label">Device ID</span>
+                    <span class="info-value device-detail-mono" id="deviceDetailId"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status</span>
+                    <span class="info-value" id="deviceDetailStatus"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Current Video</span>
+                    <span class="info-value" id="deviceDetailVideo" style="text-align: right; max-width: 65%; word-break: break-word;"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Last Seen</span>
+                    <span class="info-value" id="deviceDetailLastSeen"></span>
+                </div>
+                <button type="button" class="btn btn-secondary btn-small" style="width: 100%; margin-top: 4px;" id="deviceDetailScreenshotBtn">📸 Request screenshot</button>
+                <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Rename: click the display name on the tile.</p>
+            </div>
+        </div>
+    </div>
+    
     <div class="modal" id="screenshotModal">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header">
@@ -1760,38 +1869,48 @@
             if (tabName === 'content' && typeof loadDriveStatus === 'function') loadDriveStatus();
         }
         
+        function openDeviceInfo(deviceId, evt) {
+            if (evt) {
+                evt.stopPropagation();
+                evt.preventDefault();
+            }
+            var d = allDevices.find(function(x) { return x.id === deviceId; });
+            if (!d) return;
+            document.getElementById('deviceDetailTitle').textContent = d.name || deviceId;
+            document.getElementById('deviceDetailId').textContent = d.id;
+            document.getElementById('deviceDetailStatus').textContent = d.online ? 'Online' : 'Offline';
+            document.getElementById('deviceDetailVideo').textContent = d.reported_current_video_name || d.reported_current_video || d.current_video || 'None';
+            document.getElementById('deviceDetailLastSeen').textContent = d.online ? (d.last_seen_ago != null ? d.last_seen_ago + 's ago' : '—') : 'Offline';
+            document.getElementById('deviceDetailScreenshotBtn').onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeModal('deviceDetailModal');
+                requestScreenshot(deviceId, e);
+            };
+            openModal('deviceDetailModal');
+        }
+
         function renderDeviceCard(device) {
             return `
-                <div class="device-card ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
+                <div class="device-card device-tile ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
                      data-device-id="${device.id}"
                      onclick="toggleDevice('${device.id}', event)">
-                    <div class="device-status">
-                        <div class="status-dot"></div>
-                        <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
-                            ${device.online ? 'ONLINE' : 'OFFLINE'}
-                        </span>
-                    </div>
-                    <div class="device-name" 
-                         id="deviceName_${device.id}" 
-                         onclick="editDeviceName('${device.id}', event)"
-                         title="Click to rename">
-                        ${device.name}
-                    </div>
-                    <div class="device-id">${device.id}</div>
-                    <div class="device-info">
-                        <div class="info-row">
-                            <span class="info-label">Current Video:</span>
-                            <span class="info-value">${device.reported_current_video_name || device.reported_current_video || device.current_video || 'None'}</span>
+                    <div class="device-tile-main">
+                        <div class="device-status">
+                            <div class="status-dot"></div>
+                            <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
+                                ${device.online ? 'ONLINE' : 'OFFLINE'}
+                            </span>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Last Seen:</span>
-                            <span class="info-value">${device.online ? (device.last_seen_ago != null ? device.last_seen_ago + 's ago' : '—') : 'Offline'}</span>
+                        <div class="device-name" 
+                             id="deviceName_${device.id}" 
+                             onclick="editDeviceName('${device.id}', event)"
+                             title="Click to rename">
+                            ${device.name}
                         </div>
-                        <button class="btn btn-secondary btn-small" style="margin-top: 8px; width: 100%;" 
-                                onclick="requestScreenshot('${device.id}', event)">
-                            📸 Screenshot
-                        </button>
                     </div>
+                    <button type="button" class="device-tile-info-btn" title="Details & actions" aria-label="Display details"
+                            onclick="openDeviceInfo('${device.id}', event)">ℹ</button>
                 </div>
             `;
         }
@@ -1839,6 +1958,9 @@
         }
         
         function toggleDevice(deviceId, event) {
+            if (event.target.closest && event.target.closest('.device-tile-info-btn')) {
+                return;
+            }
             // Don't toggle if clicking on the name to edit
             if (event.target.classList.contains('device-name') || 
                 event.target.classList.contains('device-name-input')) {
@@ -3067,38 +3189,48 @@
             if (tabName === 'content' && typeof loadDriveStatus === 'function') loadDriveStatus();
         }
         
+        function openDeviceInfo(deviceId, evt) {
+            if (evt) {
+                evt.stopPropagation();
+                evt.preventDefault();
+            }
+            var d = allDevices.find(function(x) { return x.id === deviceId; });
+            if (!d) return;
+            document.getElementById('deviceDetailTitle').textContent = d.name || deviceId;
+            document.getElementById('deviceDetailId').textContent = d.id;
+            document.getElementById('deviceDetailStatus').textContent = d.online ? 'Online' : 'Offline';
+            document.getElementById('deviceDetailVideo').textContent = d.reported_current_video_name || d.reported_current_video || d.current_video || 'None';
+            document.getElementById('deviceDetailLastSeen').textContent = d.online ? (d.last_seen_ago != null ? d.last_seen_ago + 's ago' : '—') : 'Offline';
+            document.getElementById('deviceDetailScreenshotBtn').onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeModal('deviceDetailModal');
+                requestScreenshot(deviceId, e);
+            };
+            openModal('deviceDetailModal');
+        }
+
         function renderDeviceCard(device) {
             return `
-                <div class="device-card ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
+                <div class="device-card device-tile ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
                      data-device-id="${device.id}"
                      onclick="toggleDevice('${device.id}', event)">
-                    <div class="device-status">
-                        <div class="status-dot"></div>
-                        <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
-                            ${device.online ? 'ONLINE' : 'OFFLINE'}
-                        </span>
-                    </div>
-                    <div class="device-name" 
-                         id="deviceName_${device.id}" 
-                         onclick="editDeviceName('${device.id}', event)"
-                         title="Click to rename">
-                        ${device.name}
-                    </div>
-                    <div class="device-id">${device.id}</div>
-                    <div class="device-info">
-                        <div class="info-row">
-                            <span class="info-label">Current Video:</span>
-                            <span class="info-value">${device.reported_current_video_name || device.reported_current_video || device.current_video || 'None'}</span>
+                    <div class="device-tile-main">
+                        <div class="device-status">
+                            <div class="status-dot"></div>
+                            <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
+                                ${device.online ? 'ONLINE' : 'OFFLINE'}
+                            </span>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Last Seen:</span>
-                            <span class="info-value">${device.online ? (device.last_seen_ago != null ? device.last_seen_ago + 's ago' : '—') : 'Offline'}</span>
+                        <div class="device-name" 
+                             id="deviceName_${device.id}" 
+                             onclick="editDeviceName('${device.id}', event)"
+                             title="Click to rename">
+                            ${device.name}
                         </div>
-                        <button class="btn btn-secondary btn-small" style="margin-top: 8px; width: 100%;" 
-                                onclick="requestScreenshot('${device.id}', event)">
-                            📸 Screenshot
-                        </button>
                     </div>
+                    <button type="button" class="device-tile-info-btn" title="Details & actions" aria-label="Display details"
+                            onclick="openDeviceInfo('${device.id}', event)">ℹ</button>
                 </div>
             `;
         }
@@ -3146,6 +3278,9 @@
         }
         
         function toggleDevice(deviceId, event) {
+            if (event.target.closest && event.target.closest('.device-tile-info-btn')) {
+                return;
+            }
             // Don't toggle if clicking on the name to edit
             if (event.target.classList.contains('device-name') || 
                 event.target.classList.contains('device-name-input')) {

@@ -4,7 +4,7 @@
             "outputFile": "com.signage.player.app-mergeDebugResources-2:/values-h720dp-v13/values-h720dp-v13.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\ekink\\.gradle\\caches\\9.0-milestone-1\\transforms\\4574c9cddc9ff3abf2ff3fc198aa34bb\\transformed\\appcompat-1.6.1\\res\\values-h720dp-v13\\values-h720dp-v13.xml",
+                    "source": "C:\\Users\\ekink\\.gradle\\caches\\9.0-milestone-1\\transforms\\06a701e9ee626d79900b0953f161d7e9\\transformed\\appcompat-1.6.1\\res\\values-h720dp-v13\\values-h720dp-v13.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",

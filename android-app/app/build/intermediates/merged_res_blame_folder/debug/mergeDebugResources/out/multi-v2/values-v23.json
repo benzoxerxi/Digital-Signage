@@ -4,7 +4,7 @@
             "outputFile": "com.signage.player.app-mergeDebugResources-2:/values-v23/values-v23.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\ekink\\.gradle\\caches\\9.0-milestone-1\\transforms\\ab9d6dcc305d94ef614f0928f5e26c3d\\transformed\\cardview-1.0.0\\res\\values-v23\\values-v23.xml",
+                    "source": "C:\\Users\\ekink\\.gradle\\caches\\9.0-milestone-1\\transforms\\0719c86ec0644472967d835346db6f78\\transformed\\cardview-1.0.0\\res\\values-v23\\values-v23.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
@@ -23,7 +23,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\ekink\\.gradle\\caches\\9.0-milestone-1\\transforms\\9611ba5876896eeecdd1700d5d8874a5\\transformed\\material-1.11.0\\res\\values-v23\\values-v23.xml",
+                    "source": "C:\\Users\\ekink\\.gradle\\caches\\9.0-milestone-1\\transforms\\c52d1260d254f51670378f3c15c6fc89\\transformed\\material-1.11.0\\res\\values-v23\\values-v23.xml",
                     "from": {
                         "startLines": "2,5,9,13,16,19,22,25,28,32",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4",
@@ -42,7 +42,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\ekink\\.gradle\\caches\\9.0-milestone-1\\transforms\\4574c9cddc9ff3abf2ff3fc198aa34bb\\transformed\\appcompat-1.6.1\\res\\values-v23\\values-v23.xml",
+                    "source": "C:\\Users\\ekink\\.gradle\\caches\\9.0-milestone-1\\transforms\\06a701e9ee626d79900b0953f161d7e9\\transformed\\appcompat-1.6.1\\res\\values-v23\\values-v23.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,20,34,35,36,39,43,44,45,46",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4",

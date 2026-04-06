@@ -4,7 +4,7 @@
             "outputFile": "com.signage.player.app-mergeDebugResources-2:/values-v16/values-v16.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\ekink\\.gradle\\caches\\9.0-milestone-1\\transforms\\727d828c1086f269fe135177589b2814\\transformed\\core-1.12.0\\res\\values-v16\\values-v16.xml",
+                    "source": "C:\\Users\\ekink\\.gradle\\caches\\9.0-milestone-1\\transforms\\7d6643e259a02ec113d8e275a23bd371\\transformed\\core-1.12.0\\res\\values-v16\\values-v16.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
@@ -14,7 +14,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\ekink\\.gradle\\caches\\9.0-milestone-1\\transforms\\4574c9cddc9ff3abf2ff3fc198aa34bb\\transformed\\appcompat-1.6.1\\res\\values-v16\\values-v16.xml",
+                    "source": "C:\\Users\\ekink\\.gradle\\caches\\9.0-milestone-1\\transforms\\06a701e9ee626d79900b0953f161d7e9\\transformed\\appcompat-1.6.1\\res\\values-v16\\values-v16.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",

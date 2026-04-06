@@ -1185,6 +1185,10 @@
         .device-groups-content .group-devices {
             gap: 6px;
         }
+        .pgsize-btn { display:flex !important; flex-direction:column; align-items:center; transition:all .15s !important; }
+        .pgsize-btn.active { border-color:var(--primary) !important; background:rgba(59,130,246,.12) !important; color:var(--primary) !important; }
+        .pgsize-btn:hover { border-color:var(--primary) !important; }
+
         .device-groups-content .group-header {
             margin-bottom: 8px;
         }
@@ -1587,8 +1591,8 @@
                     <h2 class="card-title">Programs</h2>
                     <button type="button" class="btn btn-primary btn-small" onclick="openCreateProgramModal()">+ New Program</button>
                 </div>
-                <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Create multi-zone layouts with video &amp; image layers positioned on a canvas.</p>
-                <div id="programList"></div>
+                <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Multi-zone layouts — arrange videos &amp; images freely on a canvas.</p>
+                <div id="programList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px"></div>
             </div>
         </div>
         
@@ -1752,35 +1756,60 @@
     </div>
     
     <div class="modal" id="createProgramModal">
-        <div class="modal-content" style="max-width:440px">
+        <div class="modal-content" style="max-width:480px">
             <div class="modal-header">
-                <h3 class="modal-title">Add New Program</h3>
+                <h3 class="modal-title">Create New Program</h3>
                 <button type="button" class="modal-close" onclick="closeModal('createProgramModal')">×</button>
             </div>
             <div class="form-group">
-                <label class="form-label">* Name</label>
-                <input type="text" class="form-input" id="programNewName" placeholder="Enter the name">
+                <label class="form-label">Program name</label>
+                <input type="text" class="form-input" id="programNewName" placeholder="e.g. Lobby Display, Menu Board…" autofocus>
             </div>
             <div class="form-group">
-                <label class="form-label">* Size</label>
-                <select class="form-select" id="programNewSize">
-                    <option value="1920x1080">1920×1080 (Horizontal)</option>
-                    <option value="3840x2160">3840×2160 (4K Horizontal)</option>
-                    <option value="1080x1920">1080×1920 (Vertical)</option>
-                    <option value="2160x3840">2160×3840 (4K Vertical)</option>
-                    <option value="1920x360">1920×360 (Ultra-wide)</option>
-                    <option value="custom">Custom</option>
-                </select>
+                <label class="form-label">Canvas size</label>
+                <div id="programSizeGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+                    <button type="button" class="btn btn-secondary btn-small pgsize-btn active" data-size="1920x1080" onclick="selectProgramSize(this)" style="flex-direction:column;padding:10px 6px;text-align:center">
+                        <div style="width:48px;height:27px;border:2px solid currentColor;border-radius:3px;margin:0 auto 4px"></div>
+                        <div style="font-size:11px;font-weight:600">1920×1080</div>
+                        <div style="font-size:10px;opacity:.6">Full HD</div>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-small pgsize-btn" data-size="3840x2160" onclick="selectProgramSize(this)" style="flex-direction:column;padding:10px 6px;text-align:center">
+                        <div style="width:48px;height:27px;border:2px solid currentColor;border-radius:3px;margin:0 auto 4px"></div>
+                        <div style="font-size:11px;font-weight:600">3840×2160</div>
+                        <div style="font-size:10px;opacity:.6">4K UHD</div>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-small pgsize-btn" data-size="1080x1920" onclick="selectProgramSize(this)" style="flex-direction:column;padding:10px 6px;text-align:center">
+                        <div style="width:27px;height:48px;border:2px solid currentColor;border-radius:3px;margin:0 auto 4px"></div>
+                        <div style="font-size:11px;font-weight:600">1080×1920</div>
+                        <div style="font-size:10px;opacity:.6">Vertical</div>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-small pgsize-btn" data-size="2160x3840" onclick="selectProgramSize(this)" style="flex-direction:column;padding:10px 6px;text-align:center">
+                        <div style="width:27px;height:48px;border:2px solid currentColor;border-radius:3px;margin:0 auto 4px"></div>
+                        <div style="font-size:11px;font-weight:600">2160×3840</div>
+                        <div style="font-size:10px;opacity:.6">4K Vertical</div>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-small pgsize-btn" data-size="1920x360" onclick="selectProgramSize(this)" style="flex-direction:column;padding:10px 6px;text-align:center">
+                        <div style="width:48px;height:12px;border:2px solid currentColor;border-radius:2px;margin:0 auto 4px"></div>
+                        <div style="font-size:11px;font-weight:600">1920×360</div>
+                        <div style="font-size:10px;opacity:.6">Ultra-wide</div>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-small pgsize-btn" data-size="custom" onclick="selectProgramSize(this)" style="flex-direction:column;padding:10px 6px;text-align:center">
+                        <div style="width:48px;height:27px;border:2px dashed currentColor;border-radius:3px;margin:0 auto 4px;display:flex;align-items:center;justify-content:center;font-size:16px">⚙</div>
+                        <div style="font-size:11px;font-weight:600">Custom</div>
+                        <div style="font-size:10px;opacity:.6">Any size</div>
+                    </button>
+                </div>
+                <input type="hidden" id="programNewSize" value="1920x1080">
             </div>
             <div class="form-group" id="programCustomSize" style="display:none">
                 <div style="display:flex;gap:8px;">
-                    <div style="flex:1"><label class="form-label" style="font-size:12px">Width</label><input type="number" class="form-input" id="programCustomW" value="1920" min="320" max="7680"></div>
-                    <div style="flex:1"><label class="form-label" style="font-size:12px">Height</label><input type="number" class="form-input" id="programCustomH" value="1080" min="240" max="4320"></div>
+                    <div style="flex:1"><label class="form-label" style="font-size:12px">Width (px)</label><input type="number" class="form-input" id="programCustomW" value="1920" min="320" max="7680"></div>
+                    <div style="flex:1"><label class="form-label" style="font-size:12px">Height (px)</label><input type="number" class="form-input" id="programCustomH" value="1080" min="240" max="4320"></div>
                 </div>
             </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('createProgramModal')">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="createProgram()">OK</button>
+                <button type="button" class="btn btn-primary" onclick="createProgram()">Create &amp; Open Editor</button>
             </div>
         </div>
     </div>
@@ -2779,34 +2808,75 @@
                 var list = document.getElementById('programList');
                 if (!list) return;
                 if (allPrograms.length === 0) {
-                    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎨</div><p>No programs yet. Click + New Program.</p></div>';
+                    list.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🎨</div><p>No programs yet. Click <b>+ New Program</b> to get started.</p></div>';
                     return;
                 }
                 list.innerHTML = allPrograms.map(function(p) {
-                    return '<div class="group-card" style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
-                        + '<div style="flex:1;min-width:0">'
-                        + '<div class="group-name">' + (p.name || 'Untitled') + '</div>'
-                        + '<div style="font-size:11px;color:var(--text-muted)">' + p.width + '×' + p.height + ' · ' + (p.elements ? p.elements.length : 0) + ' layer(s)</div>'
+                    var elCount = p.elements ? p.elements.length : 0;
+                    var orient = p.width >= p.height ? 'Horizontal' : 'Vertical';
+                    return '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--dark-2);transition:border-color .15s" onmouseenter="this.style.borderColor=\'var(--primary)\'" onmouseleave="this.style.borderColor=\'var(--border)\'">'
+                        + '<div style="position:relative;height:120px;background:#0a0a0a;overflow:hidden;display:flex;align-items:center;justify-content:center">'
+                        + '<canvas id="progCanvas_'+p.id+'" style="max-width:90%;max-height:100px"></canvas>'
                         + '</div>'
-                        + '<a href="/program-editor/' + p.id + '" class="btn btn-primary btn-small">✏️ Edit</a>'
-                        + '<button type="button" class="btn btn-danger btn-small" onclick="deleteProgram(\'' + p.id + '\')">🗑️</button>'
-                        + '</div>';
+                        + '<div style="padding:12px 14px">'
+                        + '<div style="font-weight:600;font-size:14px;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.name||'Untitled') + '</div>'
+                        + '<div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--text-muted);margin-bottom:10px">'
+                        + '<span style="background:var(--dark-3);padding:2px 8px;border-radius:6px;font-family:monospace">' + p.width + '×' + p.height + '</span>'
+                        + '<span style="background:var(--dark-3);padding:2px 8px;border-radius:6px">' + orient + '</span>'
+                        + '<span style="background:var(--dark-3);padding:2px 8px;border-radius:6px">' + elCount + ' zone' + (elCount!==1?'s':'') + '</span>'
+                        + '</div>'
+                        + '<div style="display:flex;gap:6px">'
+                        + '<a href="/program-editor/' + p.id + '" class="btn btn-primary btn-small" style="flex:1;text-align:center;text-decoration:none">Open editor</a>'
+                        + '<button type="button" class="btn btn-danger btn-small" onclick="deleteProgram(\'' + p.id + '\')" style="padding:6px 10px" title="Delete">🗑️</button>'
+                        + '</div></div></div>';
                 }).join('');
+                allPrograms.forEach(function(p){ renderProgramMiniCanvas(p); });
             } catch(e) { console.error('loadPrograms', e); }
+        }
+
+        function renderProgramMiniCanvas(p) {
+            var c = document.getElementById('progCanvas_' + p.id);
+            if (!c) return;
+            var maxW = 200, maxH = 90;
+            var ratio = Math.min(maxW / p.width, maxH / p.height);
+            c.width = Math.round(p.width * ratio);
+            c.height = Math.round(p.height * ratio);
+            var ctx = c.getContext('2d');
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, c.width, c.height);
+            var colors = ['rgba(59,130,246,.4)','rgba(139,92,246,.4)','rgba(34,211,238,.4)','rgba(249,115,22,.4)','rgba(34,197,94,.4)'];
+            (p.elements || []).forEach(function(el, i) {
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fillRect(el.x * ratio, el.y * ratio, el.width * ratio, el.height * ratio);
+                ctx.strokeStyle = colors[i % colors.length].replace('.4','.8');
+                ctx.lineWidth = 1;
+                ctx.strokeRect(el.x * ratio + .5, el.y * ratio + .5, el.width * ratio - 1, el.height * ratio - 1);
+            });
+            if (!(p.elements && p.elements.length)) {
+                ctx.fillStyle = 'rgba(255,255,255,.15)';
+                ctx.font = '11px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Empty canvas', c.width / 2, c.height / 2 + 4);
+            }
         }
 
         function openCreateProgramModal() {
             document.getElementById('programNewName').value = '';
             document.getElementById('programNewSize').value = '1920x1080';
             document.getElementById('programCustomSize').style.display = 'none';
+            document.querySelectorAll('.pgsize-btn').forEach(function(b){ b.classList.remove('active'); });
+            var def = document.querySelector('.pgsize-btn[data-size="1920x1080"]');
+            if(def) def.classList.add('active');
             openModal('createProgramModal');
         }
 
-        document.addEventListener('change', function(e) {
-            if (e.target && e.target.id === 'programNewSize') {
-                document.getElementById('programCustomSize').style.display = e.target.value === 'custom' ? 'block' : 'none';
-            }
-        });
+        window.selectProgramSize = function(btn) {
+            document.querySelectorAll('.pgsize-btn').forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            var sz = btn.getAttribute('data-size');
+            document.getElementById('programNewSize').value = sz;
+            document.getElementById('programCustomSize').style.display = sz === 'custom' ? 'block' : 'none';
+        };
 
         async function createProgram() {
             var name = document.getElementById('programNewName').value.trim();
@@ -4112,34 +4182,75 @@
                 var list = document.getElementById('programList');
                 if (!list) return;
                 if (allPrograms.length === 0) {
-                    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎨</div><p>No programs yet. Click + New Program.</p></div>';
+                    list.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🎨</div><p>No programs yet. Click <b>+ New Program</b> to get started.</p></div>';
                     return;
                 }
                 list.innerHTML = allPrograms.map(function(p) {
-                    return '<div class="group-card" style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
-                        + '<div style="flex:1;min-width:0">'
-                        + '<div class="group-name">' + (p.name || 'Untitled') + '</div>'
-                        + '<div style="font-size:11px;color:var(--text-muted)">' + p.width + '×' + p.height + ' · ' + (p.elements ? p.elements.length : 0) + ' layer(s)</div>'
+                    var elCount = p.elements ? p.elements.length : 0;
+                    var orient = p.width >= p.height ? 'Horizontal' : 'Vertical';
+                    return '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--dark-2);transition:border-color .15s" onmouseenter="this.style.borderColor=\'var(--primary)\'" onmouseleave="this.style.borderColor=\'var(--border)\'">'
+                        + '<div style="position:relative;height:120px;background:#0a0a0a;overflow:hidden;display:flex;align-items:center;justify-content:center">'
+                        + '<canvas id="progCanvas_'+p.id+'" style="max-width:90%;max-height:100px"></canvas>'
                         + '</div>'
-                        + '<a href="/program-editor/' + p.id + '" class="btn btn-primary btn-small">✏️ Edit</a>'
-                        + '<button type="button" class="btn btn-danger btn-small" onclick="deleteProgram(\'' + p.id + '\')">🗑️</button>'
-                        + '</div>';
+                        + '<div style="padding:12px 14px">'
+                        + '<div style="font-weight:600;font-size:14px;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.name||'Untitled') + '</div>'
+                        + '<div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--text-muted);margin-bottom:10px">'
+                        + '<span style="background:var(--dark-3);padding:2px 8px;border-radius:6px;font-family:monospace">' + p.width + '×' + p.height + '</span>'
+                        + '<span style="background:var(--dark-3);padding:2px 8px;border-radius:6px">' + orient + '</span>'
+                        + '<span style="background:var(--dark-3);padding:2px 8px;border-radius:6px">' + elCount + ' zone' + (elCount!==1?'s':'') + '</span>'
+                        + '</div>'
+                        + '<div style="display:flex;gap:6px">'
+                        + '<a href="/program-editor/' + p.id + '" class="btn btn-primary btn-small" style="flex:1;text-align:center;text-decoration:none">Open editor</a>'
+                        + '<button type="button" class="btn btn-danger btn-small" onclick="deleteProgram(\'' + p.id + '\')" style="padding:6px 10px" title="Delete">🗑️</button>'
+                        + '</div></div></div>';
                 }).join('');
+                allPrograms.forEach(function(p){ renderProgramMiniCanvas(p); });
             } catch(e) { console.error('loadPrograms', e); }
+        }
+
+        function renderProgramMiniCanvas(p) {
+            var c = document.getElementById('progCanvas_' + p.id);
+            if (!c) return;
+            var maxW = 200, maxH = 90;
+            var ratio = Math.min(maxW / p.width, maxH / p.height);
+            c.width = Math.round(p.width * ratio);
+            c.height = Math.round(p.height * ratio);
+            var ctx = c.getContext('2d');
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, c.width, c.height);
+            var colors = ['rgba(59,130,246,.4)','rgba(139,92,246,.4)','rgba(34,211,238,.4)','rgba(249,115,22,.4)','rgba(34,197,94,.4)'];
+            (p.elements || []).forEach(function(el, i) {
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fillRect(el.x * ratio, el.y * ratio, el.width * ratio, el.height * ratio);
+                ctx.strokeStyle = colors[i % colors.length].replace('.4','.8');
+                ctx.lineWidth = 1;
+                ctx.strokeRect(el.x * ratio + .5, el.y * ratio + .5, el.width * ratio - 1, el.height * ratio - 1);
+            });
+            if (!(p.elements && p.elements.length)) {
+                ctx.fillStyle = 'rgba(255,255,255,.15)';
+                ctx.font = '11px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Empty canvas', c.width / 2, c.height / 2 + 4);
+            }
         }
 
         function openCreateProgramModal() {
             document.getElementById('programNewName').value = '';
             document.getElementById('programNewSize').value = '1920x1080';
             document.getElementById('programCustomSize').style.display = 'none';
+            document.querySelectorAll('.pgsize-btn').forEach(function(b){ b.classList.remove('active'); });
+            var def = document.querySelector('.pgsize-btn[data-size="1920x1080"]');
+            if(def) def.classList.add('active');
             openModal('createProgramModal');
         }
 
-        document.addEventListener('change', function(e) {
-            if (e.target && e.target.id === 'programNewSize') {
-                document.getElementById('programCustomSize').style.display = e.target.value === 'custom' ? 'block' : 'none';
-            }
-        });
+        window.selectProgramSize = function(btn) {
+            document.querySelectorAll('.pgsize-btn').forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            var sz = btn.getAttribute('data-size');
+            document.getElementById('programNewSize').value = sz;
+            document.getElementById('programCustomSize').style.display = sz === 'custom' ? 'block' : 'none';
+        };
 
         async function createProgram() {
             var name = document.getElementById('programNewName').value.trim();

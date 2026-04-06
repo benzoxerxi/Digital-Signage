@@ -57,6 +57,8 @@ class MainActivity : AppCompatActivity() {
     private var deviceId = ""
     private var deviceName = ""
     private var lastCommandId = -1
+    private var currentProgramId: String? = null
+    private var inLayoutMode = false
     /** When true, do not resume from playlist (set by format/clear_cache; cleared when server sends explicit play). */
     private var doNotResumeFromPlaylist = false
 
@@ -236,6 +238,9 @@ class MainActivity : AppCompatActivity() {
                 layoutRoot = findViewById(R.id.layout_root)
                 playerView = findViewById(R.id.player_view)
                 screensaverView = findViewById(R.id.screensaver_view)
+                inLayoutMode = false
+                currentProgramId = null
+                layoutVideoPlayers.clear()
                 hideSystemUI()
                 loadScreensaver()
                 showScreensaver(true)
@@ -316,11 +321,22 @@ class MainActivity : AppCompatActivity() {
                     apiClient.getDeviceLayout(deviceId)
                 }
 
-                if (layoutResponse?.program != null && layoutResponse.program.elements.isNotEmpty()) {
-                    Log.d(TAG, "Layout mode active for device ${layoutResponse.deviceId}")
-                    renderProgramLayout(layoutResponse.program)
-                    // In layout mode we don't use server-issued current_video / playlist commands.
+                val activeProgram = layoutResponse?.program?.takeIf { it.elements.isNotEmpty() }
+
+                if (activeProgram != null) {
+                    if (activeProgram.id != currentProgramId) {
+                        exitLayoutMode()
+                        currentProgramId = activeProgram.id
+                        inLayoutMode = true
+                        Log.d(TAG, "Entering layout mode: ${activeProgram.name} (${activeProgram.id})")
+                        renderProgramLayout(activeProgram)
+                    }
                     return@launch
+                }
+
+                if (inLayoutMode) {
+                    Log.d(TAG, "Exiting layout mode, returning to legacy playback")
+                    exitLayoutMode()
                 }
 
                 // Fallback: legacy playback state + playlist behavior
@@ -405,6 +421,17 @@ class MainActivity : AppCompatActivity() {
                 Log.w(TAG, "Heartbeat failed (server may be restarting); keeping current playback", e)
                 // Do not show screensaver or clear cache - keep playing cached video for resilience
             }
+        }
+    }
+
+    private fun exitLayoutMode() {
+        if (inLayoutMode) {
+            layoutRoot.removeAllViews()
+            layoutVideoPlayers.forEach { it.release() }
+            layoutVideoPlayers.clear()
+            playerView.visibility = View.VISIBLE
+            inLayoutMode = false
+            currentProgramId = null
         }
     }
 
@@ -1029,19 +1056,17 @@ class MainActivity : AppCompatActivity() {
     // =========================================================================
 
     private fun renderProgramLayout(program: ProgramLayout) {
-        // Clear any existing layout views and associated players
         layoutRoot.removeAllViews()
         layoutVideoPlayers.forEach { it.release() }
         layoutVideoPlayers.clear()
 
-        // When using layout mode, hide legacy full-screen player
+        player?.stop()
         playerView.visibility = View.GONE
 
         val rootWidth = layoutRoot.width.takeIf { it > 0 } ?: layoutRoot.measuredWidth
         val rootHeight = layoutRoot.height.takeIf { it > 0 } ?: layoutRoot.measuredHeight
 
         if (rootWidth == 0 || rootHeight == 0) {
-            // View not yet measured; retry after layout pass
             layoutRoot.post { renderProgramLayout(program) }
             return
         }
@@ -1049,6 +1074,7 @@ class MainActivity : AppCompatActivity() {
         val scaleX = rootWidth.toFloat() / program.width.toFloat().coerceAtLeast(1f)
         val scaleY = rootHeight.toFloat() / program.height.toFloat().coerceAtLeast(1f)
 
+        var addedCount = 0
         for (element in program.elements.sortedBy { it.zIndex }) {
             val view = when (element.type) {
                 "video" -> createVideoViewForElement(element)
@@ -1066,44 +1092,56 @@ class MainActivity : AppCompatActivity() {
             lp.topMargin = (element.y * scaleY).toInt()
 
             layoutRoot.addView(view, lp)
+            addedCount++
         }
 
-        showScreensaver(false)
+        if (addedCount > 0) {
+            showScreensaver(false)
+        } else {
+            Log.w(TAG, "Program ${program.id} has no renderable elements")
+            showScreensaver(true)
+        }
     }
 
     private fun createVideoViewForElement(element: LayoutElement): View? {
-        val url = element.props.optString("url", null) ?: return null
-        val exo = ExoPlayer.Builder(this).build()
-        layoutVideoPlayers.add(exo)
+        val url = element.props.optString("url", "").takeIf { it.isNotBlank() } ?: return null
+        return try {
+            val exo = ExoPlayer.Builder(this).build()
+            layoutVideoPlayers.add(exo)
 
-        val pv = PlayerView(this).apply {
-            useController = false
-            player = exo
+            val pv = PlayerView(this).apply {
+                useController = false
+                player = exo
+            }
+
+            exo.setMediaItem(MediaItem.fromUri(Uri.parse(url)))
+            exo.repeatMode = Player.REPEAT_MODE_ALL
+            exo.prepare()
+            exo.playWhenReady = true
+            pv
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create video element: ${e.message}")
+            null
         }
-
-        val mediaItem = MediaItem.fromUri(Uri.parse(url))
-        exo.setMediaItem(mediaItem)
-        exo.repeatMode = Player.REPEAT_MODE_ALL
-        exo.prepare()
-        exo.playWhenReady = true
-
-        return pv
     }
 
     private fun createImageViewForElement(element: LayoutElement): View? {
-        val url = element.props.optString("url", null) ?: return null
-        val imageView = ImageView(this).apply {
-            scaleType = ImageView.ScaleType.FIT_CENTER
+        val url = element.props.optString("url", "").takeIf { it.isNotBlank() } ?: return null
+        return try {
+            val imageView = ImageView(this).apply {
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
+            val imageLoader = ImageLoader.Builder(this).build()
+            val request = ImageRequest.Builder(this)
+                .data(url)
+                .target(imageView)
+                .build()
+            imageLoader.enqueue(request)
+            imageView
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create image element: ${e.message}")
+            null
         }
-
-        val imageLoader = ImageLoader.Builder(this).build()
-        val request = ImageRequest.Builder(this)
-            .data(url)
-            .target(imageView)
-            .build()
-        imageLoader.enqueue(request)
-
-        return imageView
     }
 
     private fun createTextViewForElement(element: LayoutElement): View {
@@ -1128,12 +1166,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createWebViewForElement(element: LayoutElement): View? {
-        val url = element.props.optString("url", null) ?: return null
-        val webView = WebView(this).apply {
-            settings.javaScriptEnabled = true
-            webViewClient = WebViewClient()
-            loadUrl(url)
+        val url = element.props.optString("url", "").takeIf { it.isNotBlank() } ?: return null
+        return try {
+            WebView(this).apply {
+                settings.javaScriptEnabled = true
+                webViewClient = WebViewClient()
+                loadUrl(url)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create webview element: ${e.message}")
+            null
         }
-        return webView
     }
 }

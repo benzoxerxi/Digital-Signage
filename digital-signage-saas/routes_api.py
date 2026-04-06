@@ -15,7 +15,8 @@ from utils import (
     load_json_file, save_json_file, get_content_folder, get_data_file_path,
     allowed_file, get_file_hash, get_connected_devices, get_all_devices_with_status,
     get_device_count, update_device_heartbeat, add_removed_device, log_activity, get_storage_usage, device_lock,
-    set_current_video_display_name, get_current_video_display_name
+    set_current_video_display_name, get_current_video_display_name,
+    delete_tenant_display_registry, sync_device_registry_row, merge_registry_into_devices_dict,
 )
 
 api_bp = Blueprint('api', __name__)
@@ -476,12 +477,33 @@ def play_video():
     if not current_user.is_subscription_active():
         return jsonify({'success': False, 'error': 'Subscription expired'}), 403
     
-    data = request.json
+    data = request.json or {}
     filename = data.get('filename')
     drive_file_id = data.get('drive_file_id')
-    device_ids = data.get('device_ids', [])
+    device_ids = data.get('device_ids')
+    if device_ids is None:
+        device_ids = []
+    if not isinstance(device_ids, list):
+        return jsonify({'success': False, 'error': 'device_ids must be a list'}), 400
+    target_all = bool(data.get('target_all'))
     display_name = data.get('name', '').strip() or None  # e.g. "valentines tv 1.mp4" for Drive
-    
+
+    # #region agent log
+    try:
+        _log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'debug-0d11e9.log')
+        with open(_log_path, 'a', encoding='utf-8') as _lf:
+            _lf.write(json.dumps({
+                'sessionId': '0d11e9',
+                'hypothesisId': 'H_play_all',
+                'location': 'routes_api.play_video',
+                'message': 'playback play',
+                'timestamp': int(datetime.now().timestamp() * 1000),
+                'data': {'target_all': target_all, 'n_device_ids': len(device_ids)},
+            }) + '\n')
+    except Exception:
+        pass
+    # #endregion
+
     if drive_file_id:
         current_video_value = f'drive:{drive_file_id}'
     elif filename:
@@ -496,42 +518,47 @@ def play_video():
     # Use tenant-scoped devices file so commands only affect current user's displays
     from flask_login import current_user as _cu
     devices = load_json_file('devices.json', {}, _cu.id)
+    if merge_registry_into_devices_dict(_cu.id, devices):
+        save_json_file('devices.json', devices, _cu.id)
     print(f"Available devices: {list(devices.keys())}")
     
     updated_count = 0
-    
-    if device_ids:
-        for device_id in device_ids:
-            if device_id in devices:
-                devices[device_id]['current_video'] = current_video_value
-                devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
-                if display_name:
-                    devices[device_id]['current_video_display_name'] = display_name
-                else:
-                    devices[device_id].pop('current_video_display_name', None)
-                set_current_video_display_name(_cu.id, device_id, display_name)
-                updated_count += 1
-            else:
-                print(f"❌ Device not found: {device_id}")
-    else:
+
+    if not target_all and not device_ids:
+        return jsonify({
+            'success': False,
+            'error': 'Select at least one display, or set target_all to true to play on all displays.'
+        }), 400
+
+    def _apply_play(dev_id):
+        nonlocal updated_count
+        if dev_id not in devices:
+            print(f"❌ Device not found: {dev_id}")
+            return
+        devices[dev_id]['current_video'] = current_video_value
+        devices[dev_id]['command_id'] = devices[dev_id].get('command_id', 0) + 1
+        if display_name:
+            devices[dev_id]['current_video_display_name'] = display_name
+        else:
+            devices[dev_id].pop('current_video_display_name', None)
+        set_current_video_display_name(_cu.id, dev_id, display_name)
+        updated_count += 1
+
+    if target_all:
         for device_id in devices:
-            devices[device_id]['current_video'] = current_video_value
-            devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
-            if display_name:
-                devices[device_id]['current_video_display_name'] = display_name
-            else:
-                devices[device_id].pop('current_video_display_name', None)
-            set_current_video_display_name(_cu.id, device_id, display_name)
-        updated_count = len(devices)
+            _apply_play(device_id)
+    else:
+        for device_id in device_ids:
+            _apply_play(device_id)
     
     save_json_file('devices.json', devices, _cu.id)
-    log_activity('video_played', {'filename': current_video_value, 'device_count': updated_count})
+    log_activity('video_played', {'filename': current_video_value, 'device_count': updated_count, 'target_all': target_all})
     
     return jsonify({
         'success': True,
         'filename': current_video_value,
         'devices_updated': updated_count,
-        'target': 'selected' if device_ids else 'all'
+        'target': 'all' if target_all else 'selected'
     })
 
 
@@ -544,6 +571,8 @@ def stop_playback():
     
     from flask_login import current_user as _cu
     devices = load_json_file('devices.json', {}, _cu.id)
+    if merge_registry_into_devices_dict(_cu.id, devices):
+        save_json_file('devices.json', devices, _cu.id)
     updated_count = 0
     
     if device_ids:
@@ -641,6 +670,7 @@ def update_device(device_id):
         devices[device_id]['name'] = data['name']
     
     save_json_file('devices.json', devices, _cu.id)
+    sync_device_registry_row(_cu.id, device_id, devices.get(device_id))
     return jsonify({'success': True, 'device': devices[device_id]})
 
 
@@ -654,8 +684,9 @@ def delete_device(device_id):
     if device_id in devices:
         del devices[device_id]
         save_json_file('devices.json', devices, _cu.id)
-        add_removed_device(_cu.id, device_id)
         log_activity('device_deleted', {'device_id': device_id})
+    add_removed_device(_cu.id, device_id)
+    delete_tenant_display_registry(_cu.id, device_id)
     
     return jsonify({'success': True})
 

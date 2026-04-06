@@ -121,6 +121,20 @@ class User(UserMixin, db.Model):
         return f'<User {self.username}>'
 
 
+class TenantDisplay(db.Model):
+    """Persistent registry of displays per account. Survives loss of tenant devices.json (e.g. ephemeral disk);
+    merged with devices.json for commands and live state. Removed only when user deletes the display."""
+    __tablename__ = 'tenant_displays'
+    __table_args__ = (db.UniqueConstraint('user_id', 'device_id', name='uq_tenant_display_device'),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    device_id = db.Column(db.String(160), nullable=False)
+    display_name = db.Column(db.String(200), nullable=False)
+    first_seen_iso = db.Column(db.String(40), nullable=False)
+    last_seen_iso = db.Column(db.String(40), nullable=False)
+
+
 class PaymentHistory(db.Model):
     """Payment transaction history"""
     __tablename__ = 'payment_history'

@@ -1405,6 +1405,10 @@
                         <button class="btn btn-secondary btn-small" onclick="selectAllDevices()">Select All</button>
                         <button class="btn btn-secondary btn-small" onclick="deselectAllDevices()">Clear</button>
                         <button class="btn btn-secondary btn-small" onclick="selectOnlineDevices()">Online Only</button>
+                        <label class="playback-play-all-label" style="display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; font-size: 13px; cursor: pointer; color: var(--text-muted); white-space: nowrap;" title="When checked, Play sends to every display. Leave unchecked and select displays below.">
+                            <input type="checkbox" id="playbackPlayAllDisplays" />
+                            Play on all displays
+                        </label>
                         <button class="btn btn-danger btn-small" id="formatCacheBtn" onclick="formatSelectedDisplays()" title="Only available for online displays">🔄 Format Cache</button>
                         <button class="btn btn-danger btn-small" onclick="removeSelectedDisplays()">🗑️ Remove from panel</button>
                         <button class="btn btn-primary btn-small" onclick="refreshDevices()">Refresh</button>
@@ -1990,8 +1994,13 @@
             }
         }
         
+        function playbackPlayAllChecked() {
+            var el = document.getElementById('playbackPlayAllDisplays');
+            return !!(el && el.checked);
+        }
         function getPlaybackTargetNames() {
-            if (selectedDevices.length === 0) return 'All devices';
+            if (playbackPlayAllChecked()) return 'All displays (explicit)';
+            if (selectedDevices.length === 0) return 'None selected — pick displays or tick Play on all';
             return selectedDevices.map(function(id) {
                 var d = allDevices.find(function(dev) { return dev.id === id; });
                 return d ? (d.name || id) : id;
@@ -2006,13 +2015,22 @@
         }
         
         async function playVideoFromPlaylist(videoEntry) {
+            var playAll = playbackPlayAllChecked();
+            if (!playAll && selectedDevices.length === 0) {
+                showToast('Select one or more displays, or tick Play on all displays.', 'error');
+                return;
+            }
             var targetsEl = document.getElementById('playbackProgressTargets');
             if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
             setPlaybackProgress(0, 'Sending to devices...');
             openModal('playbackProgressModal');
             const isDrive = videoEntry && (videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.startsWith('drive:')));
             const payload = {};
-            if (selectedDevices.length > 0) payload.device_ids = selectedDevices;
+            if (playAll) {
+                payload.target_all = true;
+            } else if (selectedDevices.length > 0) {
+                payload.device_ids = selectedDevices;
+            }
             if (isDrive) {
                 payload.drive_file_id = videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.replace(/^drive:/, ''));
                 payload.name = videoEntry.name || payload.drive_file_id;
@@ -2149,8 +2167,17 @@
         }
         async function playDriveVideo(driveFileId, name) {
             try {
+                var playAll = playbackPlayAllChecked();
+                if (!playAll && selectedDevices.length === 0) {
+                    showToast('Select one or more displays, or tick Play on all displays.', 'error');
+                    return;
+                }
                 const payload = { drive_file_id: driveFileId, name: name || '' };
-                if (selectedDevices.length > 0) payload.device_ids = selectedDevices;
+                if (playAll) {
+                    payload.target_all = true;
+                } else if (selectedDevices.length > 0) {
+                    payload.device_ids = selectedDevices;
+                }
                 const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 const result = await response.json();
                 if (result.success) {
@@ -3264,8 +3291,13 @@
             }
         }
         
+        function playbackPlayAllChecked() {
+            var el = document.getElementById('playbackPlayAllDisplays');
+            return !!(el && el.checked);
+        }
         function getPlaybackTargetNames() {
-            if (selectedDevices.length === 0) return 'All devices';
+            if (playbackPlayAllChecked()) return 'All displays (explicit)';
+            if (selectedDevices.length === 0) return 'None selected — pick displays or tick Play on all';
             return selectedDevices.map(function(id) {
                 var d = allDevices.find(function(dev) { return dev.id === id; });
                 return d ? (d.name || id) : id;
@@ -3280,13 +3312,22 @@
         }
         
         async function playVideoFromPlaylist(videoEntry) {
+            var playAll = playbackPlayAllChecked();
+            if (!playAll && selectedDevices.length === 0) {
+                showToast('Select one or more displays, or tick Play on all displays.', 'error');
+                return;
+            }
             var targetsEl = document.getElementById('playbackProgressTargets');
             if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
             setPlaybackProgress(0, 'Sending to devices...');
             openModal('playbackProgressModal');
             const isDrive = videoEntry && (videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.startsWith('drive:')));
             const payload = {};
-            if (selectedDevices.length > 0) payload.device_ids = selectedDevices;
+            if (playAll) {
+                payload.target_all = true;
+            } else if (selectedDevices.length > 0) {
+                payload.device_ids = selectedDevices;
+            }
             if (isDrive) {
                 payload.drive_file_id = videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.replace(/^drive:/, ''));
                 payload.name = videoEntry.name || payload.drive_file_id;
@@ -3423,8 +3464,17 @@
         }
         async function playDriveVideo(driveFileId, name) {
             try {
+                var playAll = playbackPlayAllChecked();
+                if (!playAll && selectedDevices.length === 0) {
+                    showToast('Select one or more displays, or tick Play on all displays.', 'error');
+                    return;
+                }
                 const payload = { drive_file_id: driveFileId, name: name || '' };
-                if (selectedDevices.length > 0) payload.device_ids = selectedDevices;
+                if (playAll) {
+                    payload.target_all = true;
+                } else if (selectedDevices.length > 0) {
+                    payload.device_ids = selectedDevices;
+                }
                 const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 const result = await response.json();
                 if (result.success) {

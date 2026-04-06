@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, jsonify, send_file, redirect,
 from flask_cors import CORS
 from flask_login import LoginManager, login_required, current_user
 from sqlalchemy import text
-from models import db, User, ActivityLog, PaymentHistory
+from models import db, User, ActivityLog, PaymentHistory, TenantDisplay
 from config import Config
 import os
 import json

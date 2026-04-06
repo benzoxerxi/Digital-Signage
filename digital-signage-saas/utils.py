@@ -161,6 +161,115 @@ def get_current_video_display_name(user_id, device_id):
     return _current_video_display_name_cache.get((user_id, device_id))
 
 
+def _upsert_tenant_display_registry(user_id, device_id, display_name, first_seen_iso, last_seen_iso):
+    """Mirror display identity in DB so the panel list survives loss of devices.json."""
+    from models import TenantDisplay, db
+    name = (display_name or f'Display {str(device_id)[-4:]}')[:200]
+    fs = (first_seen_iso or datetime.now().isoformat())[:40]
+    ls = (last_seen_iso or datetime.now().isoformat())[:40]
+    row = TenantDisplay.query.filter_by(user_id=user_id, device_id=device_id).first()
+    if row:
+        row.display_name = name
+        row.last_seen_iso = ls
+    else:
+        db.session.add(TenantDisplay(
+            user_id=user_id,
+            device_id=device_id,
+            display_name=name,
+            first_seen_iso=fs,
+            last_seen_iso=ls,
+        ))
+    db.session.commit()
+
+
+def delete_tenant_display_registry(user_id, device_id):
+    from models import TenantDisplay, db
+    try:
+        TenantDisplay.query.filter_by(user_id=user_id, device_id=device_id).delete()
+        db.session.commit()
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+
+def merge_registry_into_devices_dict(user_id, devices):
+    """Add any DB-registered displays missing from devices.json so play/stop can update them."""
+    try:
+        from models import TenantDisplay
+        changed = False
+        for r in TenantDisplay.query.filter_by(user_id=user_id).all():
+            if r.device_id not in devices:
+                devices[r.device_id] = {
+                    'id': r.device_id,
+                    'name': r.display_name,
+                    'first_seen': r.first_seen_iso,
+                    'last_seen': r.last_seen_iso,
+                    'current_video': None,
+                    'command_id': 0,
+                    'status': 'idle',
+                    'info': {},
+                }
+                changed = True
+        return changed
+    except Exception:
+        return False
+
+
+def sync_device_registry_row(user_id, device_id, device_row):
+    """Keep tenant_displays in sync after panel edits (e.g. rename)."""
+    if not device_row:
+        return
+    try:
+        _upsert_tenant_display_registry(
+            user_id,
+            device_id,
+            device_row.get('name'),
+            device_row.get('first_seen', datetime.now().isoformat()),
+            device_row.get('last_seen', datetime.now().isoformat()),
+        )
+    except Exception:
+        try:
+            from models import db
+            db.session.rollback()
+        except Exception:
+            pass
+
+
+def _append_device_status_row(result, user_id, device_id, device_data, now):
+    """Single device dict -> row with online/reported_* fields (same as previous get_all_devices loop)."""
+    try:
+        row = dict(device_data)
+        row['id'] = device_id
+        row['reported_current_video'] = _reported_current_video_cache.get((user_id, device_id))
+        row['reported_current_video_name'] = (
+            _reported_current_video_name_cache.get((user_id, device_id))
+            or device_data.get('current_video_display_name')
+            or get_current_video_display_name(user_id, device_id)
+        )
+        last_seen = datetime.fromisoformat(device_data.get('last_seen', now.isoformat()))
+        seconds_ago = (now - last_seen).total_seconds()
+        row['online'] = seconds_ago <= Config.DEVICE_TIMEOUT
+        if row['online']:
+            row['last_seen_ago'] = int(seconds_ago)
+        else:
+            row['last_seen_ago'] = None
+        result.append(row)
+    except Exception:
+        row = dict(device_data)
+        row['id'] = device_id
+        row['reported_current_video'] = _reported_current_video_cache.get((user_id, device_id))
+        row['reported_current_video_name'] = (
+            _reported_current_video_name_cache.get((user_id, device_id))
+            or device_data.get('current_video_display_name')
+            or get_current_video_display_name(user_id, device_id)
+        )
+        row['online'] = False
+        row['last_seen_ago'] = None
+        result.append(row)
+
+
 def update_device_heartbeat(device_id, device_name=None, device_info=None, user_id=None, from_setup=False, reported_current_video=None, reported_current_video_name=None):
     """Update device information for tenant. If device was removed from panel and from_setup is False, returns None (caller should respond with removed=True to APK).
     reported_current_video / reported_current_video_name: from device (APK heartbeat). In memory only; not stored to disk."""
@@ -177,11 +286,20 @@ def update_device_heartbeat(device_id, device_name=None, device_info=None, user_
 
         devices = load_json_file('devices.json', {}, user_id)
 
+        reg_name = None
+        try:
+            from models import TenantDisplay
+            _reg = TenantDisplay.query.filter_by(user_id=user_id, device_id=device_id).first()
+            if _reg:
+                reg_name = _reg.display_name
+        except Exception:
+            pass
+
         if device_id not in devices:
             is_new_device = True
             devices[device_id] = {
                 'id': device_id,
-                'name': device_name or f'Display {len(devices) + 1}',
+                'name': device_name or reg_name or f'Display {len(devices) + 1}',
                 'first_seen': datetime.now().isoformat(),
                 'current_video': None,
                 'command_id': 0,
@@ -205,6 +323,20 @@ def update_device_heartbeat(device_id, device_name=None, device_info=None, user_
 
     if is_new_device:
         log_activity('device_connected', {'device_id': device_id, 'name': device_name}, user_id)
+    try:
+        _upsert_tenant_display_registry(
+            user_id,
+            device_id,
+            result.get('name'),
+            result.get('first_seen'),
+            result.get('last_seen'),
+        )
+    except Exception:
+        try:
+            from models import db
+            db.session.rollback()
+        except Exception:
+            pass
     return result
 
 
@@ -216,47 +348,66 @@ def get_connected_devices(user_id=None):
 
 def get_all_devices_with_status(user_id=None):
     """Get all devices for tenant with online/offline status. Names are stored per device.
-    Devices are never removed by time or last_seen; they stay until the user removes them.
-    Use a persistent DATA_DIR (e.g. on Render) so devices.json survives redeploys and offline devices remain visible."""
+    Listing merges devices.json with DB registry (tenant_displays) so displays stay visible after devices.json loss
+    until the user removes them. Still set DATA_DIR to persistent storage for commands/play state."""
     if user_id is None:
         user_id = current_user.id
-    
+
     devices = load_json_file('devices.json', {}, user_id)
     now = datetime.now()
     result = []
-    
-    for device_id, device_data in devices.items():
+
+    registry_by_id = {}
+    try:
+        from models import TenantDisplay, db
+        for r in TenantDisplay.query.filter_by(user_id=user_id).all():
+            registry_by_id[r.device_id] = r
+        # Backfill registry from JSON for existing tenants (one-time migration per device)
+        for did, dd in devices.items():
+            if did not in registry_by_id:
+                db.session.add(TenantDisplay(
+                    user_id=user_id,
+                    device_id=did,
+                    display_name=(dd.get('name') or f'Display {str(did)[-4:]}')[:200],
+                    first_seen_iso=(dd.get('first_seen', now.isoformat()))[:40],
+                    last_seen_iso=(dd.get('last_seen', dd.get('first_seen', now.isoformat())))[:40],
+                ))
+        db.session.commit()
+        registry_by_id = {r.device_id: r for r in TenantDisplay.query.filter_by(user_id=user_id).all()}
+    except Exception:
         try:
-            row = dict(device_data)
-            row['id'] = device_id
-            # Device-reported current video / name (in-memory); fallback to persisted display name (survives redeploy)
-            row['reported_current_video'] = _reported_current_video_cache.get((user_id, device_id))
-            row['reported_current_video_name'] = (
-                _reported_current_video_name_cache.get((user_id, device_id))
-                or device_data.get('current_video_display_name')
-                or get_current_video_display_name(user_id, device_id)
-            )
-            last_seen = datetime.fromisoformat(device_data.get('last_seen', now.isoformat()))
-            seconds_ago = (now - last_seen).total_seconds()
-            row['online'] = seconds_ago <= Config.DEVICE_TIMEOUT
-            if row['online']:
-                row['last_seen_ago'] = int(seconds_ago)
-            else:
-                row['last_seen_ago'] = None
-            result.append(row)
+            from models import db
+            db.session.rollback()
         except Exception:
-            row = dict(device_data)
-            row['id'] = device_id
-            row['reported_current_video'] = _reported_current_video_cache.get((user_id, device_id))
-            row['reported_current_video_name'] = (
-                _reported_current_video_name_cache.get((user_id, device_id))
-                or device_data.get('current_video_display_name')
-                or get_current_video_display_name(user_id, device_id)
-            )
-            row['online'] = False
-            row['last_seen_ago'] = None
-            result.append(row)
-    
+            pass
+        registry_by_id = {}
+        try:
+            from models import TenantDisplay
+            for r in TenantDisplay.query.filter_by(user_id=user_id).all():
+                registry_by_id[r.device_id] = r
+        except Exception:
+            registry_by_id = {}
+
+    all_ids = set(devices.keys()) | set(registry_by_id.keys())
+
+    for device_id in sorted(all_ids, key=lambda x: (len(str(x)), str(x))):
+        device_data = devices.get(device_id)
+        reg = registry_by_id.get(device_id)
+        if device_data is None and reg is not None:
+            device_data = {
+                'id': device_id,
+                'name': reg.display_name,
+                'first_seen': reg.first_seen_iso,
+                'last_seen': reg.last_seen_iso,
+                'current_video': None,
+                'command_id': 0,
+                'status': 'idle',
+                'info': {},
+            }
+        elif device_data is None:
+            continue
+        _append_device_status_row(result, user_id, device_id, device_data, now)
+
     return result
 
 
@@ -264,8 +415,7 @@ def get_device_count(user_id=None):
     """Get total number of devices for tenant"""
     if user_id is None:
         user_id = current_user.id
-    devices = load_json_file('devices.json', {}, user_id)
-    return len(devices)
+    return len(get_all_devices_with_status(user_id))
 
 
 def get_total_devices_all_users():

@@ -79,7 +79,7 @@ def get_playlist():
 
 @api_bp.route('/device_layout')
 def get_device_layout():
-    """Return device layout for APK. Program feature removed – always returns program: null."""
+    """Return active program layout for a device (polled by APK)."""
     from models import User
     code_param = request.args.get('code')
     user = User.get_by_connection_code(code_param) if code_param else None
@@ -95,10 +95,107 @@ def get_device_layout():
     if not user.is_active or not user.is_subscription_active():
         return jsonify({'error': 'Account inactive or subscription expired'}), 403
     device_id = request.args.get('device_id') or request.remote_addr.replace('.', '_')
+
+    devices = load_json_file('devices.json', {}, user.id)
+    dev = devices.get(device_id, {})
+    active_prog_id = dev.get('active_program_id')
+
+    if not active_prog_id:
+        return jsonify({'deviceId': device_id, 'userId': user.id, 'program': None})
+
+    programs = load_json_file('programs.json', {'programs': []}, user.id)
+    prog = next((p for p in programs['programs'] if p['id'] == active_prog_id), None)
+    if not prog:
+        return jsonify({'deviceId': device_id, 'userId': user.id, 'program': None})
+
+    code_suffix = f'?code={code_param}' if code_param else ''
+    base_url = request.host_url.rstrip('/')
+
+    elements_out = []
+    for el in prog.get('elements', []):
+        src = el.get('src', '')
+        if el['type'] in ('video', 'image') and src:
+            if src.startswith('drive:'):
+                url = f'{base_url}/api/video/{src}{code_suffix}'
+            elif src.startswith('http'):
+                url = src
+            else:
+                url = f'{base_url}/api/video/{src}{code_suffix}'
+        else:
+            url = src
+        props = {'url': url} if url else {}
+        elements_out.append({
+            'id': el.get('id'),
+            'type': el.get('type', 'video'),
+            'x': el.get('x', 0),
+            'y': el.get('y', 0),
+            'width': el.get('width', 200),
+            'height': el.get('height', 200),
+            'zIndex': el.get('zIndex', 0),
+            'props': props,
+        })
+
     return jsonify({
         'deviceId': device_id,
         'userId': user.id,
-        'program': None
+        'program': {
+            'id': prog['id'],
+            'name': prog.get('name', ''),
+            'width': prog.get('width', 1920),
+            'height': prog.get('height', 1080),
+            'elements': elements_out,
+        }
+    })
+
+
+@api_bp.route('/playback/play-program', methods=['POST'])
+@login_required
+def play_program():
+    """Assign a saved program layout to selected devices."""
+    if not current_user.is_subscription_active():
+        return jsonify({'success': False, 'error': 'Subscription expired'}), 403
+
+    data = request.json or {}
+    program_id = data.get('program_id')
+    device_ids = data.get('device_ids') or []
+    target_all = bool(data.get('target_all'))
+
+    if not program_id:
+        return jsonify({'success': False, 'error': 'program_id is required'}), 400
+
+    programs = load_json_file('programs.json', {'programs': []})
+    prog = next((p for p in programs['programs'] if p['id'] == program_id), None)
+    if not prog:
+        return jsonify({'success': False, 'error': 'Program not found'}), 404
+
+    if not target_all and not device_ids:
+        return jsonify({'success': False, 'error': 'Select at least one display or set target_all'}), 400
+
+    from flask_login import current_user as _cu
+    devices = load_json_file('devices.json', {}, _cu.id)
+    if merge_registry_into_devices_dict(_cu.id, devices):
+        save_json_file('devices.json', devices, _cu.id)
+
+    updated = 0
+    ids_to_update = list(devices.keys()) if target_all else device_ids
+    for did in ids_to_update:
+        if did not in devices:
+            continue
+        devices[did]['active_program_id'] = program_id
+        devices[did]['current_video'] = None
+        devices[did]['command_id'] = devices[did].get('command_id', 0) + 1
+        devices[did].pop('current_video_display_name', None)
+        updated += 1
+
+    save_json_file('devices.json', devices, _cu.id)
+    log_activity('program_played', {'program_id': program_id, 'device_count': updated, 'target_all': target_all})
+
+    return jsonify({
+        'success': True,
+        'program_id': program_id,
+        'program_name': prog.get('name', ''),
+        'devices_updated': updated,
+        'target': 'all' if target_all else 'selected',
     })
 
 
@@ -537,6 +634,7 @@ def play_video():
             return
         devices[dev_id]['current_video'] = current_video_value
         devices[dev_id]['command_id'] = devices[dev_id].get('command_id', 0) + 1
+        devices[dev_id].pop('active_program_id', None)
         if display_name:
             devices[dev_id]['current_video_display_name'] = display_name
         else:
@@ -582,6 +680,7 @@ def stop_playback():
                 devices[device_id]['status'] = 'idle'
                 devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
                 devices[device_id].pop('current_video_display_name', None)
+                devices[device_id].pop('active_program_id', None)
                 set_current_video_display_name(_cu.id, device_id, None)
                 updated_count += 1
     else:
@@ -590,6 +689,7 @@ def stop_playback():
             devices[device_id]['status'] = 'idle'
             devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
             devices[device_id].pop('current_video_display_name', None)
+            devices[device_id].pop('active_program_id', None)
             set_current_video_display_name(_cu.id, device_id, None)
         updated_count = len(devices)
     

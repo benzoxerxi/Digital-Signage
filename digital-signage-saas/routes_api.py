@@ -113,20 +113,31 @@ def get_device_layout():
 
     elements_out = []
     for el in prog.get('elements', []):
-        src = el.get('src', '')
-        if el['type'] in ('video', 'image') and src:
+        src = el.get('src', '') or ''
+        el_type = el.get('type', 'video')
+
+        if el_type in ('video', 'image'):
+            if not src:
+                continue
             if src.startswith('drive:'):
                 url = f'{base_url}/api/video/{src}{code_suffix}'
             elif src.startswith('http'):
                 url = src
             else:
                 url = f'{base_url}/api/video/{src}{code_suffix}'
+            props = {'url': url}
+        elif el_type == 'text':
+            props = {'content': el.get('name', ''), 'fontSize': 24, 'color': '#FFFFFF', 'alignment': 'left'}
+        elif el_type == 'webview':
+            if not src:
+                continue
+            props = {'url': src}
         else:
-            url = src
-        props = {'url': url} if url else {}
+            continue
+
         elements_out.append({
             'id': el.get('id'),
-            'type': el.get('type', 'video'),
+            'type': el_type,
             'x': el.get('x', 0),
             'y': el.get('y', 0),
             'width': el.get('width', 200),

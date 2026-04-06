@@ -67,6 +67,8 @@ class MainActivity : AppCompatActivity() {
     private var deviceId = ""
     private var deviceName = ""
     private var lastCommandId = -1
+    private var currentProgramId: String? = null
+    private var inLayoutMode = false
 
     companion object {
         private const val TAG = "SignagePlayer"
@@ -297,6 +299,10 @@ class MainActivity : AppCompatActivity() {
 
                 Toast.makeText(this@MainActivity, "Connected!", Toast.LENGTH_SHORT).show()
                 setContentView(R.layout.activity_main)
+                inLayoutMode = false
+                currentProgramId = null
+                layoutVideoPlayers.forEach { it.release() }
+                layoutVideoPlayers.clear()
                 layoutRoot = findViewById(R.id.layout_root)
                 playerView = findViewById(R.id.player_view)
                 screensaverView = findViewById(R.id.screensaver_view)
@@ -346,18 +352,27 @@ class MainActivity : AppCompatActivity() {
     private fun sendHeartbeatAndCheckCommands() {
         scope.launch {
             try {
-                // First, try layout-based playback
                 val layoutResponse = withContext(Dispatchers.IO) {
                     apiClient.setBaseUrl(serverUrl)
                     apiClient.setConnectionCode(connectionCode)
                     apiClient.getDeviceLayout(deviceId)
                 }
 
-                if (layoutResponse?.program != null && layoutResponse.program.elements.isNotEmpty()) {
-                    connectionStatus.text = "Layout mode"
-                    renderProgramLayout(layoutResponse.program)
+                val activeProgram = layoutResponse?.program?.takeIf { it.elements.isNotEmpty() }
+
+                if (activeProgram != null) {
+                    if (activeProgram.id != currentProgramId) {
+                        exitLayoutMode()
+                        currentProgramId = activeProgram.id
+                        inLayoutMode = true
+                        connectionStatus.text = "Layout mode"
+                        renderProgramLayout(activeProgram)
+                    }
                 } else {
-                    // Fallback to legacy playback state + playlist behavior
+                    if (inLayoutMode) {
+                        exitLayoutMode()
+                    }
+
                     val playbackState = withContext(Dispatchers.IO) {
                         apiClient.getPlaybackState(connectionCode, deviceId, deviceName)
                     }
@@ -379,6 +394,17 @@ class MainActivity : AppCompatActivity() {
             } catch (_: Exception) {
                 connectionStatus.text = "Connection lost"
             }
+        }
+    }
+
+    private fun exitLayoutMode() {
+        if (inLayoutMode) {
+            layoutRoot.removeAllViews()
+            layoutVideoPlayers.forEach { it.release() }
+            layoutVideoPlayers.clear()
+            playerView.visibility = View.VISIBLE
+            inLayoutMode = false
+            currentProgramId = null
         }
     }
 
@@ -551,19 +577,17 @@ class MainActivity : AppCompatActivity() {
     // =========================================================================
 
     private fun renderProgramLayout(program: ProgramLayout) {
-        // Clear existing layout elements and players
         layoutRoot.removeAllViews()
         layoutVideoPlayers.forEach { it.release() }
         layoutVideoPlayers.clear()
 
-        // When using layout mode, hide legacy full-screen player
+        player?.stop()
         playerView.visibility = View.GONE
 
         val rootWidth = layoutRoot.width.takeIf { it > 0 } ?: layoutRoot.measuredWidth
         val rootHeight = layoutRoot.height.takeIf { it > 0 } ?: layoutRoot.measuredHeight
 
         if (rootWidth == 0 || rootHeight == 0) {
-            // View not measured yet; post to layout pass
             layoutRoot.post { renderProgramLayout(program) }
             return
         }
@@ -571,6 +595,7 @@ class MainActivity : AppCompatActivity() {
         val scaleX = rootWidth.toFloat() / program.width.toFloat().coerceAtLeast(1f)
         val scaleY = rootHeight.toFloat() / program.height.toFloat().coerceAtLeast(1f)
 
+        var addedCount = 0
         for (element in program.elements.sortedBy { it.zIndex }) {
             val view = when (element.type) {
                 "video" -> createVideoViewForElement(element)
@@ -588,42 +613,58 @@ class MainActivity : AppCompatActivity() {
             lp.topMargin = (element.y * scaleY).toInt()
 
             layoutRoot.addView(view, lp)
+            addedCount++
         }
 
-        showScreensaver(false)
+        if (addedCount > 0) {
+            showScreensaver(false)
+        } else {
+            Log.w(TAG, "Program ${program.id} has no renderable elements")
+            showScreensaver(true)
+        }
     }
 
     private fun createVideoViewForElement(element: LayoutElement): View? {
-        val url = element.props.optString("url", null) ?: return null
-        val exo = ExoPlayer.Builder(this).build()
-        layoutVideoPlayers.add(exo)
+        val url = element.props.optString("url", "").takeIf { it.isNotBlank() } ?: return null
+        return try {
+            val exo = ExoPlayer.Builder(this).build()
+            layoutVideoPlayers.add(exo)
 
-        val pv = PlayerView(this).apply {
-            useController = false
-            player = exo
+            val pv = PlayerView(this).apply {
+                useController = false
+                player = exo
+            }
+
+            val mediaItem = MediaItem.fromUri(Uri.parse(url))
+            exo.setMediaItem(mediaItem)
+            exo.repeatMode = Player.REPEAT_MODE_ALL
+            exo.prepare()
+            exo.playWhenReady = true
+
+            pv
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create video element: ${e.message}")
+            null
         }
-
-        val mediaItem = MediaItem.fromUri(Uri.parse(url))
-        exo.setMediaItem(mediaItem)
-        exo.repeatMode = Player.REPEAT_MODE_ALL
-        exo.prepare()
-        exo.playWhenReady = true
-
-        return pv
     }
 
     private fun createImageViewForElement(element: LayoutElement): View? {
-        val url = element.props.optString("url", null) ?: return null
-        val imageView = ImageView(this).apply {
-            scaleType = ImageView.ScaleType.FIT_CENTER
+        val url = element.props.optString("url", "").takeIf { it.isNotBlank() } ?: return null
+        return try {
+            val imageView = ImageView(this).apply {
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
+            val imageLoader = ImageLoader.Builder(this).build()
+            val request = ImageRequest.Builder(this)
+                .data(url)
+                .target(imageView)
+                .build()
+            imageLoader.enqueue(request)
+            imageView
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create image element: ${e.message}")
+            null
         }
-        val imageLoader = ImageLoader.Builder(this).build()
-        val request = ImageRequest.Builder(this)
-            .data(url)
-            .target(imageView)
-            .build()
-        imageLoader.enqueue(request)
-        return imageView
     }
 
     private fun createTextViewForElement(element: LayoutElement): View {
@@ -648,12 +689,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createWebViewForElement(element: LayoutElement): View? {
-        val url = element.props.optString("url", null) ?: return null
-        val webView = WebView(this).apply {
-            settings.javaScriptEnabled = true
-            webViewClient = WebViewClient()
-            loadUrl(url)
+        val url = element.props.optString("url", "").takeIf { it.isNotBlank() } ?: return null
+        return try {
+            WebView(this).apply {
+                settings.javaScriptEnabled = true
+                webViewClient = WebViewClient()
+                loadUrl(url)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create webview element: ${e.message}")
+            null
         }
-        return webView
     }
 }

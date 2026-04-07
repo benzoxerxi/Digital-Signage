@@ -1,11 +1,25 @@
 """
 Main routes - Landing page, Pricing, Dashboard, Subscriptions
 """
-from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash
+import os
+from datetime import datetime
+
+from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash, current_app
 from flask_login import login_required, current_user
 from config import Config
 
 main_bp = Blueprint('main', __name__)
+
+
+def _static_apk_mtime(filename: str):
+    """Last filesystem modification time of an APK under static/apk/ (when the file was last replaced on server)."""
+    folder = current_app.static_folder
+    if not folder:
+        return None
+    path = os.path.join(folder, 'apk', filename)
+    if os.path.isfile(path):
+        return datetime.fromtimestamp(os.path.getmtime(path))
+    return None
 
 @main_bp.route('/')
 def landing():
@@ -59,8 +73,18 @@ def account():
     
     payments = PaymentHistory.query.filter_by(user_id=current_user.id)\
         .order_by(PaymentHistory.created_at.desc()).limit(10).all()
-    
-    return render_template('account.html', user=current_user, payments=payments, plans=Config.PLANS)
+
+    player_apk_mtime = _static_apk_mtime('Signage Player.apk')
+    watchdog_apk_mtime = _static_apk_mtime('watchdog.apk')
+
+    return render_template(
+        'account.html',
+        user=current_user,
+        payments=payments,
+        plans=Config.PLANS,
+        player_apk_mtime=player_apk_mtime,
+        watchdog_apk_mtime=watchdog_apk_mtime,
+    )
 
 
 @main_bp.route('/account/update', methods=['POST'])

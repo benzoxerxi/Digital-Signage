@@ -141,6 +141,8 @@
     .dl-row + .dl-row { margin-top: 0.75rem; }
     .dl-name { font-weight: 600; color: #f9fafb; margin-bottom: 0.2rem; }
     .dl-desc { font-size: 0.85rem; color: #6b7280; }
+    .dl-updated { font-size: 0.8rem; color: #9ca3af; margin-top: 0.35rem; }
+    .dl-updated time { font-variant-numeric: tabular-nums; }
     .dl-btn {
         padding: 0.65rem 1.25rem;
         border-radius: 999px;
@@ -264,6 +266,9 @@
             <div>
                 <div class="dl-name">Signage Player APK</div>
                 <div class="dl-desc">Main app that shows your layouts and playlists.</div>
+                {% if player_apk_mtime %}
+                <div class="dl-updated">File date: <time datetime="{{ player_apk_mtime.isoformat() }}">{{ player_apk_mtime.strftime('%Y-%m-%d %H:%M') }}</time> <span style="opacity:0.75">(server time)</span></div>
+                {% endif %}
             </div>
             <a href="{{ url_for('static', filename='apk/Signage Player.apk') }}" class="dl-btn">Download</a>
         </div>
@@ -271,11 +276,14 @@
             <div>
                 <div class="dl-name">Watchdog APK</div>
                 <div class="dl-desc">Optional helper that keeps the player running and restarts it if needed.</div>
+                {% if watchdog_apk_mtime %}
+                <div class="dl-updated">File date: <time datetime="{{ watchdog_apk_mtime.isoformat() }}">{{ watchdog_apk_mtime.strftime('%Y-%m-%d %H:%M') }}</time> <span style="opacity:0.75">(server time)</span></div>
+                {% endif %}
             </div>
             <a href="{{ url_for('static', filename='apk/watchdog.apk') }}" class="dl-btn">Download</a>
         </div>
         <p style="margin-top: 0.75rem; font-size: 0.8rem; color: #6b7280;">
-            Place your APK files on the server at <code style="color:#9ca3af">static/apk/Signage Player.apk</code> and <code style="color:#9ca3af">static/apk/watchdog.apk</code>.
+            Place your APK files on the server at <code style="color:#9ca3af">static/apk/Signage Player.apk</code> and <code style="color:#9ca3af">static/apk/watchdog.apk</code>. Shown date is the file’s last modification time on the server (when it was last replaced).
         </p>
     </div>
 

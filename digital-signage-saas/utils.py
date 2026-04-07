@@ -255,6 +255,8 @@ def _append_device_status_row(result, user_id, device_id, device_data, now):
             row['last_seen_ago'] = int(seconds_ago)
         else:
             row['last_seen_ago'] = None
+        cm = device_data.get('cache_manifest')
+        row['cache_manifest'] = cm if isinstance(cm, list) else None
         result.append(row)
     except Exception:
         row = dict(device_data)
@@ -267,6 +269,8 @@ def _append_device_status_row(result, user_id, device_id, device_data, now):
         )
         row['online'] = False
         row['last_seen_ago'] = None
+        cm = device_data.get('cache_manifest')
+        row['cache_manifest'] = cm if isinstance(cm, list) else None
         result.append(row)
 
 

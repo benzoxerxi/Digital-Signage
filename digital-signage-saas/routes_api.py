@@ -23,10 +23,26 @@ api_bp = Blueprint('api', __name__)
 
 
 def _merge_playback_request_params():
-    """Merge query string with JSON body (POST). Body values override query for duplicate keys."""
+    """Merge query string with JSON body (POST). Body values override query for duplicate keys.
+
+    Some proxies / Flask configs return None from get_json() even with a valid body; always
+    parse raw POST data as JSON when possible.
+    """
     merged = request.args.to_dict(flat=True)
     if request.method == 'POST':
-        body = request.get_json(silent=True)
+        body = None
+        raw = request.get_data(cache=True, as_text=True)
+        if raw:
+            raw = raw.strip()
+            if raw.startswith('\ufeff'):
+                raw = raw[1:]
+        if raw:
+            try:
+                body = json.loads(raw)
+            except Exception:
+                body = None
+        if not isinstance(body, dict):
+            body = request.get_json(force=True, silent=True)
         if isinstance(body, dict):
             for k, v in body.items():
                 if v is not None:

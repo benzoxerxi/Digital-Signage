@@ -384,6 +384,10 @@ class MainActivity : AppCompatActivity() {
                     captureAndUploadScreenshot()
                 }
 
+                if (playbackState.cache_delete_keys.isNotEmpty()) {
+                    applyServerCacheDeletes(playbackState.cache_delete_keys)
+                }
+
                 if (playbackState.clear_cache == true) {
                     Log.d(TAG, "clear_cache requested – stopping and clearing")
                     doNotResumeFromPlaylist = true
@@ -524,6 +528,39 @@ class MainActivity : AppCompatActivity() {
             o.put(cacheKey, t)
             prefs.edit().putString(KEY_CACHE_FILE_LABELS, o.toString()).apply()
         } catch (_: Exception) { }
+    }
+
+    private fun removeCacheLabel(cacheKey: String) {
+        try {
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val raw = prefs.getString(KEY_CACHE_FILE_LABELS, null) ?: "{}"
+            val o = try {
+                JSONObject(raw)
+            } catch (_: Exception) {
+                JSONObject()
+            }
+            o.remove(cacheKey)
+            prefs.edit().putString(KEY_CACHE_FILE_LABELS, o.toString()).apply()
+        } catch (_: Exception) { }
+    }
+
+    /** Remove files the server asked to delete; stop playback if current file was removed. */
+    private fun applyServerCacheDeletes(keys: List<String>) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val currentKey = prefs.getString(KEY_CACHED_VIDEO_FILENAME, null)
+        var removedCurrent = false
+        for (key in keys) {
+            if (key.isBlank()) continue
+            videoCache.deleteFile(key)
+            removeCacheLabel(key)
+            if (key == currentKey) removedCurrent = true
+        }
+        if (removedCurrent) {
+            Log.d(TAG, "Current cached file was deleted by server command")
+            player?.stop()
+            prefs.edit().remove(KEY_CACHED_VIDEO_FILENAME).remove(KEY_CACHED_VIDEO_DISPLAY_NAME).apply()
+            showScreensaver(true)
+        }
     }
 
     /** Compact list of cached files for server (dashboard “play from cache”). */

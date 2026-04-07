@@ -545,6 +545,14 @@ def get_playback_state():
                     devs[device_id].pop('clear_cache', None)
                     save_json_file('devices.json', devs, user_id)
 
+        pending_deletes = list(device_data.get('cache_delete_keys') or [])
+        if pending_deletes:
+            with device_lock:
+                devs = load_json_file('devices.json', {}, user_id)
+                if device_id in devs:
+                    devs[device_id].pop('cache_delete_keys', None)
+                    save_json_file('devices.json', devs, user_id)
+
         if device_data.get('current_video'):
             # Only send the single commanded video; do not push playlist to device
             cv = device_data['current_video']
@@ -570,9 +578,11 @@ def get_playback_state():
             }
             if current_video_name:
                 response['current_video_name'] = current_video_name
+            if pending_deletes:
+                response['cache_delete_keys'] = pending_deletes
             return jsonify(response)
         else:
-            return jsonify({
+            idle_response = {
                 'current_video': None,
                 'command_id': device_data.get('command_id', 0),
                 'mode': 'manual',
@@ -584,7 +594,10 @@ def get_playback_state():
                 'device_name': device_name_from_server,
                 'clear_cache': clear_cache,
                 'playback_cache_only': bool(device_data.get('playback_cache_only')),
-            })
+            }
+            if pending_deletes:
+                idle_response['cache_delete_keys'] = pending_deletes
+            return jsonify(idle_response)
     except Exception as e:
         return jsonify({
             'error': 'Server error',
@@ -878,6 +891,42 @@ def update_device(device_id):
     save_json_file('devices.json', devices, _cu.id)
     sync_device_registry_row(_cu.id, device_id, devices.get(device_id))
     return jsonify({'success': True, 'device': devices[device_id]})
+
+
+@api_bp.route('/devices/<device_id>/cache-delete', methods=['POST'])
+@login_required
+def queue_device_cache_delete(device_id):
+    """Queue storage keys for the APK to delete from local disk on next heartbeat."""
+    if not current_user.is_subscription_active():
+        return jsonify({'success': False, 'error': 'Subscription expired'}), 403
+    data = request.json or {}
+    keys = data.get('keys')
+    if not isinstance(keys, list) or not keys:
+        return jsonify({'success': False, 'error': 'keys (non-empty list) required'}), 400
+
+    from flask_login import current_user as _cu
+    devices = load_json_file('devices.json', {}, _cu.id)
+    if device_id not in devices:
+        return jsonify({'success': False, 'error': 'Device not found'}), 404
+
+    safe = []
+    for k in keys:
+        if not isinstance(k, str):
+            continue
+        k = k.strip()
+        if not k or len(k) > 240:
+            continue
+        if any(bad in k for bad in ('..', '/', '\\')):
+            continue
+        safe.append(k)
+    if not safe:
+        return jsonify({'success': False, 'error': 'No valid keys'}), 400
+
+    existing = devices[device_id].get('cache_delete_keys') or []
+    merged = list(dict.fromkeys(existing + safe))[:80]
+    devices[device_id]['cache_delete_keys'] = merged
+    save_json_file('devices.json', devices, _cu.id)
+    return jsonify({'success': True, 'queued': len(safe), 'pending_total': len(merged)})
 
 
 @api_bp.route('/devices/<device_id>', methods=['DELETE'])

@@ -1848,8 +1848,9 @@
                 <button type="button" class="btn btn-secondary btn-small" style="width: 100%; margin-top: 4px;" id="deviceDetailScreenshotBtn">📸 Request screenshot</button>
                 <div style="margin-top: 14px;">
                     <div class="info-label" style="margin-bottom: 6px;">Cached on device (disk)</div>
-                    <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Reported by the player. Use “Play (cache)” to run without re-downloading (offline-friendly).</p>
-                    <div id="deviceDetailCacheList" style="max-height: 200px; overflow-y: auto; font-size: 12px;"></div>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Videos are stored on the player and played from disk. “Play (cache)” runs without re-downloading; “Delete” removes the file on the next sync.</p>
+                    <div id="deviceDetailCacheTotal" style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;"></div>
+                    <div id="deviceDetailCacheList" style="max-height: 220px; overflow-y: auto; font-size: 12px;"></div>
                 </div>
                 <p style="font-size: 12px; color: var(--text-muted); margin: 12px 0 0 0;">Rename: click the display name on the tile.</p>
             </div>
@@ -1978,11 +1979,15 @@
                 requestScreenshot(deviceId, e);
             };
             var cacheEl = document.getElementById('deviceDetailCacheList');
+            var totalEl = document.getElementById('deviceDetailCacheTotal');
             var cm = d.cache_manifest;
             if (cacheEl) {
                 if (!Array.isArray(cm) || cm.length === 0) {
+                    if (totalEl) totalEl.textContent = '';
                     cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No cache list yet. Wait for the display to sync (or update the app).</p>';
                 } else {
+                    var totalBytes = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
+                    if (totalEl) totalEl.textContent = 'Total cached on device: ~' + (totalBytes / (1024 * 1024)).toFixed(1) + ' MB (reported)';
                     cacheEl.innerHTML = cm.map(function(item) {
                         var k = (item.k != null ? String(item.k) : '').replace(/"/g, '&quot;');
                         var l = item.l != null ? String(item.l) : '';
@@ -1994,9 +1999,10 @@
                         var safeK = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                         var safeN = (n || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                         var safeDev = deviceId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">' +
-                            '<span style="word-break:break-all;color:var(--text);flex:1;min-width:0;">' + label + ' <span style="color:var(--text-muted);">(' + mb + ' MB)</span></span>' +
-                            '<button type="button" class="btn btn-primary btn-small" onclick="window.playCachedOnDevice(\'' + safeDev + '\',\'' + safeK + '\',\'' + safeL + '\',\'' + safeN + '\')">Play (cache)</button></div>';
+                        return '<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">' +
+                            '<span style="word-break:break-all;color:var(--text);flex:1;min-width:100px;">' + label + ' <span style="color:var(--text-muted);">(' + mb + ' MB)</span></span>' +
+                            '<button type="button" class="btn btn-primary btn-small" onclick="window.playCachedOnDevice(\'' + safeDev + '\',\'' + safeK + '\',\'' + safeL + '\',\'' + safeN + '\')">Play (cache)</button>' +
+                            '<button type="button" class="btn btn-secondary btn-small" onclick="window.deleteCacheFromDevice(\'' + safeDev + '\',\'' + safeK + '\')">Delete</button></div>';
                     }).join('');
                 }
             }
@@ -3439,6 +3445,29 @@
             }
         };
 
+        window.deleteCacheFromDevice = async function(deviceId, cacheKey) {
+            if (!deviceId || !cacheKey) return;
+            if (!confirm('Remove this file from the display local storage?')) return;
+            try {
+                var r = await fetch('/api/devices/' + encodeURIComponent(deviceId) + '/cache-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys: [cacheKey] })
+                });
+                var j = await r.json();
+                if (j.success) {
+                    showToast('Delete queued — player removes it on next sync (~3s)', 'success');
+                    await loadDevices();
+                    var d = allDevices.find(function(x) { return x.id === deviceId; });
+                    if (d) openDeviceInfo(deviceId, null);
+                } else {
+                    showToast(j.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                showToast('Failed to queue delete', 'error');
+            }
+        };
+
         // Initialize on load
         init();
     </script>
@@ -3507,11 +3536,15 @@
                 requestScreenshot(deviceId, e);
             };
             var cacheEl = document.getElementById('deviceDetailCacheList');
+            var totalEl = document.getElementById('deviceDetailCacheTotal');
             var cm = d.cache_manifest;
             if (cacheEl) {
                 if (!Array.isArray(cm) || cm.length === 0) {
+                    if (totalEl) totalEl.textContent = '';
                     cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No cache list yet. Wait for the display to sync (or update the app).</p>';
                 } else {
+                    var totalBytes = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
+                    if (totalEl) totalEl.textContent = 'Total cached on device: ~' + (totalBytes / (1024 * 1024)).toFixed(1) + ' MB (reported)';
                     cacheEl.innerHTML = cm.map(function(item) {
                         var k = (item.k != null ? String(item.k) : '').replace(/"/g, '&quot;');
                         var l = item.l != null ? String(item.l) : '';
@@ -3523,9 +3556,10 @@
                         var safeK = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                         var safeN = (n || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                         var safeDev = deviceId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">' +
-                            '<span style="word-break:break-all;color:var(--text);flex:1;min-width:0;">' + label + ' <span style="color:var(--text-muted);">(' + mb + ' MB)</span></span>' +
-                            '<button type="button" class="btn btn-primary btn-small" onclick="window.playCachedOnDevice(\'' + safeDev + '\',\'' + safeK + '\',\'' + safeL + '\',\'' + safeN + '\')">Play (cache)</button></div>';
+                        return '<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">' +
+                            '<span style="word-break:break-all;color:var(--text);flex:1;min-width:100px;">' + label + ' <span style="color:var(--text-muted);">(' + mb + ' MB)</span></span>' +
+                            '<button type="button" class="btn btn-primary btn-small" onclick="window.playCachedOnDevice(\'' + safeDev + '\',\'' + safeK + '\',\'' + safeL + '\',\'' + safeN + '\')">Play (cache)</button>' +
+                            '<button type="button" class="btn btn-secondary btn-small" onclick="window.deleteCacheFromDevice(\'' + safeDev + '\',\'' + safeK + '\')">Delete</button></div>';
                     }).join('');
                 }
             }
@@ -4906,6 +4940,29 @@
                 }
             } catch (e) {
                 showToast('Failed to send play-cached', 'error');
+            }
+        };
+
+        window.deleteCacheFromDevice = async function(deviceId, cacheKey) {
+            if (!deviceId || !cacheKey) return;
+            if (!confirm('Remove this file from the display local storage?')) return;
+            try {
+                var r = await fetch('/api/devices/' + encodeURIComponent(deviceId) + '/cache-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys: [cacheKey] })
+                });
+                var j = await r.json();
+                if (j.success) {
+                    showToast('Delete queued — player removes it on next sync (~3s)', 'success');
+                    await loadDevices();
+                    var d = allDevices.find(function(x) { return x.id === deviceId; });
+                    if (d) openDeviceInfo(deviceId, null);
+                } else {
+                    showToast(j.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                showToast('Failed to queue delete', 'error');
             }
         };
 

@@ -38,6 +38,7 @@ data class PlaybackState(
     val video_url: String? = null,  // Full or relative URL for playback (server file or Drive proxy)
     val current_video_name: String? = null,  // Display name (e.g. Drive file name) for dashboard
     val playback_cache_only: Boolean = false,  // Do not download; play local file only
+    val cache_delete_keys: List<String> = emptyList(),  // Server asks to remove these local files
 )
 
 data class ServerStatus(
@@ -231,11 +232,18 @@ class ApiClient {
                         removed = true,
                         video_url = null,
                         current_video_name = null,
-                        playback_cache_only = false
+                        playback_cache_only = false,
+                        cache_delete_keys = emptyList()
                     )
                 }
                 val videoUrl = json.optString("video_url", null).takeIf { !it.isNullOrEmpty() }
                 val currentVideoName = json.optString("current_video_name", null).takeIf { !it.isNullOrEmpty() }
+                val delKeys = mutableListOf<String>()
+                json.optJSONArray("cache_delete_keys")?.let { arr ->
+                    for (i in 0 until arr.length()) {
+                        arr.optString(i)?.takeIf { it.isNotBlank() }?.let { delKeys.add(it) }
+                    }
+                }
                 PlaybackState(
                     current_video = if (json.isNull("current_video")) null else json.getString("current_video"),
                     mode = json.optString("mode", "manual"),
@@ -246,7 +254,8 @@ class ApiClient {
                     removed = false,
                     video_url = videoUrl,
                     current_video_name = currentVideoName,
-                    playback_cache_only = json.optBoolean("playback_cache_only", false)
+                    playback_cache_only = json.optBoolean("playback_cache_only", false),
+                    cache_delete_keys = delKeys
                 )
             }
         }

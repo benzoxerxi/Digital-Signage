@@ -40,6 +40,20 @@ class VideoCache(private val context: Context) {
         }
     }
 
+    /** Remove a single cached file by storage key (safe name under cache dir). */
+    fun deleteFile(filename: String): Boolean {
+        return try {
+            val f = File(cacheDir, filename)
+            if (!f.exists()) return true
+            val ok = f.delete()
+            if (ok) Log.d(TAG, "Deleted cache file: $filename")
+            ok
+        } catch (e: Exception) {
+            Log.e(TAG, "deleteFile failed: $filename", e)
+            false
+        }
+    }
+
     fun getCachedFile(filename: String): File? {
         return try {
             val file = File(cacheDir, filename)

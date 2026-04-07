@@ -196,6 +196,7 @@ def play_program():
         devices[did]['current_video'] = None
         devices[did]['command_id'] = devices[did].get('command_id', 0) + 1
         devices[did].pop('current_video_display_name', None)
+        devices[did].pop('playback_cache_only', None)
         updated += 1
 
     save_json_file('devices.json', devices, _cu.id)
@@ -503,9 +504,20 @@ def get_playback_state():
         'user_agent': request.headers.get('User-Agent', ''),
         'ip': request.remote_addr
     }
-    
+    hb_kwargs = dict(
+        reported_current_video=reported_current_video,
+        reported_current_video_name=reported_current_video_name,
+    )
+    if 'cache_manifest' in request.args:
+        cm = request.args.get('cache_manifest') or '[]'
+        if len(cm) > 16000:
+            cm = cm[:16000]
+        hb_kwargs['reported_cache_manifest'] = cm
+
     try:
-        device_data = update_device_heartbeat(device_id, device_name, device_info, user_id, from_setup=from_setup, reported_current_video=reported_current_video, reported_current_video_name=reported_current_video_name)
+        device_data = update_device_heartbeat(
+            device_id, device_name, device_info, user_id, from_setup=from_setup, **hb_kwargs
+        )
         if device_data is None:
             return jsonify({
                 'removed': True,
@@ -553,7 +565,8 @@ def get_playback_state():
                 'interval': playlist.get('settings', {}).get('interval', 30),
                 'screenshot_requested': screenshot_requested,
                 'device_name': device_name_from_server,
-                'clear_cache': clear_cache
+                'clear_cache': clear_cache,
+                'playback_cache_only': bool(device_data.get('playback_cache_only')),
             }
             if current_video_name:
                 response['current_video_name'] = current_video_name
@@ -569,7 +582,8 @@ def get_playback_state():
                 'loop': True,
                 'screenshot_requested': screenshot_requested,
                 'device_name': device_name_from_server,
-                'clear_cache': clear_cache
+                'clear_cache': clear_cache,
+                'playback_cache_only': bool(device_data.get('playback_cache_only')),
             })
     except Exception as e:
         return jsonify({
@@ -646,6 +660,7 @@ def play_video():
         devices[dev_id]['current_video'] = current_video_value
         devices[dev_id]['command_id'] = devices[dev_id].get('command_id', 0) + 1
         devices[dev_id].pop('active_program_id', None)
+        devices[dev_id].pop('playback_cache_only', None)
         if display_name:
             devices[dev_id]['current_video_display_name'] = display_name
         else:
@@ -671,6 +686,84 @@ def play_video():
     })
 
 
+def _logical_video_from_cache_key(cache_key: str) -> str:
+    """APK stores drive:fileId as drive_fileId on disk."""
+    if cache_key.startswith('drive_'):
+        return 'drive:' + cache_key[6:]
+    return cache_key
+
+
+@api_bp.route('/playback/play-cached', methods=['POST'])
+@login_required
+def play_cached_video():
+    """Play a file that should already exist on the device's disk cache (no download)."""
+    if not current_user.is_subscription_active():
+        return jsonify({'success': False, 'error': 'Subscription expired'}), 403
+
+    data = request.json or {}
+    cache_key = (data.get('cache_key') or '').strip()
+    logical_video = (data.get('logical_video') or '').strip() or None
+    display_name = (data.get('name') or '').strip() or None
+    device_ids = data.get('device_ids')
+    if device_ids is None:
+        device_ids = []
+    if not isinstance(device_ids, list):
+        return jsonify({'success': False, 'error': 'device_ids must be a list'}), 400
+    target_all = bool(data.get('target_all'))
+
+    if not cache_key:
+        return jsonify({'success': False, 'error': 'cache_key is required'}), 400
+
+    if not logical_video:
+        logical_video = _logical_video_from_cache_key(cache_key)
+
+    from flask_login import current_user as _cu
+    devices = load_json_file('devices.json', {}, _cu.id)
+    if merge_registry_into_devices_dict(_cu.id, devices):
+        save_json_file('devices.json', devices, _cu.id)
+
+    if not target_all and not device_ids:
+        return jsonify({
+            'success': False,
+            'error': 'Select at least one display, or set target_all to true.',
+        }), 400
+
+    updated_count = 0
+
+    def _apply(dev_id):
+        nonlocal updated_count
+        if dev_id not in devices:
+            return
+        devices[dev_id]['current_video'] = logical_video
+        devices[dev_id]['command_id'] = devices[dev_id].get('command_id', 0) + 1
+        devices[dev_id]['playback_cache_only'] = True
+        devices[dev_id].pop('active_program_id', None)
+        if display_name:
+            devices[dev_id]['current_video_display_name'] = display_name
+        else:
+            devices[dev_id].pop('current_video_display_name', None)
+        set_current_video_display_name(_cu.id, dev_id, display_name)
+        updated_count += 1
+
+    if target_all:
+        for did in devices:
+            _apply(did)
+    else:
+        for did in device_ids:
+            _apply(did)
+
+    save_json_file('devices.json', devices, _cu.id)
+    log_activity('video_played_cache_only', {'cache_key': cache_key, 'logical': logical_video, 'device_count': updated_count})
+
+    return jsonify({
+        'success': True,
+        'logical_video': logical_video,
+        'cache_key': cache_key,
+        'devices_updated': updated_count,
+        'target': 'all' if target_all else 'selected',
+    })
+
+
 @api_bp.route('/playback/stop', methods=['POST'])
 @login_required
 def stop_playback():
@@ -692,6 +785,7 @@ def stop_playback():
                 devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
                 devices[device_id].pop('current_video_display_name', None)
                 devices[device_id].pop('active_program_id', None)
+                devices[device_id].pop('playback_cache_only', None)
                 set_current_video_display_name(_cu.id, device_id, None)
                 updated_count += 1
     else:
@@ -701,6 +795,7 @@ def stop_playback():
             devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
             devices[device_id].pop('current_video_display_name', None)
             devices[device_id].pop('active_program_id', None)
+            devices[device_id].pop('playback_cache_only', None)
             set_current_video_display_name(_cu.id, device_id, None)
         updated_count = len(devices)
     

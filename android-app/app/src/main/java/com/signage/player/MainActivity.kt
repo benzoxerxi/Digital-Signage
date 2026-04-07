@@ -32,6 +32,8 @@ import coil.ImageLoader
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import kotlinx.coroutines.*
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
@@ -76,6 +78,8 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_DEVICE_NAME = "device_name"
         private const val KEY_CACHED_VIDEO_FILENAME = "cached_video_filename"
         private const val KEY_CACHED_VIDEO_DISPLAY_NAME = "cached_video_display_name"
+        /** JSON object: cache storage key -> human-readable label (playlist/command name). */
+        private const val KEY_CACHE_FILE_LABELS = "cache_file_labels_json"
         private const val UPDATE_INTERVAL = 3000L
         /** Avoid hammering /api/playlist every heartbeat; reduces network contention with video streaming. */
         private const val PLAYLIST_REFRESH_MS = 30_000L
@@ -343,6 +347,7 @@ class MainActivity : AppCompatActivity() {
                 val cachedVideoName = prefs.getString(KEY_CACHED_VIDEO_DISPLAY_NAME, null) ?: ""
 
                 val (playbackState, layoutResponse) = coroutineScope {
+                    val manifestJson = buildCacheManifestForHeartbeat()
                     val playbackDeferred = async(Dispatchers.IO) {
                         apiClient.getPlaybackState(
                             connectionCode,
@@ -350,7 +355,8 @@ class MainActivity : AppCompatActivity() {
                             deviceName,
                             fromSetup = false,
                             currentVideoFromCache = cachedVideo,
-                            currentVideoNameFromCache = cachedVideoName
+                            currentVideoNameFromCache = cachedVideoName,
+                            cacheManifestJson = manifestJson
                         )
                     }
                     val layoutDeferred = async(Dispatchers.IO) {
@@ -414,9 +420,14 @@ class MainActivity : AppCompatActivity() {
                     lastPlaylistRefreshAt = 0L
 
                     if (playbackState.current_video != null) {
-                        Log.d(TAG, "Server commanded to play: ${playbackState.current_video}")
+                        Log.d(TAG, "Server commanded to play: ${playbackState.current_video} cacheOnly=${playbackState.playback_cache_only}")
                         doNotResumeFromPlaylist = false
-                        playSpecificVideo(playbackState.current_video, playbackState.video_url)
+                        playSpecificVideo(
+                            playbackState.current_video,
+                            playbackState.video_url,
+                            cacheOnly = playbackState.playback_cache_only,
+                            labelForCache = playbackState.current_video_name
+                        )
                         if (!playbackState.current_video_name.isNullOrEmpty()) {
                             prefs.edit()
                                 .putString(KEY_CACHED_VIDEO_DISPLAY_NAME, playbackState.current_video_name).apply()
@@ -472,6 +483,7 @@ class MainActivity : AppCompatActivity() {
                         .edit()
                         .remove(KEY_CACHED_VIDEO_FILENAME)
                         .remove(KEY_CACHED_VIDEO_DISPLAY_NAME)
+                        .remove(KEY_CACHE_FILE_LABELS)
                         .apply()
                 }
                 val sizeMB = cacheSize / (1024 * 1024)
@@ -492,11 +504,86 @@ class MainActivity : AppCompatActivity() {
     /** Cache key for storage: sanitize drive:ID to drive_ID so filenames are filesystem-safe. */
     private fun cacheKey(filename: String): String = filename.replace(":", "_")
 
-    private fun playSpecificVideo(filename: String, videoUrl: String? = null) {
+    /** Reverse of [cacheKey] for Drive files; other keys stay as-is. */
+    private fun logicalFilenameFromCacheKey(key: String): String {
+        if (key.startsWith("drive_")) return "drive:" + key.removePrefix("drive_")
+        return key
+    }
+
+    private fun rememberCacheLabel(cacheKey: String, label: String?) {
+        val t = label?.trim().orEmpty()
+        if (t.isEmpty()) return
+        try {
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val raw = prefs.getString(KEY_CACHE_FILE_LABELS, null) ?: "{}"
+            val o = try {
+                JSONObject(raw)
+            } catch (_: Exception) {
+                JSONObject()
+            }
+            o.put(cacheKey, t)
+            prefs.edit().putString(KEY_CACHE_FILE_LABELS, o.toString()).apply()
+        } catch (_: Exception) { }
+    }
+
+    /** Compact list of cached files for server (dashboard “play from cache”). */
+    private fun buildCacheManifestForHeartbeat(): String {
+        return try {
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val labelsJson = try {
+                JSONObject(prefs.getString(KEY_CACHE_FILE_LABELS, null) ?: "{}")
+            } catch (_: Exception) {
+                JSONObject()
+            }
+            val arr = JSONArray()
+            val entries = videoCache.listCachedEntries()
+            val maxItems = if (entries.size > 40) 25 else 50
+            for ((key, size, _) in entries.take(maxItems)) {
+                val o = JSONObject()
+                o.put("k", key)
+                o.put("s", size)
+                o.put("l", logicalFilenameFromCacheKey(key))
+                if (labelsJson.has(key)) {
+                    o.put("n", labelsJson.optString(key, ""))
+                }
+                arr.put(o)
+            }
+            var s = arr.toString()
+            if (s.length > 6000) {
+                val small = JSONArray()
+                for (i in 0 until minOf(arr.length(), 15)) {
+                    small.put(arr.get(i))
+                }
+                s = small.toString()
+            }
+            s
+        } catch (e: Exception) {
+            Log.w(TAG, "buildCacheManifest failed", e)
+            "[]"
+        }
+    }
+
+    private fun playSpecificVideo(
+        filename: String,
+        videoUrl: String? = null,
+        cacheOnly: Boolean = false,
+        labelForCache: String? = null,
+    ) {
         val key = cacheKey(filename)
         scope.launch {
             try {
                 if (!videoCache.isCached(key)) {
+                    if (cacheOnly) {
+                        Log.w(TAG, "cache_only command but file missing: $key")
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Not on device yet — play once online or wait for download.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        return@launch
+                    }
                     Log.d(TAG, "Video not cached, downloading: $filename")
                     val videoData = withContext(Dispatchers.IO) {
                         if (!videoUrl.isNullOrEmpty()) {
@@ -506,6 +593,10 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     videoCache.saveVideo(key, videoData)
+                    rememberCacheLabel(key, labelForCache ?: filename)
+                } else {
+                    videoCache.touchFile(key)
+                    if (!labelForCache.isNullOrBlank()) rememberCacheLabel(key, labelForCache)
                 }
 
                 val cachedFile = videoCache.getCachedFile(key)
@@ -514,10 +605,6 @@ class MainActivity : AppCompatActivity() {
                     val mediaItem = MediaItem.fromUri(Uri.fromFile(cachedFile))
                     player?.apply {
                         setMediaItem(mediaItem)
-                        // For commanded videos, play once and let the normal
-                        // playlist/STATE_ENDED handler decide what to do next.
-                        // This allows playlists (when active) to advance to the
-                        // next video instead of looping the first one forever.
                         repeatMode = Player.REPEAT_MODE_OFF
                         prepare()
                         play()
@@ -526,7 +613,7 @@ class MainActivity : AppCompatActivity() {
                         .edit()
                         .putString(KEY_CACHED_VIDEO_FILENAME, key)
                         .apply()
-                    Log.d(TAG, "Playing commanded video (looping): $filename")
+                    Log.d(TAG, "Playing commanded video: $filename")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to play commanded video: $filename", e)
@@ -578,7 +665,7 @@ class MainActivity : AppCompatActivity() {
                 if (playlist.videos != currentPlaylist) {
                     Log.d(TAG, "Playlist updated: ${playlist.videos.size} videos")
                     currentPlaylist = playlist.videos
-                    downloadVideos(playlist.videos)
+                    downloadVideos(playlist.videos, currentVideoIndex)
 
                     if (doNotResumeFromPlaylist) return@launch
 
@@ -596,9 +683,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun downloadVideos(videos: List<Video>) {
+    private fun downloadVideos(videos: List<Video>, playlistCurrentIndex: Int? = null) {
+        if (videos.isEmpty()) return
         scope.launch(Dispatchers.IO) {
-            videos.forEach { video ->
+            val n = videos.size
+            val ordered = videos.mapIndexed { idx, v -> idx to v }.sortedBy { (idx, video) ->
+                val key = cacheKey(video.filename)
+                when {
+                    videoCache.isCached(key) -> 200 + idx
+                    playlistCurrentIndex != null && idx == playlistCurrentIndex -> 0
+                    playlistCurrentIndex != null && n > 0 && idx == (playlistCurrentIndex + 1) % n -> 1
+                    else -> 10 + idx
+                }
+            }
+            for ((_, video) in ordered) {
+                if (doNotResumeFromPlaylist) return@launch
                 try {
                     val key = cacheKey(video.filename)
                     if (!videoCache.isCached(key)) {
@@ -609,11 +708,35 @@ class MainActivity : AppCompatActivity() {
                             apiClient.downloadVideo(video.filename)
                         }
                         videoCache.saveVideo(key, videoData)
+                        rememberCacheLabel(key, video.name)
                         Log.d(TAG, "Downloaded: ${video.filename}")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to download ${video.filename}", e)
                 }
+            }
+        }
+    }
+
+    private fun prefetchNextPlaylistVideo() {
+        if (currentPlaylist.size < 2) return
+        val nextIdx = (currentVideoIndex + 1) % currentPlaylist.size
+        val video = currentPlaylist[nextIdx]
+        scope.launch(Dispatchers.IO) {
+            try {
+                if (doNotResumeFromPlaylist) return@launch
+                val key = cacheKey(video.filename)
+                if (videoCache.isCached(key)) return@launch
+                Log.d(TAG, "Prefetch next playlist item: ${video.filename}")
+                val videoData = if (!video.url.isNullOrEmpty()) {
+                    apiClient.downloadFromUrl(video.url)
+                } else {
+                    apiClient.downloadVideo(video.filename)
+                }
+                videoCache.saveVideo(key, videoData)
+                rememberCacheLabel(key, video.name)
+            } catch (e: Exception) {
+                Log.w(TAG, "Prefetch failed: ${video.filename}", e)
             }
         }
     }
@@ -631,6 +754,7 @@ class MainActivity : AppCompatActivity() {
         val cachedFile = videoCache.getCachedFile(key)
 
         if (cachedFile != null && cachedFile.exists()) {
+            videoCache.touchFile(key)
             val mediaItem = MediaItem.fromUri(Uri.fromFile(cachedFile))
             player?.apply {
                 setMediaItem(mediaItem)
@@ -643,7 +767,9 @@ class MainActivity : AppCompatActivity() {
                 .putString(KEY_CACHED_VIDEO_FILENAME, key)
                 .putString(KEY_CACHED_VIDEO_DISPLAY_NAME, video.name)
                 .apply()
+            rememberCacheLabel(key, video.name)
             Log.d(TAG, "Playing: ${video.name} (${currentVideoIndex + 1}/${currentPlaylist.size})")
+            prefetchNextPlaylistVideo()
         } else {
             Log.w(TAG, "Video not cached: ${video.filename}")
             handler.postDelayed({ playNextVideo() }, 1000)

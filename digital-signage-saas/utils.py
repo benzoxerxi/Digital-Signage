@@ -270,9 +270,10 @@ def _append_device_status_row(result, user_id, device_id, device_data, now):
         result.append(row)
 
 
-def update_device_heartbeat(device_id, device_name=None, device_info=None, user_id=None, from_setup=False, reported_current_video=None, reported_current_video_name=None):
+def update_device_heartbeat(device_id, device_name=None, device_info=None, user_id=None, from_setup=False, reported_current_video=None, reported_current_video_name=None, reported_cache_manifest=None):
     """Update device information for tenant. If device was removed from panel and from_setup is False, returns None (caller should respond with removed=True to APK).
-    reported_current_video / reported_current_video_name: from device (APK heartbeat). In memory only; not stored to disk."""
+    reported_current_video / reported_current_video_name: from device (APK heartbeat). In memory only; not stored to disk.
+    reported_cache_manifest: optional JSON array string from APK; stored on device row as cache_manifest (last reported disk cache inventory)."""
     if user_id is None:
         user_id = current_user.id
 
@@ -317,6 +318,17 @@ def update_device_heartbeat(device_id, device_name=None, device_info=None, user_
             _reported_current_video_cache[key] = reported_current_video if reported_current_video else None
         if reported_current_video_name is not None:
             _reported_current_video_name_cache[key] = reported_current_video_name if reported_current_video_name else None
+
+        if reported_cache_manifest is not None:
+            try:
+                import json as _json
+                parsed = _json.loads(reported_cache_manifest) if isinstance(reported_cache_manifest, str) else reported_cache_manifest
+                if isinstance(parsed, list):
+                    devices[device_id]['cache_manifest'] = parsed[:100]
+                else:
+                    devices[device_id]['cache_manifest'] = []
+            except Exception:
+                devices[device_id]['cache_manifest'] = []
 
         save_json_file('devices.json', devices, user_id)
         result = dict(devices[device_id])

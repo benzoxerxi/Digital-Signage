@@ -1982,9 +1982,12 @@
             var totalEl = document.getElementById('deviceDetailCacheTotal');
             var cm = d.cache_manifest;
             if (cacheEl) {
-                if (!Array.isArray(cm) || cm.length === 0) {
+                if (!Array.isArray(cm)) {
                     if (totalEl) totalEl.textContent = '';
                     cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No cache list yet. Wait for the display to sync (or update the app).</p>';
+                } else if (cm.length === 0) {
+                    if (totalEl) totalEl.textContent = 'Total cached on device: 0 MB (reported)';
+                    cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No files in the player cache folder (or playback is streaming without saving to disk).</p>';
                 } else {
                     var totalBytes = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
                     if (totalEl) totalEl.textContent = 'Total cached on device: ~' + (totalBytes / (1024 * 1024)).toFixed(1) + ' MB (reported)';
@@ -3539,9 +3542,12 @@
             var totalEl = document.getElementById('deviceDetailCacheTotal');
             var cm = d.cache_manifest;
             if (cacheEl) {
-                if (!Array.isArray(cm) || cm.length === 0) {
+                if (!Array.isArray(cm)) {
                     if (totalEl) totalEl.textContent = '';
                     cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No cache list yet. Wait for the display to sync (or update the app).</p>';
+                } else if (cm.length === 0) {
+                    if (totalEl) totalEl.textContent = 'Total cached on device: 0 MB (reported)';
+                    cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No files in the player cache folder (or playback is streaming without saving to disk).</p>';
                 } else {
                     var totalBytes = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
                     if (totalEl) totalEl.textContent = 'Total cached on device: ~' + (totalBytes / (1024 * 1024)).toFixed(1) + ' MB (reported)';

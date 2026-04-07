@@ -22,6 +22,30 @@ from utils import (
 api_bp = Blueprint('api', __name__)
 
 
+def _merge_playback_request_params():
+    """Merge query string with JSON body (POST). Body values override query for duplicate keys."""
+    merged = request.args.to_dict(flat=True)
+    if request.method == 'POST':
+        body = request.get_json(silent=True)
+        if isinstance(body, dict):
+            for k, v in body.items():
+                if v is not None:
+                    merged[k] = v
+    return merged
+
+
+def _cache_manifest_param_to_json_string(params):
+    """Return JSON string for update_device_heartbeat, or None if client did not send a manifest."""
+    if 'cache_manifest' not in params:
+        return None
+    cm = params.get('cache_manifest')
+    if isinstance(cm, list):
+        return json.dumps(cm)[:16000]
+    if isinstance(cm, str):
+        return (cm or '[]')[:16000]
+    return None
+
+
 # ============================================================================
 # PLAYLIST & VIDEO MANAGEMENT
 # ============================================================================
@@ -392,25 +416,15 @@ def delete_video(filename):
 @api_bp.route('/playback/state', methods=['GET', 'POST'])
 def get_playback_state():
     """Get current playback state - Displays poll this endpoint"""
-    
-    # Debug logging - see what the APK is sending
-    print("=" * 50)
-    print("PLAYBACK STATE REQUEST")
-    print(f"Method: {request.method}")
-    print(f"URL: {request.url}")
-    print(f"Headers: {dict(request.headers)}")
-    print(f"Args: {dict(request.args)}")
-    print(f"Form: {dict(request.form)}")
-    print(f"JSON: {request.get_json(silent=True)}")
-    print("=" * 50)
-    
-    device_id = request.args.get('device_id')
+    params = _merge_playback_request_params()
+
+    device_id = params.get('device_id')
     if not device_id:
         # If no device_id, use IP address as device identifier
         device_id = request.remote_addr.replace('.', '_')
-    
-    device_name = request.args.get('device_name')
-    
+
+    device_name = params.get('device_name')
+
     # Check if user is authenticated via session
     if current_user.is_authenticated:
         device_info = {
@@ -458,12 +472,12 @@ def get_playback_state():
     # For Android APK - Use 9-digit connection code (preferred) or user_id (legacy)
     from models import User
     user = None
-    connection_code = request.args.get('code')
-    
+    connection_code = params.get('code')
+
     if connection_code:
         user = User.get_by_connection_code(connection_code)
     if not user:
-        user_id_param = request.args.get('user_id')
+        user_id_param = params.get('user_id')
         if user_id_param:
             try:
                 user_id = int(user_id_param)
@@ -497,9 +511,10 @@ def get_playback_state():
         }), 500
     
     user_id = user.id
-    from_setup = request.args.get('from_setup') == '1'
-    reported_current_video = request.args.get('current_video')  # from device cache (APK sends in heartbeat)
-    reported_current_video_name = request.args.get('current_video_name')  # display name from device (e.g. Drive file name)
+    fs = params.get('from_setup')
+    from_setup = fs is True or str(fs) == '1'
+    reported_current_video = params.get('current_video')  # from device cache (APK sends in heartbeat)
+    reported_current_video_name = params.get('current_video_name')  # display name from device (e.g. Drive file name)
     device_info = {
         'user_agent': request.headers.get('User-Agent', ''),
         'ip': request.remote_addr
@@ -508,11 +523,9 @@ def get_playback_state():
         reported_current_video=reported_current_video,
         reported_current_video_name=reported_current_video_name,
     )
-    if 'cache_manifest' in request.args:
-        cm = request.args.get('cache_manifest') or '[]'
-        if len(cm) > 16000:
-            cm = cm[:16000]
-        hb_kwargs['reported_cache_manifest'] = cm
+    cm_json = _cache_manifest_param_to_json_string(params)
+    if cm_json is not None:
+        hb_kwargs['reported_cache_manifest'] = cm_json
 
     try:
         device_data = update_device_heartbeat(

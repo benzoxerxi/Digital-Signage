@@ -6,8 +6,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
-import java.net.URLEncoder
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -201,20 +201,26 @@ class ApiClient {
         cacheManifestJson: String? = null,
     ): PlaybackState =
         withContext(Dispatchers.IO) {
-            val codeParam = if (connectionCode.isNotEmpty()) "code=${connectionCode}" else ""
-            val deviceParams = "device_id=${deviceId}&device_name=${deviceName}"
-            val setupParam = if (fromSetup) "&from_setup=1" else ""
-            val cacheParam = "&current_video=" + URLEncoder.encode(currentVideoFromCache ?: "", "UTF-8")
-            val nameParam = "&current_video_name=" + URLEncoder.encode(currentVideoNameFromCache ?: "", "UTF-8")
-            val manifestParam = if (cacheManifestJson.isNullOrEmpty()) {
-                ""
-            } else {
-                "&cache_manifest=" + URLEncoder.encode(cacheManifestJson, "UTF-8")
+            // POST JSON avoids huge GET URLs (nginx limits); cache_manifest must always reach the server.
+            val manifestArray = try {
+                if (cacheManifestJson.isNullOrEmpty()) JSONArray() else JSONArray(cacheManifestJson)
+            } catch (_: Exception) {
+                JSONArray()
             }
-            val url = "$baseUrl/api/playback/state?$deviceParams${if (codeParam.isNotEmpty()) "&$codeParam" else ""}$setupParam$cacheParam$nameParam$manifestParam"
+            val bodyJson = JSONObject().apply {
+                if (connectionCode.isNotEmpty()) put("code", connectionCode)
+                put("device_id", deviceId)
+                put("device_name", deviceName)
+                put("from_setup", fromSetup)
+                put("current_video", currentVideoFromCache ?: "")
+                put("current_video_name", currentVideoNameFromCache ?: "")
+                put("cache_manifest", manifestArray)
+            }
+            val mediaType = "application/json; charset=utf-8".toMediaType()
+            val requestBody = bodyJson.toString().toRequestBody(mediaType)
             val request = Request.Builder()
-                .url(url)
-                .get()
+                .url("$baseUrl/api/playback/state")
+                .post(requestBody)
                 .build()
 
             client.newCall(request).execute().use { response ->

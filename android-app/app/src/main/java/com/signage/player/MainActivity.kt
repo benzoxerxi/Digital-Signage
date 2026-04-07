@@ -140,6 +140,7 @@ class MainActivity : AppCompatActivity() {
             initializePlayer()
             tryPlayCachedVideoLoop()
             startDeviceHeartbeat()
+            maybeShowVersionUpdateNotice()
         }
         tryStartLockTaskIfRequested(intent)
     }
@@ -161,6 +162,22 @@ class MainActivity : AppCompatActivity() {
                 if (!am.isInLockTaskMode) startLockTask()
             }
         } catch (_: Exception) {}
+    }
+
+    private fun maybeShowVersionUpdateNotice() {
+        try {
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val key = "last_toast_version_code"
+            val vc = BuildConfig.VERSION_CODE
+            if (prefs.getInt(key, 0) < vc) {
+                prefs.edit().putInt(key, vc).apply()
+                Toast.makeText(
+                    this,
+                    "Updated v${BuildConfig.VERSION_NAME}: saving to device storage; download shows full-screen progress.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        } catch (_: Exception) { }
     }
 
     private fun generateDeviceId(): String {
@@ -203,6 +220,9 @@ class MainActivity : AppCompatActivity() {
             .target(logoView)
             .build()
         imageLoader.enqueue(request)
+
+        findViewById<TextView>(R.id.app_version_text)?.text =
+            "v${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}"
 
         connectButton.setOnClickListener {
             val code = codeInput.text.toString().trim().replace(Regex("[^0-9]"), "")
@@ -496,7 +516,7 @@ class MainActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         this@MainActivity,
-                        "Cache cleared: ${sizeMB}MB freed",
+                        "Storage cleared: ${sizeMB}MB freed",
                         Toast.LENGTH_SHORT
                     ).show()
                 }

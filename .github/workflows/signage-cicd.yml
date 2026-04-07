@@ -16,10 +16,10 @@ jobs:
         working-directory: digital-signage-saas
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -47,17 +47,27 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 15m
           script: |
-            set -e
-            cd /var/www/digital-signage/Digital-Signage
+            set -eux
+            REPO="/var/www/digital-signage/Digital-Signage"
+            APP="${REPO}/digital-signage-saas"
+            cd "${REPO}"
+            echo "==> Repo: $(pwd)"
             git fetch origin main
             git pull --ff-only origin main
+            if [ -x "${APP}/venv/bin/pip" ]; then
+              echo "==> pip install (venv)"
+              "${APP}/venv/bin/pip" install -r "${APP}/requirements.txt" -q
+            else
+              echo "==> WARNING: no ${APP}/venv/bin/pip — skipping pip (code updated only)"
+            fi
             systemctl restart signage
             systemctl reload nginx
             systemctl is-active --quiet signage
-            echo "Deploy completed successfully."
+            echo "==> Deploy completed successfully."

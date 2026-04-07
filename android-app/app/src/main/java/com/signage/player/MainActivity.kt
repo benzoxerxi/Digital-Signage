@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Base64
 import android.util.Log
@@ -24,6 +25,7 @@ import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import coil.ImageLoader
@@ -32,6 +34,7 @@ import coil.request.ImageRequest
 import kotlinx.coroutines.*
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -59,6 +62,8 @@ class MainActivity : AppCompatActivity() {
     private var lastCommandId = -1
     private var currentProgramId: String? = null
     private var inLayoutMode = false
+    private val heartbeatBusy = AtomicBoolean(false)
+    private var lastPlaylistRefreshAt = 0L
     /** When true, do not resume from playlist (set by format/clear_cache; cleared when server sends explicit play). */
     private var doNotResumeFromPlaylist = false
 
@@ -72,6 +77,8 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_CACHED_VIDEO_FILENAME = "cached_video_filename"
         private const val KEY_CACHED_VIDEO_DISPLAY_NAME = "cached_video_display_name"
         private const val UPDATE_INTERVAL = 3000L
+        /** Avoid hammering /api/playlist every heartbeat; reduces network contention with video streaming. */
+        private const val PLAYLIST_REFRESH_MS = 30_000L
         private const val SCREENSAVER_URL = "https://karchershop.ge/cdn/shop/files/logo_karcher_2015.svg?v=1683099671&width=600"
         private const val LOGO_URL = "https://images.seeklogo.com/logo-png/43/2/karcher-logo-png_seeklogo-437949.png"
         /** Default server URL – no server input needed; user only enters 9-digit code */
@@ -260,9 +267,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Larger buffers reduce rebuffering stutter on uneven Wi‑Fi / shared bandwidth with polling. */
+    private fun buildBufferedExoPlayer(): ExoPlayer {
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                30_000,
+                120_000,
+                2_500,
+                5_000
+            )
+            .build()
+        return ExoPlayer.Builder(this).setLoadControl(loadControl).build()
+    }
+
     private fun initializePlayer() {
         try {
-            player = ExoPlayer.Builder(this).build().also { exoPlayer ->
+            player = buildBufferedExoPlayer().also { exoPlayer ->
                 playerView.player = exoPlayer
                 playerView.useController = false
 
@@ -310,19 +330,68 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * FIXED: Send heartbeat and check commands - Format now works correctly!
+     * Heartbeat: fetch playback state (updates server last_seen) and layout in parallel when possible,
+     * skip overlapping ticks, and throttle playlist polling so HTTP does not compete with video.
      */
     private fun sendHeartbeatAndCheckCommands() {
-        if (connectionCode.isEmpty()) return  // Not connected (e.g. back on setup screen)
+        if (connectionCode.isEmpty()) return
+        if (!heartbeatBusy.compareAndSet(false, true)) return
         scope.launch {
             try {
-                // First try layout-based playback using program layouts
-                val layoutResponse = withContext(Dispatchers.IO) {
-                    apiClient.getDeviceLayout(deviceId)
+                val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val cachedVideo = prefs.getString(KEY_CACHED_VIDEO_FILENAME, null) ?: ""
+                val cachedVideoName = prefs.getString(KEY_CACHED_VIDEO_DISPLAY_NAME, null) ?: ""
+
+                val (playbackState, layoutResponse) = coroutineScope {
+                    val playbackDeferred = async(Dispatchers.IO) {
+                        apiClient.getPlaybackState(
+                            connectionCode,
+                            deviceId,
+                            deviceName,
+                            fromSetup = false,
+                            currentVideoFromCache = cachedVideo,
+                            currentVideoNameFromCache = cachedVideoName
+                        )
+                    }
+                    val layoutDeferred = async(Dispatchers.IO) {
+                        apiClient.getDeviceLayout(deviceId)
+                    }
+                    Pair(playbackDeferred.await(), layoutDeferred.await())
+                }
+
+                if (playbackState.removed == true) {
+                    Log.d(TAG, "Device was removed from panel - returning to setup")
+                    runOnUiThread { goBackToSetup() }
+                    return@launch
+                }
+
+                Log.d(TAG, "Heartbeat. Command ID: ${playbackState.command_id}, video: ${playbackState.current_video}")
+
+                if (!playbackState.device_name.isNullOrEmpty() && playbackState.device_name != deviceName) {
+                    Log.d(TAG, "Server updated device name: $deviceName → ${playbackState.device_name}")
+                    deviceName = playbackState.device_name
+                    prefs.edit().putString(KEY_DEVICE_NAME, deviceName).apply()
+                }
+
+                if (playbackState.screenshot_requested == true) {
+                    Log.d(TAG, "Screenshot requested by server")
+                    captureAndUploadScreenshot()
+                }
+
+                if (playbackState.clear_cache == true) {
+                    Log.d(TAG, "clear_cache requested – stopping and clearing")
+                    doNotResumeFromPlaylist = true
+                    exitLayoutMode()
+                    player?.stop()
+                    showScreensaver(true)
+                    clearVideoCache()
+                    currentPlaylist = emptyList()
+                    currentVideoIndex = 0
+                    lastCommandId = playbackState.command_id
+                    return@launch
                 }
 
                 val activeProgram = layoutResponse?.program?.takeIf { it.elements.isNotEmpty() }
-
                 if (activeProgram != null) {
                     if (activeProgram.id != currentProgramId) {
                         exitLayoutMode()
@@ -339,87 +408,45 @@ class MainActivity : AppCompatActivity() {
                     exitLayoutMode()
                 }
 
-                // Fallback: legacy playback state + playlist behavior
-                val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                val cachedVideo = prefs.getString(KEY_CACHED_VIDEO_FILENAME, null) ?: ""
-                val cachedVideoName = prefs.getString(KEY_CACHED_VIDEO_DISPLAY_NAME, null) ?: ""
-                val playbackState = withContext(Dispatchers.IO) {
-                    apiClient.getPlaybackState(connectionCode, deviceId, deviceName, fromSetup = false, currentVideoFromCache = cachedVideo, currentVideoNameFromCache = cachedVideoName)
-                }
-
-                if (playbackState.removed == true) {
-                    Log.d(TAG, "Device was removed from panel - returning to setup")
-                    runOnUiThread { goBackToSetup() }
-                    return@launch
-                }
-
-                Log.d(TAG, "Heartbeat sent. Command ID: ${playbackState.command_id}, Current video: ${playbackState.current_video}")
-
-                // Update device name from server if provided
-                if (!playbackState.device_name.isNullOrEmpty() && playbackState.device_name != deviceName) {
-                    Log.d(TAG, "📝 Server updated device name: $deviceName → ${playbackState.device_name}")
-                    deviceName = playbackState.device_name
-                    // Save to preferences
-                    getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                        .edit()
-                        .putString(KEY_DEVICE_NAME, deviceName)
-                        .apply()
-                }
-
-                // Handle screenshot request
-                if (playbackState.screenshot_requested == true) {
-                    Log.d(TAG, "📸 Screenshot requested by server")
-                    captureAndUploadScreenshot()
-                }
-
-                // Explicit clear_cache (format): stop, clear cache, empty playlist – do not resume from playlist
-                if (playbackState.clear_cache == true) {
-                    Log.d(TAG, "clear_cache requested by server – stopping and clearing")
-                    doNotResumeFromPlaylist = true
-                    player?.stop()
-                    showScreensaver(true)
-                    clearVideoCache()
-                    currentPlaylist = emptyList()
-                    currentVideoIndex = 0
+                if (playbackState.command_id != lastCommandId) {
+                    Log.d(TAG, "New command: $lastCommandId → ${playbackState.command_id}")
                     lastCommandId = playbackState.command_id
-                    Log.d(TAG, "Playback stopped, cache cleared, waiting for new command")
-                } else if (playbackState.command_id != lastCommandId) {
-                    Log.d(TAG, "New command received! Previous: $lastCommandId, New: ${playbackState.command_id}")
-                    lastCommandId = playbackState.command_id
+                    lastPlaylistRefreshAt = 0L
 
                     if (playbackState.current_video != null) {
                         Log.d(TAG, "Server commanded to play: ${playbackState.current_video}")
                         doNotResumeFromPlaylist = false
                         playSpecificVideo(playbackState.current_video, playbackState.video_url)
                         if (!playbackState.current_video_name.isNullOrEmpty()) {
-                            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                            prefs.edit()
                                 .putString(KEY_CACHED_VIDEO_DISPLAY_NAME, playbackState.current_video_name).apply()
                         }
                     } else if (playbackState.command_id > 0) {
-                        // Format/stop (command_id incremented, current_video cleared)
-                        Log.d(TAG, "Stop/format command received - stopping all playback")
+                        Log.d(TAG, "Stop/format command – stopping playback")
                         doNotResumeFromPlaylist = true
                         player?.stop()
                         showScreensaver(true)
                         clearVideoCache()
                         currentPlaylist = emptyList()
                         currentVideoIndex = 0
-                        Log.d(TAG, "Playback stopped, cache cleared, waiting for new command")
                     } else {
-                        // command_id == 0 with no video: server state was reset (e.g. redeploy). Do NOT clear cache.
-                        Log.d(TAG, "Server state reset (e.g. redeploy); keeping cached playback")
+                        Log.d(TAG, "Server state reset; keeping cached playback")
                     }
                 } else {
-                    // No new command - only update playlist if we have one or server says play something.
-                    // Do not resume from playlist if we were just formatted (stops in-flight updatePlaylist from restarting).
-                    if (!doNotResumeFromPlaylist && (currentPlaylist.isNotEmpty() || playbackState.current_video != null)) {
-                        updatePlaylist()
+                    if (!doNotResumeFromPlaylist &&
+                        (currentPlaylist.isNotEmpty() || playbackState.current_video != null)
+                    ) {
+                        val now = SystemClock.elapsedRealtime()
+                        if (now - lastPlaylistRefreshAt >= PLAYLIST_REFRESH_MS) {
+                            lastPlaylistRefreshAt = now
+                            updatePlaylist()
+                        }
                     }
                 }
-
             } catch (e: Exception) {
-                Log.w(TAG, "Heartbeat failed (server may be restarting); keeping current playback", e)
-                // Do not show screensaver or clear cache - keep playing cached video for resilience
+                Log.w(TAG, "Heartbeat failed (server may be restarting); keeping playback", e)
+            } finally {
+                heartbeatBusy.set(false)
             }
         }
     }
@@ -1106,7 +1133,7 @@ class MainActivity : AppCompatActivity() {
     private fun createVideoViewForElement(element: LayoutElement): View? {
         val url = element.props.optString("url", "").takeIf { it.isNotBlank() } ?: return null
         return try {
-            val exo = ExoPlayer.Builder(this).build()
+            val exo = buildBufferedExoPlayer()
             layoutVideoPlayers.add(exo)
 
             val pv = PlayerView(this).apply {

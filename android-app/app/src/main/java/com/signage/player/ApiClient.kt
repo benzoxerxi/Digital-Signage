@@ -8,6 +8,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -323,6 +324,23 @@ class ApiClient {
         }
     }
 
+    /** Same as [downloadVideo] but reports bytes read and optional total length (Content-Length). */
+    suspend fun downloadVideoWithProgress(
+        filename: String,
+        onProgress: (bytesRead: Long, totalBytes: Long?) -> Unit,
+    ): ByteArray = withContext(Dispatchers.IO) {
+        val url = if (connectionCode.isNotEmpty()) {
+            "$baseUrl/api/video/$filename?code=$connectionCode"
+        } else {
+            "$baseUrl/api/video/$filename"
+        }
+        val request = Request.Builder().url(url).get().build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Unexpected code $response")
+            readBodyWithProgress(response.body!!, onProgress)
+        }
+    }
+
     /** Download video from any URL (e.g. server file or Drive proxy). URL may be relative (path) or absolute. */
     suspend fun downloadFromUrl(urlOrPath: String): ByteArray = withContext(Dispatchers.IO) {
         val fullUrl = if (urlOrPath.startsWith("http://") || urlOrPath.startsWith("https://")) {
@@ -338,6 +356,40 @@ class ApiClient {
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("Unexpected code $response")
             response.body!!.bytes()
+        }
+    }
+
+    suspend fun downloadFromUrlWithProgress(
+        urlOrPath: String,
+        onProgress: (bytesRead: Long, totalBytes: Long?) -> Unit,
+    ): ByteArray = withContext(Dispatchers.IO) {
+        val fullUrl = if (urlOrPath.startsWith("http://") || urlOrPath.startsWith("https://")) {
+            urlOrPath
+        } else {
+            val path = if (urlOrPath.startsWith("/")) urlOrPath else "/$urlOrPath"
+            "$baseUrl$path"
+        }
+        val request = Request.Builder().url(fullUrl).get().build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Unexpected code $response")
+            readBodyWithProgress(response.body!!, onProgress)
+        }
+    }
+
+    private fun readBodyWithProgress(body: ResponseBody, onProgress: (Long, Long?) -> Unit): ByteArray {
+        val len = body.contentLength()
+        val total = if (len > 0) len else null
+        body.byteStream().use { input ->
+            val out = ByteArrayOutputStream()
+            val buf = ByteArray(65536)
+            onProgress(0L, total)
+            while (true) {
+                val n = input.read(buf)
+                if (n <= 0) break
+                out.write(buf, 0, n)
+                onProgress(out.size().toLong(), total)
+            }
+            return out.toByteArray()
         }
     }
 

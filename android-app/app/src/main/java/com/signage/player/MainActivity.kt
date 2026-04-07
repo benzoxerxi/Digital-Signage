@@ -17,6 +17,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.RelativeLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -600,6 +601,44 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showDownloadOverlay(title: String) {
+        runOnUiThread {
+            findViewById<TextView>(R.id.download_title).text = getString(R.string.download_overlay_title)
+            findViewById<TextView>(R.id.download_status).text = title
+            findViewById<ProgressBar>(R.id.download_progress_bar).apply {
+                isIndeterminate = true
+                progress = 0
+            }
+            findViewById<View>(R.id.download_overlay).visibility = View.VISIBLE
+        }
+    }
+
+    private fun updateDownloadProgressUi(bytesRead: Long, totalBytes: Long?) {
+        runOnUiThread {
+            val bar = findViewById<ProgressBar>(R.id.download_progress_bar)
+            val status = findViewById<TextView>(R.id.download_status)
+            if (totalBytes != null && totalBytes > 0) {
+                bar.isIndeterminate = false
+                bar.max = 1000
+                bar.progress = ((bytesRead * 1000L) / totalBytes).toInt().coerceIn(0, 1000)
+                status.text = "${formatMb(bytesRead)} / ${formatMb(totalBytes)} MB"
+            } else {
+                bar.isIndeterminate = true
+                status.text = "${formatMb(bytesRead)} MB…"
+            }
+        }
+    }
+
+    private fun formatMb(bytes: Long): String {
+        return String.format("%.1f", bytes / (1024.0 * 1024.0))
+    }
+
+    private fun hideDownloadOverlay() {
+        runOnUiThread {
+            findViewById<View>(R.id.download_overlay).visibility = View.GONE
+        }
+    }
+
     private fun playSpecificVideo(
         filename: String,
         videoUrl: String? = null,
@@ -622,15 +661,24 @@ class MainActivity : AppCompatActivity() {
                         return@launch
                     }
                     Log.d(TAG, "Video not cached, downloading: $filename")
-                    val videoData = withContext(Dispatchers.IO) {
-                        if (!videoUrl.isNullOrEmpty()) {
-                            apiClient.downloadFromUrl(videoUrl)
-                        } else {
-                            apiClient.downloadVideo(filename)
+                    showDownloadOverlay(labelForCache ?: filename)
+                    try {
+                        val videoData = withContext(Dispatchers.IO) {
+                            if (!videoUrl.isNullOrEmpty()) {
+                                apiClient.downloadFromUrlWithProgress(videoUrl) { r, t ->
+                                    updateDownloadProgressUi(r, t)
+                                }
+                            } else {
+                                apiClient.downloadVideoWithProgress(filename) { r, t ->
+                                    updateDownloadProgressUi(r, t)
+                                }
+                            }
                         }
+                        videoCache.saveVideo(key, videoData)
+                        rememberCacheLabel(key, labelForCache ?: filename)
+                    } finally {
+                        hideDownloadOverlay()
                     }
-                    videoCache.saveVideo(key, videoData)
-                    rememberCacheLabel(key, labelForCache ?: filename)
                 } else {
                     videoCache.touchFile(key)
                     if (!labelForCache.isNullOrBlank()) rememberCacheLabel(key, labelForCache)
@@ -654,6 +702,7 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to play commanded video: $filename", e)
+                hideDownloadOverlay()
             }
         }
     }
@@ -808,8 +857,32 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "Playing: ${video.name} (${currentVideoIndex + 1}/${currentPlaylist.size})")
             prefetchNextPlaylistVideo()
         } else {
-            Log.w(TAG, "Video not cached: ${video.filename}")
-            handler.postDelayed({ playNextVideo() }, 1000)
+            Log.w(TAG, "Video not cached, downloading with progress: ${video.filename}")
+            scope.launch {
+                try {
+                    showDownloadOverlay(video.name)
+                    val videoData = withContext(Dispatchers.IO) {
+                        if (!video.url.isNullOrEmpty()) {
+                            apiClient.downloadFromUrlWithProgress(video.url) { r, t ->
+                                updateDownloadProgressUi(r, t)
+                            }
+                        } else {
+                            apiClient.downloadVideoWithProgress(video.filename) { r, t ->
+                                updateDownloadProgressUi(r, t)
+                            }
+                        }
+                    }
+                    videoCache.saveVideo(key, videoData)
+                    rememberCacheLabel(key, video.name)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to download ${video.filename}", e)
+                    hideDownloadOverlay()
+                    handler.postDelayed({ playNextVideo() }, 1500)
+                    return@launch
+                }
+                hideDownloadOverlay()
+                playCurrentVideo()
+            }
         }
     }
 

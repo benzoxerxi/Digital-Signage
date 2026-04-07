@@ -9,4 +9,5 @@
     <string name="connection_code_hint">9-digit code (e.g. 847291536)</string>
     <string name="connection_code_label">Connection Code</string>
     <string name="enter_server_and_code">Enter server address and your 9-digit connection code</string>
+    <string name="download_overlay_title">Saving to device…</string>
 </resources>

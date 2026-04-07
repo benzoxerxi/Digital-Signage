@@ -1849,6 +1849,7 @@
                 <div style="margin-top: 14px;">
                     <div class="info-label" style="margin-bottom: 6px;">Cached on device (disk)</div>
                     <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Videos are stored on the player and played from disk. “Play (cache)” runs without re-downloading; “Delete” removes the file on the next sync.</p>
+                    <div id="deviceDetailCacheDiag" style="font-size: 11px; color: var(--accent); margin-bottom: 8px; line-height: 1.45;"></div>
                     <div id="deviceDetailCacheTotal" style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;"></div>
                     <div id="deviceDetailCacheList" style="max-height: 220px; overflow-y: auto; font-size: 12px;"></div>
                 </div>
@@ -1960,6 +1961,70 @@
             if (tabName === 'content' && typeof loadDriveStatus === 'function') loadDriveStatus();
         }
         
+        function formatCacheManifestDiag(d) {
+            var at = d.cache_manifest_updated_at;
+            var cnt = d.cache_manifest_file_count;
+            var tb = d.cache_manifest_total_bytes;
+            var cm = d.cache_manifest;
+            if (cnt == null && Array.isArray(cm)) cnt = cm.length;
+            if (tb == null && Array.isArray(cm)) {
+                tb = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
+            }
+            var parts = [];
+            if (at) {
+                try {
+                    var dt = new Date(at);
+                    if (!isNaN(dt.getTime())) {
+                        parts.push('Server: last manifest saved ' + dt.toLocaleString());
+                    } else {
+                        parts.push('Server: last manifest saved ' + at);
+                    }
+                } catch (e) {
+                    parts.push('Server: last manifest saved ' + at);
+                }
+            } else {
+                parts.push('Server: never received a cache manifest — heartbeat may not include it (update APK) or POST body is blocked.');
+            }
+            if (cnt != null) parts.push('files: ' + cnt);
+            if (tb != null) parts.push('~' + (tb / (1024 * 1024)).toFixed(1) + ' MB total (reported sizes)');
+            return parts.join(' · ');
+        }
+
+        function updateDeviceDetailCacheUI(deviceId, d) {
+            var cacheEl = document.getElementById('deviceDetailCacheList');
+            var totalEl = document.getElementById('deviceDetailCacheTotal');
+            var diagEl = document.getElementById('deviceDetailCacheDiag');
+            var cm = d.cache_manifest;
+            if (diagEl) diagEl.textContent = formatCacheManifestDiag(d);
+            if (!cacheEl) return;
+            if (!Array.isArray(cm)) {
+                if (totalEl) totalEl.textContent = '';
+                cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No cache list yet. Wait for the display to sync (or update the app).</p>';
+            } else if (cm.length === 0) {
+                if (totalEl) totalEl.textContent = 'Total cached on device: 0 MB (reported)';
+                cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No files in the player cache folder (or playback is streaming without saving to disk).</p>';
+            } else {
+                var totalBytes = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
+                if (totalEl) totalEl.textContent = 'Total cached on device: ~' + (totalBytes / (1024 * 1024)).toFixed(1) + ' MB (reported)';
+                cacheEl.innerHTML = cm.map(function(item) {
+                    var k = (item.k != null ? String(item.k) : '').replace(/"/g, '&quot;');
+                    var l = item.l != null ? String(item.l) : '';
+                    var n = item.n != null ? String(item.n) : '';
+                    var s = item.s != null ? Number(item.s) : 0;
+                    var mb = (s / (1024 * 1024)).toFixed(1);
+                    var label = (n || l || k).replace(/</g, '');
+                    var safeL = l.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    var safeK = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    var safeN = (n || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    var safeDev = deviceId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    return '<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">' +
+                        '<span style="word-break:break-all;color:var(--text);flex:1;min-width:100px;">' + label + ' <span style="color:var(--text-muted);">(' + mb + ' MB)</span></span>' +
+                        '<button type="button" class="btn btn-primary btn-small" onclick="window.playCachedOnDevice(\'' + safeDev + '\',\'' + safeK + '\',\'' + safeL + '\',\'' + safeN + '\')">Play (cache)</button>' +
+                        '<button type="button" class="btn btn-secondary btn-small" onclick="window.deleteCacheFromDevice(\'' + safeDev + '\',\'' + safeK + '\')">Delete</button></div>';
+                }).join('');
+            }
+        }
+
         function openDeviceInfo(deviceId, evt) {
             if (evt) {
                 evt.stopPropagation();
@@ -1978,37 +2043,7 @@
                 closeModal('deviceDetailModal');
                 requestScreenshot(deviceId, e);
             };
-            var cacheEl = document.getElementById('deviceDetailCacheList');
-            var totalEl = document.getElementById('deviceDetailCacheTotal');
-            var cm = d.cache_manifest;
-            if (cacheEl) {
-                if (!Array.isArray(cm)) {
-                    if (totalEl) totalEl.textContent = '';
-                    cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No cache list yet. Wait for the display to sync (or update the app).</p>';
-                } else if (cm.length === 0) {
-                    if (totalEl) totalEl.textContent = 'Total cached on device: 0 MB (reported)';
-                    cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No files in the player cache folder (or playback is streaming without saving to disk).</p>';
-                } else {
-                    var totalBytes = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
-                    if (totalEl) totalEl.textContent = 'Total cached on device: ~' + (totalBytes / (1024 * 1024)).toFixed(1) + ' MB (reported)';
-                    cacheEl.innerHTML = cm.map(function(item) {
-                        var k = (item.k != null ? String(item.k) : '').replace(/"/g, '&quot;');
-                        var l = item.l != null ? String(item.l) : '';
-                        var n = item.n != null ? String(item.n) : '';
-                        var s = item.s != null ? Number(item.s) : 0;
-                        var mb = (s / (1024 * 1024)).toFixed(1);
-                        var label = (n || l || k).replace(/</g, '');
-                        var safeL = l.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                        var safeK = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                        var safeN = (n || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                        var safeDev = deviceId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                        return '<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">' +
-                            '<span style="word-break:break-all;color:var(--text);flex:1;min-width:100px;">' + label + ' <span style="color:var(--text-muted);">(' + mb + ' MB)</span></span>' +
-                            '<button type="button" class="btn btn-primary btn-small" onclick="window.playCachedOnDevice(\'' + safeDev + '\',\'' + safeK + '\',\'' + safeL + '\',\'' + safeN + '\')">Play (cache)</button>' +
-                            '<button type="button" class="btn btn-secondary btn-small" onclick="window.deleteCacheFromDevice(\'' + safeDev + '\',\'' + safeK + '\')">Delete</button></div>';
-                    }).join('');
-                }
-            }
+            updateDeviceDetailCacheUI(deviceId, d);
             openModal('deviceDetailModal');
         }
 
@@ -3520,6 +3555,70 @@
             if (tabName === 'content' && typeof loadDriveStatus === 'function') loadDriveStatus();
         }
         
+        function formatCacheManifestDiag(d) {
+            var at = d.cache_manifest_updated_at;
+            var cnt = d.cache_manifest_file_count;
+            var tb = d.cache_manifest_total_bytes;
+            var cm = d.cache_manifest;
+            if (cnt == null && Array.isArray(cm)) cnt = cm.length;
+            if (tb == null && Array.isArray(cm)) {
+                tb = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
+            }
+            var parts = [];
+            if (at) {
+                try {
+                    var dt = new Date(at);
+                    if (!isNaN(dt.getTime())) {
+                        parts.push('Server: last manifest saved ' + dt.toLocaleString());
+                    } else {
+                        parts.push('Server: last manifest saved ' + at);
+                    }
+                } catch (e) {
+                    parts.push('Server: last manifest saved ' + at);
+                }
+            } else {
+                parts.push('Server: never received a cache manifest — heartbeat may not include it (update APK) or POST body is blocked.');
+            }
+            if (cnt != null) parts.push('files: ' + cnt);
+            if (tb != null) parts.push('~' + (tb / (1024 * 1024)).toFixed(1) + ' MB total (reported sizes)');
+            return parts.join(' · ');
+        }
+
+        function updateDeviceDetailCacheUI(deviceId, d) {
+            var cacheEl = document.getElementById('deviceDetailCacheList');
+            var totalEl = document.getElementById('deviceDetailCacheTotal');
+            var diagEl = document.getElementById('deviceDetailCacheDiag');
+            var cm = d.cache_manifest;
+            if (diagEl) diagEl.textContent = formatCacheManifestDiag(d);
+            if (!cacheEl) return;
+            if (!Array.isArray(cm)) {
+                if (totalEl) totalEl.textContent = '';
+                cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No cache list yet. Wait for the display to sync (or update the app).</p>';
+            } else if (cm.length === 0) {
+                if (totalEl) totalEl.textContent = 'Total cached on device: 0 MB (reported)';
+                cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No files in the player cache folder (or playback is streaming without saving to disk).</p>';
+            } else {
+                var totalBytes = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
+                if (totalEl) totalEl.textContent = 'Total cached on device: ~' + (totalBytes / (1024 * 1024)).toFixed(1) + ' MB (reported)';
+                cacheEl.innerHTML = cm.map(function(item) {
+                    var k = (item.k != null ? String(item.k) : '').replace(/"/g, '&quot;');
+                    var l = item.l != null ? String(item.l) : '';
+                    var n = item.n != null ? String(item.n) : '';
+                    var s = item.s != null ? Number(item.s) : 0;
+                    var mb = (s / (1024 * 1024)).toFixed(1);
+                    var label = (n || l || k).replace(/</g, '');
+                    var safeL = l.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    var safeK = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    var safeN = (n || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    var safeDev = deviceId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    return '<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">' +
+                        '<span style="word-break:break-all;color:var(--text);flex:1;min-width:100px;">' + label + ' <span style="color:var(--text-muted);">(' + mb + ' MB)</span></span>' +
+                        '<button type="button" class="btn btn-primary btn-small" onclick="window.playCachedOnDevice(\'' + safeDev + '\',\'' + safeK + '\',\'' + safeL + '\',\'' + safeN + '\')">Play (cache)</button>' +
+                        '<button type="button" class="btn btn-secondary btn-small" onclick="window.deleteCacheFromDevice(\'' + safeDev + '\',\'' + safeK + '\')">Delete</button></div>';
+                }).join('');
+            }
+        }
+
         function openDeviceInfo(deviceId, evt) {
             if (evt) {
                 evt.stopPropagation();
@@ -3538,37 +3637,7 @@
                 closeModal('deviceDetailModal');
                 requestScreenshot(deviceId, e);
             };
-            var cacheEl = document.getElementById('deviceDetailCacheList');
-            var totalEl = document.getElementById('deviceDetailCacheTotal');
-            var cm = d.cache_manifest;
-            if (cacheEl) {
-                if (!Array.isArray(cm)) {
-                    if (totalEl) totalEl.textContent = '';
-                    cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No cache list yet. Wait for the display to sync (or update the app).</p>';
-                } else if (cm.length === 0) {
-                    if (totalEl) totalEl.textContent = 'Total cached on device: 0 MB (reported)';
-                    cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No files in the player cache folder (or playback is streaming without saving to disk).</p>';
-                } else {
-                    var totalBytes = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
-                    if (totalEl) totalEl.textContent = 'Total cached on device: ~' + (totalBytes / (1024 * 1024)).toFixed(1) + ' MB (reported)';
-                    cacheEl.innerHTML = cm.map(function(item) {
-                        var k = (item.k != null ? String(item.k) : '').replace(/"/g, '&quot;');
-                        var l = item.l != null ? String(item.l) : '';
-                        var n = item.n != null ? String(item.n) : '';
-                        var s = item.s != null ? Number(item.s) : 0;
-                        var mb = (s / (1024 * 1024)).toFixed(1);
-                        var label = (n || l || k).replace(/</g, '');
-                        var safeL = l.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                        var safeK = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                        var safeN = (n || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                        var safeDev = deviceId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                        return '<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">' +
-                            '<span style="word-break:break-all;color:var(--text);flex:1;min-width:100px;">' + label + ' <span style="color:var(--text-muted);">(' + mb + ' MB)</span></span>' +
-                            '<button type="button" class="btn btn-primary btn-small" onclick="window.playCachedOnDevice(\'' + safeDev + '\',\'' + safeK + '\',\'' + safeL + '\',\'' + safeN + '\')">Play (cache)</button>' +
-                            '<button type="button" class="btn btn-secondary btn-small" onclick="window.deleteCacheFromDevice(\'' + safeDev + '\',\'' + safeK + '\')">Delete</button></div>';
-                    }).join('');
-                }
-            }
+            updateDeviceDetailCacheUI(deviceId, d);
             openModal('deviceDetailModal');
         }
 

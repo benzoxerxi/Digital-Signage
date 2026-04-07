@@ -257,6 +257,20 @@ def _append_device_status_row(result, user_id, device_id, device_data, now):
             row['last_seen_ago'] = None
         cm = device_data.get('cache_manifest')
         row['cache_manifest'] = cm if isinstance(cm, list) else None
+        row['cache_manifest_updated_at'] = device_data.get('cache_manifest_updated_at')
+        row['cache_manifest_file_count'] = device_data.get('cache_manifest_file_count')
+        if row['cache_manifest_file_count'] is None and isinstance(cm, list):
+            row['cache_manifest_file_count'] = len(cm)
+        row['cache_manifest_total_bytes'] = device_data.get('cache_manifest_total_bytes')
+        if row['cache_manifest_total_bytes'] is None and isinstance(cm, list):
+            tb = 0
+            for x in cm:
+                if isinstance(x, dict):
+                    try:
+                        tb += int(x.get('s') or 0)
+                    except (TypeError, ValueError):
+                        pass
+            row['cache_manifest_total_bytes'] = tb
         result.append(row)
     except Exception:
         row = dict(device_data)
@@ -271,6 +285,20 @@ def _append_device_status_row(result, user_id, device_id, device_data, now):
         row['last_seen_ago'] = None
         cm = device_data.get('cache_manifest')
         row['cache_manifest'] = cm if isinstance(cm, list) else None
+        row['cache_manifest_updated_at'] = device_data.get('cache_manifest_updated_at')
+        row['cache_manifest_file_count'] = device_data.get('cache_manifest_file_count')
+        if row['cache_manifest_file_count'] is None and isinstance(cm, list):
+            row['cache_manifest_file_count'] = len(cm)
+        row['cache_manifest_total_bytes'] = device_data.get('cache_manifest_total_bytes')
+        if row['cache_manifest_total_bytes'] is None and isinstance(cm, list):
+            tb = 0
+            for x in cm:
+                if isinstance(x, dict):
+                    try:
+                        tb += int(x.get('s') or 0)
+                    except (TypeError, ValueError):
+                        pass
+            row['cache_manifest_total_bytes'] = tb
         result.append(row)
 
 
@@ -329,10 +357,25 @@ def update_device_heartbeat(device_id, device_name=None, device_info=None, user_
                 parsed = _json.loads(reported_cache_manifest) if isinstance(reported_cache_manifest, str) else reported_cache_manifest
                 if isinstance(parsed, list):
                     devices[device_id]['cache_manifest'] = parsed[:100]
+                    total_b = 0
+                    for it in devices[device_id]['cache_manifest']:
+                        if isinstance(it, dict):
+                            try:
+                                total_b += int(it.get('s') or 0)
+                            except (TypeError, ValueError):
+                                pass
+                    devices[device_id]['cache_manifest_total_bytes'] = total_b
+                    devices[device_id]['cache_manifest_file_count'] = len(devices[device_id]['cache_manifest'])
                 else:
                     devices[device_id]['cache_manifest'] = []
+                    devices[device_id]['cache_manifest_total_bytes'] = 0
+                    devices[device_id]['cache_manifest_file_count'] = 0
+                devices[device_id]['cache_manifest_updated_at'] = datetime.now().isoformat()
             except Exception:
                 devices[device_id]['cache_manifest'] = []
+                devices[device_id]['cache_manifest_total_bytes'] = 0
+                devices[device_id]['cache_manifest_file_count'] = 0
+                devices[device_id]['cache_manifest_updated_at'] = datetime.now().isoformat()
 
         save_json_file('devices.json', devices, user_id)
         result = dict(devices[device_id])

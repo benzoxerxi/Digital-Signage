@@ -201,6 +201,7 @@ class ApiClient {
         currentVideoFromCache: String? = null,
         currentVideoNameFromCache: String? = null,
         cacheManifestJson: String? = null,
+        downloadProgressJson: String? = null,
     ): PlaybackState =
         withContext(Dispatchers.IO) {
             // POST JSON avoids huge GET URLs (nginx limits); cache_manifest must always reach the server.
@@ -218,6 +219,12 @@ class ApiClient {
                 put("current_video_name", currentVideoNameFromCache ?: "")
                 if (cacheManifestJson != null) {
                     put("cache_manifest", manifestArray)
+                }
+                if (!downloadProgressJson.isNullOrEmpty()) {
+                    try {
+                        put("download_progress", JSONObject(downloadProgressJson))
+                    } catch (_: Exception) {
+                    }
                 }
             }
             val mediaType = "application/json; charset=utf-8".toMediaType()

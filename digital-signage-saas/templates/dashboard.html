@@ -1882,6 +1882,7 @@
                 <div id="playbackProgressBar" class="upload-progress-bar" style="width: 0%;"></div>
             </div>
             <div id="playbackProgressStatus" style="font-size: 14px; font-weight: 600; color: var(--text); margin-top: 8px;"></div>
+            <div id="playbackPerDeviceProgressList" style="margin-top:12px; max-height: 280px; overflow-y:auto;"></div>
         </div>
     </div>
     
@@ -1932,6 +1933,8 @@
                     btn.setAttribute('aria-pressed', isActive);
                 });
             }
+            var playAllEl = document.getElementById('playbackPlayAllDisplays');
+            if (playAllEl) playAllEl.checked = false;
             await loadAll();
             setInterval(loadAll, 3000);
         }
@@ -2109,6 +2112,9 @@
                 gridOffline.innerHTML = offline.map(device => renderDeviceCard(device)).join('');
                 
                 updateSelectionBar();
+                if (typeof renderPerDevicePlaybackProgress === 'function') {
+                    renderPerDevicePlaybackProgress();
+                }
             } catch (error) {
                 console.error('Error loading devices:', error);
             }
@@ -2283,12 +2289,56 @@
                 return d ? (d.name || id) : id;
             }).join(', ');
         }
-        
+        var playbackProgressTracking = { active: false, targetIds: [] };
+
+        function getPlaybackTrackedDevices() {
+            var ids = (playbackProgressTracking.targetIds || []);
+            return ids.map(function(id) {
+                return allDevices.find(function(d) { return d.id === id; }) || { id: id, name: id, online: false };
+            });
+        }
+
+        function renderPerDevicePlaybackProgress() {
+            var listEl = document.getElementById('playbackPerDeviceProgressList');
+            if (!listEl) return;
+            if (!playbackProgressTracking.active || !playbackProgressTracking.targetIds.length) {
+                listEl.innerHTML = '';
+                return;
+            }
+            var rows = getPlaybackTrackedDevices().map(function(device) {
+                var dp = device.download_progress || null;
+                var pct = 0;
+                var status = device.online ? 'Waiting for device...' : 'Offline';
+                if (dp && typeof dp === 'object') {
+                    if (typeof dp.percent === 'number') {
+                        pct = Math.max(0, Math.min(100, dp.percent));
+                    } else if (Number(dp.total_bytes) > 0) {
+                        pct = Math.max(0, Math.min(100, (Number(dp.bytes_read || 0) / Number(dp.total_bytes)) * 100));
+                    }
+                    var fileName = dp.name || dp.filename || '';
+                    status = (dp.status || 'downloading') + (fileName ? (' - ' + fileName) : '');
+                } else if (device.current_video || device.reported_current_video) {
+                    pct = 100;
+                    status = 'Ready/playing';
+                }
+                var safeName = (device.name || device.id || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                var safeStatus = String(status).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<div style="margin:8px 0;padding:8px;border:1px solid var(--border);border-radius:8px;">'
+                    + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;">'
+                    + '<span>' + safeName + '</span><span>' + Math.round(pct) + '%</span></div>'
+                    + '<div class="upload-progress-bar-wrap" style="margin-bottom:4px;"><div class="upload-progress-bar" style="width:' + pct + '%;"></div></div>'
+                    + '<div style="font-size:11px;color:var(--text-muted);">' + safeStatus + '</div>'
+                    + '</div>';
+            });
+            listEl.innerHTML = rows.join('');
+        }
+
         function setPlaybackProgress(pct, status) {
             var bar = document.getElementById('playbackProgressBar');
             var statusEl = document.getElementById('playbackProgressStatus');
             if (bar) bar.style.width = (pct || 0) + '%';
             if (statusEl) statusEl.textContent = status || '';
+            renderPerDevicePlaybackProgress();
         }
         
         async function playVideoFromPlaylist(videoEntry) {
@@ -2297,16 +2347,23 @@
                 showToast('Select one or more displays, or tick Play on all displays.', 'error');
                 return;
             }
+            var targetIds = playAll ? allDevices.map(function(d) { return d.id; }) : selectedDevices.slice();
+            if (!targetIds.length) {
+                showToast('No target displays resolved.', 'error');
+                return;
+            }
             var targetsEl = document.getElementById('playbackProgressTargets');
             if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
+            playbackProgressTracking.active = true;
+            playbackProgressTracking.targetIds = targetIds.slice();
             setPlaybackProgress(0, 'Sending to devices...');
             openModal('playbackProgressModal');
             const isDrive = videoEntry && (videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.startsWith('drive:')));
             const payload = {};
             if (playAll) {
                 payload.target_all = true;
-            } else if (selectedDevices.length > 0) {
-                payload.device_ids = selectedDevices;
+            } else if (targetIds.length > 0) {
+                payload.device_ids = targetIds.slice();
             }
             if (isDrive) {
                 payload.drive_file_id = videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.replace(/^drive:/, ''));
@@ -2323,15 +2380,23 @@
                 if (result.success) {
                     setPlaybackProgress(100, 'Done — playing on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)');
                     showToast('Playing "' + displayName + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
+                    selectedDevices = [];
+                    var playAllEl = document.getElementById('playbackPlayAllDisplays');
+                    if (playAllEl) playAllEl.checked = false;
                     await loadDevices();
-                    setTimeout(function() { closeModal('playbackProgressModal'); }, 2000);
+                    setTimeout(function() {
+                        playbackProgressTracking.active = false;
+                        closeModal('playbackProgressModal');
+                    }, 8000);
                 } else {
                     setPlaybackProgress(100, 'Failed: ' + (result.error || 'Unknown error'));
                     showToast('Playback failed: ' + (result.error || 'Unknown'), 'error');
+                    playbackProgressTracking.active = false;
                 }
             } catch (error) {
                 setPlaybackProgress(100, 'Failed: network error');
                 showToast('Failed to play video', 'error');
+                playbackProgressTracking.active = false;
             }
         }
         
@@ -2443,25 +2508,7 @@
             }
         }
         async function playDriveVideo(driveFileId, name) {
-            try {
-                var playAll = playbackPlayAllChecked();
-                if (!playAll && selectedDevices.length === 0) {
-                    showToast('Select one or more displays, or tick Play on all displays.', 'error');
-                    return;
-                }
-                const payload = { drive_file_id: driveFileId, name: name || '' };
-                if (playAll) {
-                    payload.target_all = true;
-                } else if (selectedDevices.length > 0) {
-                    payload.device_ids = selectedDevices;
-                }
-                const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-                const result = await response.json();
-                if (result.success) {
-                    showToast('Playing "' + (name || 'Drive video') + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
-                    await loadDevices();
-                } else showToast(result.error || 'Failed to play', 'error');
-            } catch (e) { showToast('Failed to play Drive video', 'error'); }
+            await playVideoFromPlaylist({ drive_file_id: driveFileId, filename: 'drive:' + driveFileId, name: name || '' });
         }
         async function disconnectGoogleDrive() {
             if (!confirm('Disconnect Google Drive? You can reconnect anytime.')) return;
@@ -3019,9 +3066,10 @@
             if (playAll) {
                 payload.target_all = true;
             } else if (typeof selectedDevices !== 'undefined' && selectedDevices.length > 0) {
-                payload.device_ids = selectedDevices;
+                payload.device_ids = selectedDevices.slice();
             } else {
-                payload.target_all = true;
+                showToast('Select one or more displays, or tick Play on all displays.', 'error');
+                return;
             }
             try {
                 var r = await fetch('/api/playback/play-program', {
@@ -3526,6 +3574,8 @@
         
         // Initialize
         async function init() {
+            var playAllEl = document.getElementById('playbackPlayAllDisplays');
+            if (playAllEl) playAllEl.checked = false;
             await loadAll();
             setInterval(loadAll, 3000);
         }
@@ -3703,6 +3753,9 @@
                 gridOffline.innerHTML = offline.map(device => renderDeviceCard(device)).join('');
                 
                 updateSelectionBar();
+                if (typeof renderPerDevicePlaybackProgress === 'function') {
+                    renderPerDevicePlaybackProgress();
+                }
             } catch (error) {
                 console.error('Error loading devices:', error);
             }
@@ -3877,12 +3930,56 @@
                 return d ? (d.name || id) : id;
             }).join(', ');
         }
-        
+        var playbackProgressTracking = { active: false, targetIds: [] };
+
+        function getPlaybackTrackedDevices() {
+            var ids = (playbackProgressTracking.targetIds || []);
+            return ids.map(function(id) {
+                return allDevices.find(function(d) { return d.id === id; }) || { id: id, name: id, online: false };
+            });
+        }
+
+        function renderPerDevicePlaybackProgress() {
+            var listEl = document.getElementById('playbackPerDeviceProgressList');
+            if (!listEl) return;
+            if (!playbackProgressTracking.active || !playbackProgressTracking.targetIds.length) {
+                listEl.innerHTML = '';
+                return;
+            }
+            var rows = getPlaybackTrackedDevices().map(function(device) {
+                var dp = device.download_progress || null;
+                var pct = 0;
+                var status = device.online ? 'Waiting for device...' : 'Offline';
+                if (dp && typeof dp === 'object') {
+                    if (typeof dp.percent === 'number') {
+                        pct = Math.max(0, Math.min(100, dp.percent));
+                    } else if (Number(dp.total_bytes) > 0) {
+                        pct = Math.max(0, Math.min(100, (Number(dp.bytes_read || 0) / Number(dp.total_bytes)) * 100));
+                    }
+                    var fileName = dp.name || dp.filename || '';
+                    status = (dp.status || 'downloading') + (fileName ? (' - ' + fileName) : '');
+                } else if (device.current_video || device.reported_current_video) {
+                    pct = 100;
+                    status = 'Ready/playing';
+                }
+                var safeName = (device.name || device.id || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                var safeStatus = String(status).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<div style="margin:8px 0;padding:8px;border:1px solid var(--border);border-radius:8px;">'
+                    + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;">'
+                    + '<span>' + safeName + '</span><span>' + Math.round(pct) + '%</span></div>'
+                    + '<div class="upload-progress-bar-wrap" style="margin-bottom:4px;"><div class="upload-progress-bar" style="width:' + pct + '%;"></div></div>'
+                    + '<div style="font-size:11px;color:var(--text-muted);">' + safeStatus + '</div>'
+                    + '</div>';
+            });
+            listEl.innerHTML = rows.join('');
+        }
+
         function setPlaybackProgress(pct, status) {
             var bar = document.getElementById('playbackProgressBar');
             var statusEl = document.getElementById('playbackProgressStatus');
             if (bar) bar.style.width = (pct || 0) + '%';
             if (statusEl) statusEl.textContent = status || '';
+            renderPerDevicePlaybackProgress();
         }
         
         async function playVideoFromPlaylist(videoEntry) {
@@ -3891,16 +3988,23 @@
                 showToast('Select one or more displays, or tick Play on all displays.', 'error');
                 return;
             }
+            var targetIds = playAll ? allDevices.map(function(d) { return d.id; }) : selectedDevices.slice();
+            if (!targetIds.length) {
+                showToast('No target displays resolved.', 'error');
+                return;
+            }
             var targetsEl = document.getElementById('playbackProgressTargets');
             if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
+            playbackProgressTracking.active = true;
+            playbackProgressTracking.targetIds = targetIds.slice();
             setPlaybackProgress(0, 'Sending to devices...');
             openModal('playbackProgressModal');
             const isDrive = videoEntry && (videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.startsWith('drive:')));
             const payload = {};
             if (playAll) {
                 payload.target_all = true;
-            } else if (selectedDevices.length > 0) {
-                payload.device_ids = selectedDevices;
+            } else if (targetIds.length > 0) {
+                payload.device_ids = targetIds.slice();
             }
             if (isDrive) {
                 payload.drive_file_id = videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.replace(/^drive:/, ''));
@@ -3917,15 +4021,23 @@
                 if (result.success) {
                     setPlaybackProgress(100, 'Done — playing on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)');
                     showToast('Playing "' + displayName + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
+                    selectedDevices = [];
+                    var playAllEl = document.getElementById('playbackPlayAllDisplays');
+                    if (playAllEl) playAllEl.checked = false;
                     await loadDevices();
-                    setTimeout(function() { closeModal('playbackProgressModal'); }, 2000);
+                    setTimeout(function() {
+                        playbackProgressTracking.active = false;
+                        closeModal('playbackProgressModal');
+                    }, 8000);
                 } else {
                     setPlaybackProgress(100, 'Failed: ' + (result.error || 'Unknown error'));
                     showToast('Playback failed: ' + (result.error || 'Unknown'), 'error');
+                    playbackProgressTracking.active = false;
                 }
             } catch (error) {
                 setPlaybackProgress(100, 'Failed: network error');
                 showToast('Failed to play video', 'error');
+                playbackProgressTracking.active = false;
             }
         }
         
@@ -4037,25 +4149,7 @@
             }
         }
         async function playDriveVideo(driveFileId, name) {
-            try {
-                var playAll = playbackPlayAllChecked();
-                if (!playAll && selectedDevices.length === 0) {
-                    showToast('Select one or more displays, or tick Play on all displays.', 'error');
-                    return;
-                }
-                const payload = { drive_file_id: driveFileId, name: name || '' };
-                if (playAll) {
-                    payload.target_all = true;
-                } else if (selectedDevices.length > 0) {
-                    payload.device_ids = selectedDevices;
-                }
-                const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-                const result = await response.json();
-                if (result.success) {
-                    showToast('Playing "' + (name || 'Drive video') + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
-                    await loadDevices();
-                } else showToast(result.error || 'Failed to play', 'error');
-            } catch (e) { showToast('Failed to play Drive video', 'error'); }
+            await playVideoFromPlaylist({ drive_file_id: driveFileId, filename: 'drive:' + driveFileId, name: name || '' });
         }
         async function disconnectGoogleDrive() {
             if (!confirm('Disconnect Google Drive? You can reconnect anytime.')) return;
@@ -4554,9 +4648,10 @@
             if (playAll) {
                 payload.target_all = true;
             } else if (typeof selectedDevices !== 'undefined' && selectedDevices.length > 0) {
-                payload.device_ids = selectedDevices;
+                payload.device_ids = selectedDevices.slice();
             } else {
-                payload.target_all = true;
+                showToast('Select one or more displays, or tick Play on all displays.', 'error');
+                return;
             }
             try {
                 var r = await fetch('/api/playback/play-program', {

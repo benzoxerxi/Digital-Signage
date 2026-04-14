@@ -73,6 +73,8 @@ class MainActivity : AppCompatActivity() {
     private var fastHeartbeatUntilMs = 0L
     private var lastManifestPayload: String? = null
     private var lastManifestSentAtMs = 0L
+    @Volatile
+    private var downloadProgressHeartbeatJson: String? = null
     private val inFlightDownloads = mutableMapOf<String, Deferred<Boolean>>()
     private val downloadLock = Any()
     private var bufferingStartedAtMs = 0L
@@ -432,7 +434,8 @@ class MainActivity : AppCompatActivity() {
                             fromSetup = false,
                             currentVideoFromCache = cachedVideo,
                             currentVideoNameFromCache = cachedVideoName,
-                            cacheManifestJson = manifestJson
+                            cacheManifestJson = manifestJson,
+                            downloadProgressJson = downloadProgressHeartbeatJson
                         )
                     }
                     val layoutDeferred = async(Dispatchers.IO) {
@@ -472,6 +475,7 @@ class MainActivity : AppCompatActivity() {
                 if (playbackState.clear_cache == true) {
                     Log.d(TAG, "clear_cache requested – stopping and clearing")
                     doNotResumeFromPlaylist = true
+                    clearDownloadProgressHeartbeat()
                     exitLayoutMode()
                     player?.stop()
                     showScreensaver(true)
@@ -521,6 +525,7 @@ class MainActivity : AppCompatActivity() {
                     } else if (playbackState.command_id > 0) {
                         Log.d(TAG, "Stop/format command – stopping playback")
                         doNotResumeFromPlaylist = true
+                        clearDownloadProgressHeartbeat()
                         player?.stop()
                         showScreensaver(true)
                         clearVideoCache()
@@ -566,6 +571,7 @@ class MainActivity : AppCompatActivity() {
     private fun clearVideoCache() {
         scope.launch(Dispatchers.IO) {
             try {
+                clearDownloadProgressHeartbeat()
                 val cacheSize = videoCache.getCacheSize()
                 videoCache.clearCache()
                 withContext(Dispatchers.Main) {
@@ -752,6 +758,36 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateDownloadProgressHeartbeat(
+        logicalFilename: String,
+        label: String?,
+        bytesRead: Long,
+        totalBytes: Long?,
+        status: String,
+    ) {
+        try {
+            val obj = JSONObject()
+            obj.put("filename", logicalFilename)
+            if (!label.isNullOrBlank()) obj.put("name", label)
+            obj.put("bytes_read", bytesRead.coerceAtLeast(0L))
+            if (totalBytes != null && totalBytes > 0) {
+                obj.put("total_bytes", totalBytes)
+                obj.put(
+                    "percent",
+                    ((bytesRead.toDouble() / totalBytes.toDouble()) * 100.0).coerceIn(0.0, 100.0)
+                )
+            }
+            obj.put("status", status)
+            obj.put("updated_at_ms", System.currentTimeMillis())
+            downloadProgressHeartbeatJson = obj.toString()
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun clearDownloadProgressHeartbeat() {
+        downloadProgressHeartbeatJson = null
+    }
+
     private suspend fun ensureVideoCached(
         key: String,
         logicalFilename: String,
@@ -762,6 +798,7 @@ class MainActivity : AppCompatActivity() {
         if (videoCache.isCached(key)) {
             videoCache.touchFile(key)
             if (!labelForCache.isNullOrBlank()) rememberCacheLabel(key, labelForCache)
+            clearDownloadProgressHeartbeat()
             return true
         }
 
@@ -774,22 +811,28 @@ class MainActivity : AppCompatActivity() {
             if (showOverlay) {
                 showDownloadOverlay(labelForCache ?: logicalFilename)
             }
+            updateDownloadProgressHeartbeat(logicalFilename, labelForCache, 0L, null, "starting")
             try {
                 if (!downloadUrl.isNullOrEmpty()) {
                     apiClient.downloadFromUrlToFileWithProgress(downloadUrl, tempFile) { r, t ->
+                        updateDownloadProgressHeartbeat(logicalFilename, labelForCache, r, t, "downloading")
                         if (showOverlay) updateDownloadProgressUi(r, t)
                     }
                 } else {
                     apiClient.downloadVideoToFileWithProgress(logicalFilename, tempFile) { r, t ->
+                        updateDownloadProgressHeartbeat(logicalFilename, labelForCache, r, t, "downloading")
                         if (showOverlay) updateDownloadProgressUi(r, t)
                     }
                 }
                 videoCache.commitTempFile(key, tempFile)
                 rememberCacheLabel(key, labelForCache ?: logicalFilename)
+                val total = tempFile.length().coerceAtLeast(0L)
+                updateDownloadProgressHeartbeat(logicalFilename, labelForCache, total, total, "completed")
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Download failed for $logicalFilename", e)
                 if (tempFile.exists()) tempFile.delete()
+                updateDownloadProgressHeartbeat(logicalFilename, labelForCache, 0L, null, "failed")
                 false
             } finally {
                 if (showOverlay) {

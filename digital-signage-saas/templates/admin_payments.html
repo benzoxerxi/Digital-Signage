@@ -1,63 +1,7 @@
-{% extends "admin_base.html" %}
+{% extends "base.html" %}
 {% block title %}Payments{% endblock %}
 {% block content %}
-<div class="admin-header" style="flex-wrap: wrap; gap: 1rem;">
+<div style="max-width: 1200px; margin: 2rem auto; padding: 2rem;">
     <h1>Payment History</h1>
-    <a href="{{ url_for('admin.admin_payments', export='csv', status=status_filter) }}" class="btn btn-secondary">Export CSV</a>
-</div>
-<div class="admin-card">
-    <div class="admin-card-body">
-        <form method="get" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-            <select name="status" class="form-control" style="max-width: 150px;">
-                <option value="">All statuses</option>
-                <option value="succeeded" {% if status_filter == 'succeeded' %}selected{% endif %}>Succeeded</option>
-                <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Failed</option>
-                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
-            </select>
-            <button type="submit" class="btn btn-primary">Filter</button>
-        </form>
-        <p style="margin-top: 1rem;"><strong>Total (succeeded):</strong> ${{ "%.2f"|format(total_succeeded) }}</p>
-    </div>
-</div>
-<div class="admin-card">
-    <div class="admin-card-body" style="padding: 0;">
-        <table class="admin-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>User</th>
-                    <th>Amount</th>
-                    <th>Plan</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in payments.items %}
-                <tr>
-                    <td>{{ p.id }}</td>
-                    <td><a href="{{ url_for('admin.admin_user_detail', user_id=p.user_id) }}" style="text-decoration: none; color: #2271b1;">{{ p.user.username if p.user else '—' }}</a></td>
-                    <td>${{ "%.2f"|format(p.amount) }}</td>
-                    <td>{{ p.plan or '—' }}</td>
-                    <td><span class="badge {{ 'badge-success' if p.status == 'succeeded' else ('badge-danger' if p.status == 'failed' else 'badge-secondary') }}">{{ p.status or '—' }}</span></td>
-                    <td>{{ p.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                </tr>
-                {% else %}
-                <tr><td colspan="6" style="padding: 2rem; text-align: center; color: var(--wp-text-light);">No payments</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% if payments.pages > 1 %}
-        <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--wp-border); display: flex; gap: 0.5rem; align-items: center;">
-            {% if payments.has_prev %}
-            <a href="{{ url_for('admin.admin_payments', page=payments.prev_num, status=status_filter) }}" class="btn btn-secondary btn-sm">← Previous</a>
-            {% endif %}
-            <span style="color: var(--wp-text-light);">Page {{ payments.page }} of {{ payments.pages }}</span>
-            {% if payments.has_next %}
-            <a href="{{ url_for('admin.admin_payments', page=payments.next_num, status=status_filter) }}" class="btn btn-secondary btn-sm">Next →</a>
-            {% endif %}
-        </div>
-        {% endif %}
-    </div>
 </div>
 {% endblock %}

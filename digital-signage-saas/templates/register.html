@@ -4,158 +4,134 @@
 
 {% block extra_css %}
 <style>
-    body { min-height: 100vh; display: flex; flex-direction: column; }
-    .auth-page {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: calc(100vh - 80px);
-        padding: 2rem 1rem;
-        background:
-          radial-gradient(ellipse 60% 50% at 70% 20%, rgba(124, 58, 237, 0.25) 0%, transparent 60%),
-          radial-gradient(ellipse 50% 40% at 20% 80%, rgba(219, 39, 119, 0.15) 0%, transparent 55%),
-          #0c0118;
+    .auth-container {
+        max-width: 450px;
+        margin: 4rem auto;
+        padding: 2rem;
     }
-    .auth-popup {
-        width: 100%;
-        max-width: 420px;
-        background: rgba(21, 2, 37, 0.95);
-        border: 1px solid rgba(46, 16, 101, 0.7);
-        border-radius: 20px;
-        box-shadow: 0 25px 60px rgba(12, 1, 24, 0.8);
-        padding: 2.5rem 2rem;
-        animation: authPop 0.35s ease-out;
+    
+    .auth-card {
+        background: white;
+        padding: 3rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     }
-    @keyframes authPop {
-        from { opacity: 0; transform: scale(0.96) translateY(-8px); }
-        to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-    .auth-popup .trial-badge {
-        display: inline-block;
-        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-        color: #fff;
-        padding: 0.4rem 1rem;
-        border-radius: 999px;
-        font-size: 0.8125rem;
-        font-weight: 600;
+    
+    .auth-card h1 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
         text-align: center;
-        margin-bottom: 1.25rem;
-        width: 100%;
     }
-    .auth-popup h1 {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #f9fafb;
+    
+    .auth-card p {
         text-align: center;
-        margin-bottom: 0.35rem;
+        color: #666;
+        margin-bottom: 2rem;
     }
-    .auth-popup .subtitle {
-        text-align: center;
-        color: #9ca3af;
-        font-size: 0.9375rem;
+    
+    .form-group {
         margin-bottom: 1.5rem;
     }
-    .auth-popup .form-group {
-        margin-bottom: 1.1rem;
-    }
-    .auth-popup .form-group label {
+    
+    .form-group label {
         display: block;
-        margin-bottom: 0.4rem;
+        margin-bottom: 0.5rem;
         font-weight: 600;
-        font-size: 0.875rem;
-        color: #d1d5db;
+        color: #333;
     }
-    .auth-popup .form-group input,
-    .auth-popup .form-group select {
+    
+    .form-group input, .form-group select {
         width: 100%;
-        max-width: 100%;
-        padding: 0.7rem 1rem;
-        border: 1px solid rgba(46, 16, 101, 0.6);
-        border-radius: 10px;
+        padding: 0.75rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
         font-size: 1rem;
-        transition: border-color 0.2s, box-shadow 0.2s;
-        background: rgba(12, 1, 24, 0.6);
-        color: #e5e7eb;
+        transition: border-color 0.3s;
     }
-    .auth-popup .form-group input::placeholder,
-    .auth-popup .form-group select::placeholder { color: #6b7280; }
-    .auth-popup .form-group input:focus,
-    .auth-popup .form-group select:focus {
+    
+    .form-group input:focus, .form-group select:focus {
         outline: none;
-        border-color: #7c3aed;
-        background: rgba(12, 1, 24, 0.8);
-        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+        border-color: var(--primary);
     }
-    .auth-popup .form-group small {
-        display: block;
-        margin-top: 0.35rem;
-        font-size: 0.8125rem;
-        color: #6b7280;
-    }
-    .auth-popup .btn-submit {
+    
+    .btn-full {
         width: 100%;
-        padding: 0.875rem 1.25rem;
+        padding: 1rem;
         font-size: 1rem;
-        font-weight: 600;
-        border-radius: 10px;
-        border: none;
-        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
-        color: #fff;
-        cursor: pointer;
-        margin-top: 0.25rem;
-        transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
     }
-    .auth-popup .btn-submit:hover {
-        background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 18px rgba(249, 115, 22, 0.35);
-    }
-    .auth-popup .auth-links {
+    
+    .auth-links {
         text-align: center;
         margin-top: 1.5rem;
-        padding-top: 1.25rem;
-        border-top: 1px solid rgba(46, 16, 101, 0.5);
-        font-size: 0.9375rem;
-        color: #9ca3af;
+        color: #666;
     }
-    .auth-popup .auth-links a {
-        color: #c4b5fd;
+    
+    .auth-links a {
+        color: var(--primary);
         text-decoration: none;
         font-weight: 600;
     }
-    .auth-popup .auth-links a:hover { text-decoration: underline; color: #f97316; }
+    
+    .auth-links a:hover {
+        text-decoration: underline;
+    }
+    
+    .trial-badge {
+        background: var(--success);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="auth-page">
-    <div class="auth-popup">
-        <div class="trial-badge">7-day free trial</div>
-        <h1>Get started</h1>
-        <p class="subtitle">Create your account and manage your displays</p>
-        <form method="POST" action="{{ BASE_PATH }}{{ url_for('auth.register') }}">
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="trial-badge">🎉 7-Day Free Trial</div>
+        <h1>Get Started</h1>
+        <p>Create your account and start managing displays</p>
+        
+        <form method="POST" action="{{ url_for('auth.register') }}">
             <div class="form-group">
                 <label for="username">Username</label>
-                <input type="text" id="username" name="username" required autofocus placeholder="Choose a username">
+                <input type="text" id="username" name="username" required autofocus>
             </div>
+            
             <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" id="email" name="email" required placeholder="you@example.com">
+                <input type="email" id="email" name="email" required>
             </div>
+            
             <div class="form-group">
-                <label for="company_name">Company (optional)</label>
-                <input type="text" id="company_name" name="company_name" placeholder="Your company">
+                <label for="company_name">Company Name (Optional)</label>
+                <input type="text" id="company_name" name="company_name">
             </div>
+            
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" required minlength="6" placeholder="••••••••">
-                <small>At least 6 characters</small>
+                <input type="password" id="password" name="password" required minlength="6">
+                <small style="color: #666;">At least 6 characters</small>
             </div>
-            <button type="submit" class="btn-submit">Create account</button>
+            
+            <div class="form-group">
+                <label for="plan">Select Plan</label>
+                <select id="plan" name="plan">
+                    <option value="free">Free Trial (7 days)</option>
+                    <option value="starter">Starter - $29/month</option>
+                    <option value="professional" selected>Professional - $79/month (Recommended)</option>
+                    <option value="enterprise">Enterprise - $199/month</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-full">Create Account</button>
         </form>
+        
         <div class="auth-links">
-            Already have an account? <a href="{{ BASE_PATH }}{{ url_for('auth.login') }}">Sign in</a>
+            Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a>
         </div>
     </div>
 </div>

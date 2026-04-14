@@ -13,34 +13,31 @@
         }
         
         :root {
-            --primary: #f97316;
-            --primary-dark: #ea580c;
-            --secondary: #22d3ee;
-            --success: #22c55e;
-            --warning: #facc15;
-            --danger: #ef4444;
-            --dark: #0c0118;
-            --dark-2: #150225;
-            --dark-3: #1e0636;
-            --text: #e5e7eb;
-            --text-muted: #9ca3af;
-            --border: #2e1065;
+            --primary: #0066FF;
+            --primary-dark: #0052CC;
+            --secondary: #00D9FF;
+            --success: #00E676;
+            --warning: #FFB300;
+            --danger: #FF3D00;
+            --dark: #0A0E27;
+            --dark-2: #141B3D;
+            --dark-3: #1E2749;
+            --text: #E4E7EB;
+            --text-muted: #8B92A8;
+            --border: #2A3459;
             --white: #FFFFFF;
         }
         
         body {
             font-family: 'Inter', -apple-system, sans-serif;
             line-height: 1.6;
-            color: var(--text);
-            background: #0c0118;
+            color: #333;
         }
         
         .navbar {
-            background: rgba(12, 1, 24, 0.95);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            box-shadow: 0 1px 0 rgba(46, 16, 101, 0.5);
-            padding: 0.75rem 0;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 1rem 0;
             position: sticky;
             top: 0;
             z-index: 100;
@@ -56,12 +53,10 @@
         }
         
         .navbar .logo {
-            font-size: 1.25rem;
+            font-size: 1.5rem;
             font-weight: 700;
-            color: #f9fafb;
+            color: var(--primary);
             text-decoration: none;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
         }
         
         .navbar .nav-links {
@@ -72,97 +67,12 @@
         
         .navbar .nav-links a {
             text-decoration: none;
-            color: #d1d5db;
+            color: #333;
             font-weight: 500;
-            font-size: 0.9rem;
         }
         
         .navbar .nav-links a:hover {
-            color: #f97316;
-        }
-        
-        /* Burger button – hidden on desktop */
-        .navbar-burger {
-            display: none;
-            align-items: center;
-            justify-content: center;
-            width: 44px;
-            height: 44px;
-            padding: 0;
-            background: transparent;
-            border: 1px solid rgba(46, 16, 101, 0.8);
-            border-radius: 8px;
-            color: #d1d5db;
-            font-size: 1.4rem;
-            cursor: pointer;
-        }
-        .navbar-burger:hover {
-            background: rgba(46, 16, 101, 0.4);
-            color: #f97316;
-        }
-        
-        .nav-overlay {
-            display: none;
-        }
-        
-        @media (max-width: 768px) {
-            .navbar-burger {
-                display: flex;
-            }
-            .nav-overlay {
-                display: none;
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                min-width: 100vw;
-                min-height: 100vh;
-                background: rgba(0, 0, 0, 0.4);
-                z-index: 1000;
-                opacity: 0;
-                transition: opacity 0.25s ease;
-                cursor: pointer;
-                pointer-events: none;
-            }
-            .nav-overlay.active {
-                display: block;
-                opacity: 1;
-                pointer-events: auto;
-            }
-            .navbar .nav-links {
-                display: flex;
-                position: fixed;
-                top: 0;
-                right: 0;
-                width: min(320px, 85vw);
-                height: 100vh;
-                height: 100dvh;
-                flex-direction: column;
-                gap: 0;
-                background: #0c0118;
-                box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
-                padding: 2rem 0;
-                border-left: 1px solid #2e1065;
-                z-index: 1001;
-                transform: translateX(100%);
-                transition: transform 0.3s ease;
-                overflow: hidden;
-            }
-            .navbar .nav-links.open {
-                transform: translateX(0);
-            }
-            .navbar .nav-links a {
-                padding: 1rem 1.5rem;
-                border-bottom: 1px solid rgba(46, 16, 101, 0.5);
-                flex-shrink: 0;
-            }
-            .navbar .nav-links a:last-child {
-                border-bottom: none;
-            }
-            .navbar .container {
-                position: relative;
-            }
+            color: var(--primary);
         }
         
         .btn {
@@ -178,26 +88,25 @@
         }
         
         .btn-primary {
-            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            background: var(--primary);
             color: white;
         }
         
         .btn-primary:hover {
-            background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
+            background: var(--primary-dark);
             transform: translateY(-2px);
-            box-shadow: 0 4px 18px rgba(249, 115, 22, 0.4);
+            box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
         }
         
         .btn-secondary {
             background: transparent;
-            color: #d1d5db;
-            border: 1px solid rgba(148, 163, 184, 0.5);
+            color: var(--primary);
+            border: 2px solid var(--primary);
         }
         
         .btn-secondary:hover {
-            background: rgba(46, 16, 101, 0.4);
-            color: #f9fafb;
-            border-color: rgba(148, 163, 184, 0.8);
+            background: var(--primary);
+            color: white;
         }
         
         .flash-messages {
@@ -211,10 +120,9 @@
             padding: 1rem 1.5rem;
             margin-bottom: 1rem;
             border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             animation: slideIn 0.3s;
             min-width: 300px;
-            backdrop-filter: blur(12px);
         }
         
         @keyframes slideIn {
@@ -223,21 +131,21 @@
         }
         
         .flash-message.success {
-            background: rgba(22, 163, 74, 0.15);
-            color: #bbf7d0;
-            border-left: 4px solid #22c55e;
+            background: #D4EDDA;
+            color: #155724;
+            border-left: 4px solid #28A745;
         }
         
         .flash-message.error {
-            background: rgba(239, 68, 68, 0.15);
-            color: #fecaca;
-            border-left: 4px solid #ef4444;
+            background: #F8D7DA;
+            color: #721C24;
+            border-left: 4px solid #DC3545;
         }
         
         .flash-message.info {
-            background: rgba(56, 189, 248, 0.15);
-            color: #bae6fd;
-            border-left: 4px solid #38bdf8;
+            background: #D1ECF1;
+            color: #0C5460;
+            border-left: 4px solid #17A2B8;
         }
         
         {% block extra_css %}{% endblock %}
@@ -247,28 +155,23 @@
     <!-- Navigation -->
     <nav class="navbar">
         <div class="container">
-            <a href="{{ BASE_PATH }}/" class="logo">🎬 Digital Signage</a>
-            <button type="button" class="navbar-burger" id="navbarBurger" aria-label="Open menu">☰</button>
-            <div class="nav-links" id="navLinks">
+            <a href="/" class="logo">🎬 Digital Signage</a>
+            <div class="nav-links">
                 {% if current_user.is_authenticated %}
                     {% if current_user.is_admin %}
-                        <a href="{{ BASE_PATH }}{{ url_for('admin.admin_dashboard') }}">Admin</a>
+                        <a href="{{ url_for('admin.admin_dashboard') }}">Admin</a>
                     {% endif %}
-                    <a href="{{ BASE_PATH }}{{ url_for('main.dashboard') }}">Dashboard</a>
-                    <a href="{{ BASE_PATH }}{{ url_for('main.subscriptions') }}">Subscriptions</a>
-                    <a href="{{ BASE_PATH }}{{ url_for('main.account') }}">Account</a>
-                    <a href="{{ BASE_PATH }}{{ url_for('main.rules') }}">Rules</a>
-                    <a href="{{ BASE_PATH }}{{ url_for('auth.logout') }}">Logout</a>
+                    <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('main.account') }}">Account</a>
+                    <a href="{{ url_for('auth.logout') }}">Logout</a>
                 {% else %}
-                    <a href="{{ BASE_PATH }}{{ url_for('main.pricing') }}">Pricing</a>
-                    <a href="{{ BASE_PATH }}{{ url_for('main.rules') }}">Rules</a>
-                    <a href="{{ BASE_PATH }}{{ url_for('auth.login') }}">Login</a>
-                    <a href="{{ BASE_PATH }}{{ url_for('auth.register') }}" class="btn btn-primary">Get Started</a>
+                    <a href="{{ url_for('main.pricing') }}">Pricing</a>
+                    <a href="{{ url_for('auth.login') }}">Login</a>
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Get Started</a>
                 {% endif %}
             </div>
         </div>
     </nav>
-    <div class="nav-overlay" id="navOverlay" aria-hidden="true"></div>
     
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -287,39 +190,6 @@
     {% block extra_js %}{% endblock %}
     
     <script>
-        // Burger menu (phones only) – full-height panel from right, no scroll
-        (function() {
-            var burger = document.getElementById('navbarBurger');
-            var navLinks = document.getElementById('navLinks');
-            var overlay = document.getElementById('navOverlay');
-            function closeMenu() {
-                if (navLinks) navLinks.classList.remove('open');
-                if (overlay) overlay.classList.remove('active');
-            }
-            function openMenu() {
-                if (overlay) overlay.classList.add('active');
-                if (navLinks) navLinks.classList.add('open');
-            }
-            function toggleMenu() {
-                if (navLinks && navLinks.classList.contains('open')) closeMenu();
-                else openMenu();
-            }
-            if (burger && navLinks) {
-                burger.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    toggleMenu();
-                });
-                if (overlay) {
-                    overlay.addEventListener('click', closeMenu);
-                    overlay.addEventListener('touchend', function(e) {
-                        if (e.target === overlay) closeMenu();
-                    });
-                }
-                navLinks.querySelectorAll('a').forEach(function(a) {
-                    a.addEventListener('click', closeMenu);
-                });
-            }
-        })();
         // Auto-dismiss flash messages after 5 seconds
         setTimeout(() => {
             document.querySelectorAll('.flash-message').forEach(msg => {

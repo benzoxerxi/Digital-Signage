@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Digital Signage runtime cleanup every hour
+
+[Timer]
+OnBootSec=10m
+OnUnitActiveSec=1h
+Unit=signage-cleanup.service
+
+[Install]
+WantedBy=timers.target

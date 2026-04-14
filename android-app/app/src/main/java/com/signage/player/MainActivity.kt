@@ -69,6 +69,7 @@ class MainActivity : AppCompatActivity() {
     private val heartbeatBusy = AtomicBoolean(false)
     private var lastPlaylistRefreshAt = 0L
     private var heartbeatFailureCount = 0
+    private var offlineModeSinceMs = 0L
     private var fastHeartbeatUntilMs = 0L
     private var lastManifestPayload: String? = null
     private var lastManifestSentAtMs = 0L
@@ -99,6 +100,7 @@ class MainActivity : AppCompatActivity() {
         private const val HEARTBEAT_FAILURE_MAX_MS = 60_000L
         private const val HEARTBEAT_JITTER_MS = 700L
         private const val MANIFEST_RESEND_INTERVAL_MS = 180_000L
+        private const val OFFLINE_MODE_AFTER_MS = 120_000L
         /** Avoid hammering /api/playlist every heartbeat; reduces network contention with video streaming. */
         private const val PLAYLIST_REFRESH_MS = 30_000L
         private const val BUFFER_STALL_TIMEOUT_MS = 15_000L
@@ -124,6 +126,7 @@ class MainActivity : AppCompatActivity() {
             layoutRoot = findViewById(R.id.layout_root)
             playerView = findViewById(R.id.player_view)
             screensaverView = findViewById(R.id.screensaver_view)
+            setOfflineBadgeVisible(false)
 
             loadScreensaver()
         } catch (e: Exception) {
@@ -290,6 +293,7 @@ class MainActivity : AppCompatActivity() {
                 layoutRoot = findViewById(R.id.layout_root)
                 playerView = findViewById(R.id.player_view)
                 screensaverView = findViewById(R.id.screensaver_view)
+                setOfflineBadgeVisible(false)
                 inLayoutMode = false
                 currentProgramId = null
                 layoutVideoPlayers.clear()
@@ -445,6 +449,8 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 heartbeatFailureCount = 0
+                offlineModeSinceMs = 0L
+                setOfflineBadgeVisible(false)
 
                 Log.d(TAG, "Heartbeat. Command ID: ${playbackState.command_id}, video: ${playbackState.current_video}")
 
@@ -538,6 +544,7 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.w(TAG, "Heartbeat failed (server may be restarting); keeping playback", e)
                 heartbeatFailureCount = (heartbeatFailureCount + 1).coerceAtMost(10)
+                enforceOfflineModeIfNeeded()
             } finally {
                 heartbeatBusy.set(false)
                 scheduleNextHeartbeat()
@@ -719,6 +726,29 @@ class MainActivity : AppCompatActivity() {
     private fun hideDownloadOverlay() {
         runOnUiThread {
             findViewById<View>(R.id.download_overlay).visibility = View.GONE
+        }
+    }
+
+    private fun setOfflineBadgeVisible(visible: Boolean) {
+        runOnUiThread {
+            findViewById<TextView?>(R.id.local_status_badge)?.visibility =
+                if (visible) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun enforceOfflineModeIfNeeded() {
+        val now = SystemClock.elapsedRealtime()
+        if (offlineModeSinceMs == 0L) {
+            offlineModeSinceMs = now
+            return
+        }
+        if (now - offlineModeSinceMs < OFFLINE_MODE_AFTER_MS) {
+            return
+        }
+        setOfflineBadgeVisible(true)
+        // Keep rendering local cached media while backend is unreachable.
+        if (player?.isPlaying != true) {
+            tryPlayCachedVideoLoop()
         }
     }
 

@@ -20,6 +20,7 @@ import time
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
+from urllib import request as urllib_request
 from werkzeug.utils import secure_filename
 import mimetypes
 
@@ -58,6 +59,8 @@ _METRIC_COUNTS = defaultdict(int)
 _METRIC_STATUS = defaultdict(int)
 _METRIC_LATENCY_MS = defaultdict(list)
 _CRITICAL_ENDPOINTS = {'/api/playback/state', '/api/device_layout', '/api/playlist'}
+_PROCESS_STARTED_AT = datetime.utcnow()
+_LAST_ALERT_AT = {}
 logger = logging.getLogger(__name__)
 
 
@@ -81,7 +84,46 @@ def _metrics_after_request(response):
             bucket.append(elapsed_ms)
             if len(bucket) > 500:
                 del bucket[:-500]
+        if response.status_code >= 500:
+            _emit_ops_alert('api_5xx', {
+                'path': path,
+                'status': response.status_code,
+                'latency_ms': round(elapsed_ms, 2),
+            })
+        elif elapsed_ms > 2500:
+            _emit_ops_alert('api_slow', {
+                'path': path,
+                'status': response.status_code,
+                'latency_ms': round(elapsed_ms, 2),
+            })
     return response
+
+
+def _emit_ops_alert(event_type, payload):
+    webhook = app.config.get('ALERT_WEBHOOK_URL', '')
+    if not webhook:
+        return
+    key = f"{event_type}:{payload.get('path', '')}:{payload.get('status', '')}"
+    now = time.time()
+    last = _LAST_ALERT_AT.get(key, 0)
+    if now - last < 300:
+        return
+    _LAST_ALERT_AT[key] = now
+    try:
+        body = json.dumps({
+            'event': event_type,
+            'timestamp': datetime.utcnow().isoformat(),
+            **payload,
+        }).encode('utf-8')
+        req = urllib_request.Request(
+            webhook,
+            data=body,
+            headers={'Content-Type': 'application/json'},
+            method='POST',
+        )
+        urllib_request.urlopen(req, timeout=3).read()
+    except Exception:
+        pass
 
 
 @app.route('/api/metrics')
@@ -106,7 +148,23 @@ def get_metrics():
                     if k.startswith(f'{path}:')
                 },
             }
-    return jsonify({'generated_at': datetime.utcnow().isoformat(), 'critical_endpoints': snapshot})
+    total_5xx = 0
+    with _METRIC_LOCK:
+        for k, v in _METRIC_STATUS.items():
+            try:
+                code = int(k.split(':')[-1])
+            except Exception:
+                continue
+            if code >= 500:
+                total_5xx += v
+    return jsonify({
+        'generated_at': datetime.utcnow().isoformat(),
+        'process_started_at': _PROCESS_STARTED_AT.isoformat(),
+        'uptime_seconds': int((datetime.utcnow() - _PROCESS_STARTED_AT).total_seconds()),
+        'restart_count_observed': 1,
+        'total_5xx': total_5xx,
+        'critical_endpoints': snapshot,
+    })
 
 
 @app.context_processor
@@ -205,6 +263,57 @@ def schedule_checker():
         time.sleep(60)  # Check every minute
 
 
+def cleanup_runtime_state():
+    """Periodic cleanup for stale screenshot blobs and old activity rows."""
+    with app.app_context():
+        now = datetime.utcnow()
+        screenshot_cutoff = now - timedelta(hours=app.config.get('CLEANUP_SCREENSHOT_RETENTION_HOURS', 48))
+        activity_cutoff = now - timedelta(days=app.config.get('CLEANUP_ACTIVITY_RETENTION_DAYS', 45))
+        try:
+            users = User.query.all()
+            for user in users:
+                with device_lock:
+                    devices = load_json_file('devices.json', {}, user.id)
+                    changed = False
+                    for did, row in list(devices.items()):
+                        if not isinstance(row, dict):
+                            continue
+                        ts = row.get('screenshot_timestamp')
+                        if not ts:
+                            continue
+                        try:
+                            stamp = datetime.fromisoformat(ts)
+                        except Exception:
+                            stamp = None
+                        if stamp is None or stamp < screenshot_cutoff:
+                            if 'screenshot_data' in row or 'screenshot_timestamp' in row:
+                                row.pop('screenshot_data', None)
+                                row.pop('screenshot_timestamp', None)
+                                changed = True
+                    if changed:
+                        save_json_file('devices.json', devices, user.id)
+        except Exception as e:
+            _emit_ops_alert('cleanup_error', {'scope': 'devices_json', 'error': str(e)})
+
+        try:
+            deleted = ActivityLog.query.filter(ActivityLog.created_at < activity_cutoff).delete()
+            db.session.commit()
+            if deleted:
+                print(f"Cleanup: pruned {deleted} old activity rows")
+        except Exception as e:
+            db.session.rollback()
+            _emit_ops_alert('cleanup_error', {'scope': 'activity_log', 'error': str(e)})
+
+
+def cleanup_worker():
+    while True:
+        try:
+            cleanup_runtime_state()
+        except Exception as e:
+            _emit_ops_alert('cleanup_error', {'scope': 'worker', 'error': str(e)})
+        time.sleep(max(300, int(app.config.get('CLEANUP_INTERVAL_SECONDS', 3600))))
+
+
 # Schedule checker thread started after init_db() in main block
 
 
@@ -301,6 +410,7 @@ def init_db():
 if __name__ == '__main__':
     init_db()
     threading.Thread(target=schedule_checker, daemon=True).start()
+    threading.Thread(target=cleanup_worker, daemon=True).start()
     
     import socket
     hostname = socket.gethostname()

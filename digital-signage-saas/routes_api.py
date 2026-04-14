@@ -10,6 +10,8 @@ from datetime import datetime
 import os
 import json
 import hashlib
+import tempfile
+from sqlalchemy import text
 
 # Import helper functions from utils
 from utils import (
@@ -1519,24 +1521,58 @@ def get_analytics():
 
 @api_bp.route('/status')
 def get_status():
-    """Get server status for current user"""
+    """Readiness status: includes DB and lightweight disk write checks."""
+    from models import db
+    checks = {'db_read': False, 'db_write': False, 'disk_rw': False}
+    errors = []
+    try:
+        db.session.execute(text("SELECT 1"))
+        checks['db_read'] = True
+        db.session.execute(text("CREATE TEMP TABLE IF NOT EXISTS healthcheck_tmp (v INTEGER)"))
+        db.session.execute(text("INSERT INTO healthcheck_tmp (v) VALUES (1)"))
+        db.session.execute(text("DELETE FROM healthcheck_tmp"))
+        checks['db_write'] = True
+        db.session.commit()
+    except Exception as e:
+        errors.append(f"db: {e}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+    try:
+        base_dir = os.path.dirname(get_data_file_path('healthcheck.tmp', current_user.id if current_user.is_authenticated else 1) or '.')
+        os.makedirs(base_dir, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(prefix='healthcheck.', suffix='.tmp', dir=base_dir, text=True)
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(datetime.utcnow().isoformat())
+            f.flush()
+            os.fsync(f.fileno())
+        os.remove(tmp_path)
+        checks['disk_rw'] = True
+    except Exception as e:
+        errors.append(f"disk_rw: {e}")
+
+    ready = all(checks.values())
+    payload = {
+        'online': ready,
+        'ready': ready,
+        'checks': checks,
+        'server_time': datetime.now().isoformat(),
+    }
+    if errors:
+        payload['errors'] = errors
     if current_user.is_authenticated:
         playlist = load_json_file('playlist.json', {'videos': [], 'settings': {'interval': 30, 'loop': True}})
-        
-        return jsonify({
-            'online': True,
+        payload.update({
             'video_count': len(playlist.get('videos', [])),
             'connected_devices': len(get_connected_devices()),
             'subscription_active': current_user.is_subscription_active(),
             'plan': current_user.plan,
-            'server_time': datetime.now().isoformat()
         })
     else:
-        return jsonify({
-            'online': True,
-            'server_time': datetime.now().isoformat(),
-            'message': 'Server is running'
-        })
+        payload['message'] = 'Server is running' if ready else 'Server not ready'
+    return jsonify(payload), (200 if ready else 503)
 
 
 # Simple test endpoint for Android APK debugging

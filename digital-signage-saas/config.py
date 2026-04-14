@@ -25,6 +25,9 @@ class Config:
         SQLALCHEMY_ENGINE_OPTIONS = {
             'pool_pre_ping': True,   # test connection before use; discard if dead
             'pool_recycle': 300,    # recycle connections every 5 min (under typical server idle timeout)
+            'pool_size': int(os.environ.get('DB_POOL_SIZE', 10)),
+            'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW', 20)),
+            'pool_timeout': int(os.environ.get('DB_POOL_TIMEOUT', 30)),
         }
     elif not IS_PRODUCTION:
         SQLALCHEMY_DATABASE_URI = 'sqlite:///signage.db'
@@ -34,6 +37,11 @@ class Config:
         SQLALCHEMY_DATABASE_URI = ''
         SQLALCHEMY_ENGINE_OPTIONS = {}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    HEALTHCHECK_DB_TIMEOUT_MS = int(os.environ.get('HEALTHCHECK_DB_TIMEOUT_MS', 2000))
+    CLEANUP_INTERVAL_SECONDS = int(os.environ.get('CLEANUP_INTERVAL_SECONDS', 3600))
+    CLEANUP_SCREENSHOT_RETENTION_HOURS = int(os.environ.get('CLEANUP_SCREENSHOT_RETENTION_HOURS', 48))
+    CLEANUP_ACTIVITY_RETENTION_DAYS = int(os.environ.get('CLEANUP_ACTIVITY_RETENTION_DAYS', 45))
+    ALERT_WEBHOOK_URL = os.environ.get('ALERT_WEBHOOK_URL', '').strip()
     
     # Session
     PERMANENT_SESSION_LIFETIME = timedelta(days=7)

@@ -1,0 +1,11 @@
+[Unit]
+Description=Digital Signage runtime cleanup task
+After=network.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/digital-signage-saas
+EnvironmentFile=/etc/signage.env
+ExecStart=/var/www/digital-signage-saas/venv/bin/python /var/www/digital-signage-saas/scripts/cleanup_runtime_state.py

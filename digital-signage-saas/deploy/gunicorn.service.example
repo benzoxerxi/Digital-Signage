@@ -10,6 +10,8 @@
 [Unit]
 Description=Digital Signage SaaS (Gunicorn)
 After=network.target postgresql.service
+StartLimitIntervalSec=300
+StartLimitBurst=10
 
 [Service]
 User=www-data
@@ -29,6 +31,9 @@ ExecStart=/var/www/digital-signage-saas/venv/bin/gunicorn \
   app:app
 Restart=always
 RestartSec=5
+WatchdogSec=60
+TimeoutStartSec=60
+TimeoutStopSec=30
 
 [Install]
 WantedBy=multi-user.target

@@ -66,6 +66,9 @@ echo "==> Remote: pip install + restart service..."
 ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" bash -s << REMOTE_CMD
 set -e
 cd "$REMOTE_DIR"
+if [[ ! -x "./venv/bin/python" ]]; then
+  python3 -m venv "./venv"
+fi
 ./venv/bin/pip install -q --upgrade pip
 ./venv/bin/pip install -q -r requirements.txt
 if [[ -f "manage.py" ]]; then
@@ -80,7 +83,22 @@ else
   echo "Quick test: cd $REMOTE_DIR && ./venv/bin/gunicorn -w 2 -b 127.0.0.1:8000 app:app"
 fi
 if command -v curl >/dev/null 2>&1; then
-  curl -fsS --max-time 10 "$HEALTHCHECK_URL" >/dev/null
+  ok=0
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    for u in "$HEALTHCHECK_URL" "http://127.0.0.1:5000/api/status" "http://127.0.0.1/signage/api/status"; do
+      if curl -fsS --max-time 10 "$u" >/dev/null; then
+        ok=1
+        break
+      fi
+    done
+    [[ "$ok" -eq 1 ]] && break
+    sleep 3
+  done
+  if [[ "$ok" -ne 1 ]]; then
+    sudo systemctl --no-pager --full status "$SERVICE_NAME" || true
+    sudo journalctl -u "$SERVICE_NAME" -n 120 --no-pager || true
+    exit 1
+  fi
 fi
 REMOTE_CMD
 

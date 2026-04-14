@@ -61,11 +61,18 @@ jobs:
             echo "==> Repo: $(pwd)"
             git fetch origin main
             git pull --ff-only origin main
-            if [ -x "${APP}/venv/bin/pip" ]; then
-              echo "==> pip install (venv)"
-              "${APP}/venv/bin/pip" install -r "${APP}/requirements.txt" -q
-            else
-              echo "==> WARNING: no ${APP}/venv/bin/pip — skipping pip (code updated only)"
+            if [ ! -x "${APP}/venv/bin/python" ]; then
+              echo "==> Creating missing venv at ${APP}/venv"
+              python3 -m venv "${APP}/venv"
+            fi
+            echo "==> pip install (venv)"
+            "${APP}/venv/bin/pip" install --upgrade pip -q
+            "${APP}/venv/bin/pip" install -r "${APP}/requirements.txt" -q
+            if [ -f "${APP}/manage.py" ]; then
+              echo "==> Running DB migrations"
+              cd "${APP}"
+              "${APP}/venv/bin/flask" db upgrade || true
+              cd "${REPO}"
             fi
             systemctl restart signage
             systemctl reload nginx

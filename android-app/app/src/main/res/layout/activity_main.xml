@@ -32,6 +32,21 @@
         android:scaleType="fitCenter"
         android:visibility="gone" />
 
+    <TextView
+        android:id="@+id/local_status_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:background="#CCB00020"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="6dp"
+        android:text="Offline mode (local playback)"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
     <!-- Full-screen download progress (saving to device storage, then auto-play) -->
     <FrameLayout
         android:id="@+id/download_overlay"

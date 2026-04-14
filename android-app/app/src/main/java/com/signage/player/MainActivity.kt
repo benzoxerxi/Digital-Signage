@@ -75,6 +75,8 @@ class MainActivity : AppCompatActivity() {
     private var lastBufferRecoveryAtMs = 0L
     private val bufferRecoveryRunnable = Runnable { recoverFromPlaybackStall() }
     private var lastCachedResumeAttemptAtMs = 0L
+    @Volatile
+    private var rebootInProgress = false
     /** When true, do not resume from playlist (set by format/clear_cache; cleared when server sends explicit play). */
     private var doNotResumeFromPlaylist = false
 
@@ -995,39 +997,75 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun performRemoteReboot() {
+        if (rebootInProgress) return
+        rebootInProgress = true
         Toast.makeText(this, "Remote reboot requested. Restarting player…", Toast.LENGTH_LONG).show()
         scope.launch(Dispatchers.IO) {
-            // If the device is rooted, this can perform a full OS reboot.
-            val fullRebootTriggered = try {
-                Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot"))
-                true
-            } catch (_: Exception) {
-                false
-            }
-
-            if (!fullRebootTriggered) {
-                withContext(Dispatchers.Main) { restartApplicationProcess() }
+            try {
+                // If rooted and permitted, perform full OS reboot. Otherwise fall back to safe app restart.
+                val fullRebootTriggered = tryFullSystemReboot()
+                if (!fullRebootTriggered) {
+                    withContext(Dispatchers.Main) { restartApplicationProcess() }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Remote reboot failed; using safe restart fallback", e)
+                withContext(Dispatchers.Main) { safeRestartWithoutKill() }
+            } finally {
+                rebootInProgress = false
             }
         }
     }
 
+    private fun tryFullSystemReboot(): Boolean {
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot"))
+            val exitCode = process.waitFor()
+            exitCode == 0
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun restartApplicationProcess() {
-        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        } ?: return
+        try {
+            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            } ?: run {
+                safeRestartWithoutKill()
+                return
+            }
 
-        val flags = PendingIntent.FLAG_ONE_SHOT or
-            (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
-        val pendingIntent = PendingIntent.getActivity(this, 9911, launchIntent, flags)
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        alarmManager.setExact(
-            AlarmManager.RTC_WAKEUP,
-            System.currentTimeMillis() + APP_RESTART_DELAY_MS,
-            pendingIntent
-        )
+            val flags = PendingIntent.FLAG_ONE_SHOT or
+                (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            val pendingIntent = PendingIntent.getActivity(this, 9911, launchIntent, flags)
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.setExact(
+                AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + APP_RESTART_DELAY_MS,
+                pendingIntent
+            )
 
-        finishAffinity()
-        Process.killProcess(Process.myPid())
+            finishAffinity()
+            Process.killProcess(Process.myPid())
+        } catch (e: Exception) {
+            Log.e(TAG, "Hard restart failed, trying soft restart", e)
+            safeRestartWithoutKill()
+        }
+    }
+
+    private fun safeRestartWithoutKill() {
+        try {
+            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            if (launchIntent != null) {
+                startActivity(launchIntent)
+            }
+            finish()
+        } catch (e: Exception) {
+            Log.e(TAG, "Soft restart failed", e)
+            Toast.makeText(this, "Restart failed. Please reopen the app.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun hideSystemUI() {

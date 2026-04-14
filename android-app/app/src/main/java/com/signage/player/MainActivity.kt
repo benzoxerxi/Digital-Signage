@@ -965,8 +965,8 @@ class MainActivity : AppCompatActivity() {
                     val mediaItem = MediaItem.fromUri(Uri.fromFile(cachedFile))
                     player?.apply {
                         setMediaItem(mediaItem)
-                        // Explicit command playback should stay stable until next command.
-                        repeatMode = Player.REPEAT_MODE_ONE
+                        // One-shot explicit command: after end, continue normal playlist flow.
+                        repeatMode = Player.REPEAT_MODE_OFF
                         prepare()
                         play()
                     }

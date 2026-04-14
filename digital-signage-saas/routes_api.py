@@ -66,6 +66,30 @@ def _cache_manifest_param_to_json_string(params):
     return None
 
 
+def _download_progress_param_to_json_string(params):
+    """Return compact JSON object string for per-device download progress, or None."""
+    if 'download_progress' not in params:
+        return None
+    dp = params.get('download_progress')
+    try:
+        if isinstance(dp, str):
+            dp = json.loads(dp)
+        if not isinstance(dp, dict):
+            return None
+        compact = {
+            'filename': str(dp.get('filename') or '')[:260],
+            'name': str(dp.get('name') or '')[:260],
+            'bytes_read': int(dp.get('bytes_read') or 0),
+            'total_bytes': int(dp.get('total_bytes') or 0),
+            'percent': float(dp.get('percent') or 0.0),
+            'status': str(dp.get('status') or 'downloading')[:40],
+            'updated_at_ms': int(dp.get('updated_at_ms') or 0),
+        }
+        return json.dumps(compact)
+    except Exception:
+        return None
+
+
 def _compute_file_md5(filepath):
     md5 = hashlib.md5()
     with open(filepath, 'rb') as f:
@@ -604,6 +628,9 @@ def get_playback_state():
     cm_json = _cache_manifest_param_to_json_string(params)
     if cm_json is not None:
         hb_kwargs['reported_cache_manifest'] = cm_json
+    dp_json = _download_progress_param_to_json_string(params)
+    if dp_json is not None:
+        hb_kwargs['reported_download_progress'] = dp_json
 
     try:
         device_data = update_device_heartbeat(
@@ -614,6 +641,21 @@ def get_playback_state():
                 'removed': True,
                 'message': 'Device was removed from the control panel. Reconnect from setup.'
             }), 200
+
+        # One-shot explicit play command: once device reports it is already on this video,
+        # clear current_video so subsequent heartbeats return to normal playlist flow.
+        server_current_video = device_data.get('current_video')
+        if server_current_video and reported_current_video and reported_current_video == server_current_video:
+            with device_lock:
+                devs = load_json_file('devices.json', {}, user_id)
+                row = devs.get(device_id)
+                if isinstance(row, dict) and row.get('current_video') == server_current_video:
+                    row['current_video'] = None
+                    row.pop('current_video_display_name', None)
+                    save_json_file('devices.json', devs, user_id)
+                    sync_devices_hot_state(user_id, devs, [device_id])
+                    set_current_video_display_name(user_id, device_id, None)
+                    device_data = dict(row)
 
         # Load playlist settings
         playlist = load_json_file('playlist.json', {

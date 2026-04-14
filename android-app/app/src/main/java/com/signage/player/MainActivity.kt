@@ -1,17 +1,13 @@
 package com.signage.player
 
 import android.app.ActivityManager
-import android.app.AlarmManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.Process
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Base64
@@ -75,8 +71,6 @@ class MainActivity : AppCompatActivity() {
     private var lastBufferRecoveryAtMs = 0L
     private val bufferRecoveryRunnable = Runnable { recoverFromPlaybackStall() }
     private var lastCachedResumeAttemptAtMs = 0L
-    @Volatile
-    private var rebootInProgress = false
     /** When true, do not resume from playlist (set by format/clear_cache; cleared when server sends explicit play). */
     private var doNotResumeFromPlaylist = false
 
@@ -97,7 +91,6 @@ class MainActivity : AppCompatActivity() {
         private const val BUFFER_STALL_TIMEOUT_MS = 15_000L
         private const val BUFFER_RECOVERY_COOLDOWN_MS = 10_000L
         private const val CACHED_RESUME_MIN_INTERVAL_MS = 15_000L
-        private const val APP_RESTART_DELAY_MS = 1500L
         private const val SCREENSAVER_URL = "https://karchershop.ge/cdn/shop/files/logo_karcher_2015.svg?v=1683099671&width=600"
         private const val LOGO_URL = "https://images.seeklogo.com/logo-png/43/2/karcher-logo-png_seeklogo-437949.png"
         /** Default server URL – no server input needed; user only enters 9-digit code */
@@ -449,13 +442,6 @@ class MainActivity : AppCompatActivity() {
                     currentPlaylist = emptyList()
                     currentVideoIndex = 0
                     lastCommandId = playbackState.command_id
-                    return@launch
-                }
-
-                if (playbackState.reboot_requested == true && playbackState.command_id != lastCommandId) {
-                    Log.w(TAG, "Remote reboot requested from dashboard")
-                    lastCommandId = playbackState.command_id
-                    performRemoteReboot()
                     return@launch
                 }
 
@@ -993,78 +979,6 @@ class MainActivity : AppCompatActivity() {
             } else {
                 showScreensaver(true)
             }
-        }
-    }
-
-    private fun performRemoteReboot() {
-        if (rebootInProgress) return
-        rebootInProgress = true
-        Toast.makeText(this, "Remote reboot requested. Restarting player…", Toast.LENGTH_LONG).show()
-        scope.launch(Dispatchers.IO) {
-            try {
-                // If rooted and permitted, perform full OS reboot. Otherwise fall back to safe app restart.
-                val fullRebootTriggered = tryFullSystemReboot()
-                if (!fullRebootTriggered) {
-                    withContext(Dispatchers.Main) { restartApplicationProcess() }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Remote reboot failed; using safe restart fallback", e)
-                withContext(Dispatchers.Main) { safeRestartWithoutKill() }
-            } finally {
-                rebootInProgress = false
-            }
-        }
-    }
-
-    private fun tryFullSystemReboot(): Boolean {
-        return try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot"))
-            val exitCode = process.waitFor()
-            exitCode == 0
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    private fun restartApplicationProcess() {
-        try {
-            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            } ?: run {
-                safeRestartWithoutKill()
-                return
-            }
-
-            val flags = PendingIntent.FLAG_ONE_SHOT or
-                (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
-            val pendingIntent = PendingIntent.getActivity(this, 9911, launchIntent, flags)
-            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            alarmManager.setExact(
-                AlarmManager.RTC_WAKEUP,
-                System.currentTimeMillis() + APP_RESTART_DELAY_MS,
-                pendingIntent
-            )
-
-            finishAffinity()
-            Process.killProcess(Process.myPid())
-        } catch (e: Exception) {
-            Log.e(TAG, "Hard restart failed, trying soft restart", e)
-            safeRestartWithoutKill()
-        }
-    }
-
-    private fun safeRestartWithoutKill() {
-        try {
-            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            }
-            if (launchIntent != null) {
-                startActivity(launchIntent)
-            }
-            finish()
-        } catch (e: Exception) {
-            Log.e(TAG, "Soft restart failed", e)
-            Toast.makeText(this, "Restart failed. Please reopen the app.", Toast.LENGTH_LONG).show()
         }
     }
 

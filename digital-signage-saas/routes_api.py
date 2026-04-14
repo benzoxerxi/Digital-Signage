@@ -581,14 +581,6 @@ def get_playback_state():
                 if device_id in devs:
                     devs[device_id].pop('cache_delete_keys', None)
                     save_json_file('devices.json', devs, user_id)
-        reboot_requested = bool(device_data.get('reboot_requested', False))
-        if reboot_requested:
-            with device_lock:
-                devs = load_json_file('devices.json', {}, user_id)
-                if device_id in devs:
-                    devs[device_id].pop('reboot_requested', None)
-                    save_json_file('devices.json', devs, user_id)
-
         if device_data.get('current_video'):
             # Only send the single commanded video; do not push playlist to device
             cv = device_data['current_video']
@@ -611,7 +603,6 @@ def get_playback_state():
                 'device_name': device_name_from_server,
                 'clear_cache': clear_cache,
                 'playback_cache_only': bool(device_data.get('playback_cache_only')),
-                'reboot_requested': reboot_requested,
             }
             if current_video_name:
                 response['current_video_name'] = current_video_name
@@ -631,7 +622,6 @@ def get_playback_state():
                 'device_name': device_name_from_server,
                 'clear_cache': clear_cache,
                 'playback_cache_only': bool(device_data.get('playback_cache_only')),
-                'reboot_requested': reboot_requested,
             }
             if pending_deletes:
                 idle_response['cache_delete_keys'] = pending_deletes
@@ -979,25 +969,6 @@ def request_device_screenshot(device_id):
     devices[device_id]['screenshot_requested'] = True
     save_json_file('devices.json', devices, _cu.id)
     return jsonify({'success': True, 'message': 'Screenshot request sent to display'})
-
-
-@api_bp.route('/devices/<device_id>/reboot', methods=['POST'])
-@login_required
-def request_device_reboot(device_id):
-    """Queue reboot/restart command for a specific device."""
-    if not current_user.is_subscription_active():
-        return jsonify({'success': False, 'error': 'Subscription expired'}), 403
-
-    from flask_login import current_user as _cu
-    devices = load_json_file('devices.json', {}, _cu.id)
-    if device_id not in devices:
-        return jsonify({'success': False, 'error': 'Device not found'}), 404
-
-    devices[device_id]['reboot_requested'] = True
-    devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
-    save_json_file('devices.json', devices, _cu.id)
-    log_activity('device_reboot_requested', {'device_id': device_id})
-    return jsonify({'success': True, 'message': 'Reboot command queued'})
 
 
 @api_bp.route('/devices/<device_id>/screenshot', methods=['GET'])

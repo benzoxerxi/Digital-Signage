@@ -1846,7 +1846,6 @@
                     <span class="info-value" id="deviceDetailLastSeen"></span>
                 </div>
                 <button type="button" class="btn btn-secondary btn-small" style="width: 100%; margin-top: 4px;" id="deviceDetailScreenshotBtn">📸 Request screenshot</button>
-                <button type="button" class="btn btn-danger btn-small" style="width: 100%; margin-top: 8px;" onclick="requestDeviceRebootFromModal(event)">🔁 Reboot display</button>
                 <div style="margin-top: 14px;">
                     <div class="info-label" style="margin-bottom: 6px;">Cached on device (disk)</div>
                     <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Videos save to the display’s internal storage (not RAM), then play from disk. While downloading, the player shows progress on screen. “Play (cache)” plays without re-downloading; “Delete” queues removal on the next sync.</p>
@@ -3162,37 +3161,6 @@
             }
         }
         
-        // Screenshot + device actions
-        async function requestDeviceRebootFromModal(event) {
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            const deviceId = (document.getElementById('deviceDetailId')?.textContent || '').trim();
-            if (!deviceId) {
-                showToast('No display selected', 'error');
-                return;
-            }
-            const device = allDevices.find(d => d.id === deviceId);
-            if (device && !device.online) {
-                showToast('Display is offline', 'error');
-                return;
-            }
-            if (!confirm(`Reboot ${device?.name || deviceId}?`)) return;
-            try {
-                const response = await fetch(`/api/devices/${deviceId}/reboot`, { method: 'POST' });
-                const result = await response.json().catch(() => ({}));
-                if (!response.ok || !result.success) {
-                    showToast(result.error || 'Failed to send reboot command', 'error');
-                    return;
-                }
-                showToast('Reboot command sent', 'success');
-                closeModal('deviceDetailModal');
-            } catch (error) {
-                showToast('Failed to send reboot command', 'error');
-            }
-        }
-
         // Screenshot functions
         async function requestScreenshot(deviceId, event) {
             event.stopPropagation();

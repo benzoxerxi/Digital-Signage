@@ -89,8 +89,6 @@ class MainActivity : AppCompatActivity() {
     private val bufferRecoveryRunnable = Runnable { recoverFromPlaybackStall() }
     private val heartbeatTickRunnable = Runnable { sendHeartbeatAndCheckCommands() }
     private var lastCachedResumeAttemptAtMs = 0L
-    private var lastExplicitVideoKey: String? = null
-    private var lastExplicitVideoAtMs = 0L
     private var currentPlayingCacheKey: String? = null
     /** When true, do not resume from playlist (set by format/clear_cache; cleared when server sends explicit play). */
     private var doNotResumeFromPlaylist = false
@@ -115,7 +113,6 @@ class MainActivity : AppCompatActivity() {
         private const val DOWNLOAD_HEARTBEAT_NUDGE_MS = 1_000L
         private const val DOWNLOAD_HEARTBEAT_NUDGE_THROTTLE_MS = 2_500L
         private const val DOWNLOAD_OVERLAY_SHOW_DELAY_MS = 900L
-        private const val DUPLICATE_EXPLICIT_COMMAND_WINDOW_MS = 8_000L
         private const val MANIFEST_RESEND_INTERVAL_MS = 180_000L
         private const val OFFLINE_MODE_AFTER_MS = 120_000L
         /** Avoid hammering /api/playlist every heartbeat; reduces network contention with video streaming. */
@@ -533,17 +530,14 @@ class MainActivity : AppCompatActivity() {
                         currentPlaylist = emptyList()
                         currentVideoIndex = 0
                         val explicitKey = cacheKey(playbackState.current_video)
-                        val nowMs = SystemClock.elapsedRealtime()
-                        val sameRecentVideo =
-                            lastExplicitVideoKey == explicitKey &&
-                                nowMs - lastExplicitVideoAtMs < DUPLICATE_EXPLICIT_COMMAND_WINDOW_MS
                         val inFlightSameVideo = synchronized(downloadLock) { inFlightDownloads.containsKey(explicitKey) }
-                        val playingSameVideo = prefs.getString(KEY_CACHED_VIDEO_FILENAME, null) == explicitKey && player?.isPlaying == true
-                        if (sameRecentVideo && (inFlightSameVideo || playingSameVideo)) {
+                        val exoState = player?.playbackState ?: Player.STATE_IDLE
+                        val activeSameVideo =
+                            currentPlayingCacheKey == explicitKey &&
+                                (player?.isPlaying == true || exoState == Player.STATE_READY || exoState == Player.STATE_BUFFERING)
+                        if (inFlightSameVideo || activeSameVideo) {
                             Log.d(TAG, "Ignoring duplicate explicit play command for $explicitKey")
                         } else {
-                            lastExplicitVideoKey = explicitKey
-                            lastExplicitVideoAtMs = nowMs
                             playSpecificVideo(
                                 playbackState.current_video,
                                 playbackState.video_url,
@@ -559,7 +553,6 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "Stop/format command – stopping playback")
                         doNotResumeFromPlaylist = true
                         clearDownloadProgressHeartbeat()
-                        lastExplicitVideoKey = null
                         player?.stop()
                         currentPlayingCacheKey = null
                         showScreensaver(true)

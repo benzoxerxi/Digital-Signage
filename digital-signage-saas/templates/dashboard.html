@@ -2289,7 +2289,7 @@
                 return d ? (d.name || id) : id;
             }).join(', ');
         }
-        var playbackProgressTracking = { active: false, targetIds: [] };
+        var playbackProgressTracking = { active: false, targetIds: [], targetVideo: null, closeTimer: null };
 
         function getPlaybackTrackedDevices() {
             var ids = (playbackProgressTracking.targetIds || []);
@@ -2298,29 +2298,65 @@
             });
         }
 
-        function renderPerDevicePlaybackProgress() {
-            var listEl = document.getElementById('playbackPerDeviceProgressList');
-            if (!listEl) return;
-            if (!playbackProgressTracking.active || !playbackProgressTracking.targetIds.length) {
-                listEl.innerHTML = '';
-                return;
-            }
-            var rows = getPlaybackTrackedDevices().map(function(device) {
-                var dp = device.download_progress || null;
-                var pct = 0;
-                var status = device.online ? 'Waiting for device...' : 'Offline';
-                if (dp && typeof dp === 'object') {
+        function normalizeVideoKey(value) {
+            return String(value || '').trim();
+        }
+
+        function resolveDevicePlaybackProgress(device) {
+            var targetVideo = normalizeVideoKey(playbackProgressTracking.targetVideo);
+            var dp = device.download_progress || null;
+            var pct = 0;
+            var status = device.online ? 'Waiting for device heartbeat...' : 'Offline';
+            var ready = false;
+
+            if (dp && typeof dp === 'object') {
+                var dpFilename = normalizeVideoKey(dp.filename || '');
+                var matchesTarget = !targetVideo || !dpFilename || dpFilename === targetVideo;
+                if (matchesTarget) {
                     if (typeof dp.percent === 'number') {
                         pct = Math.max(0, Math.min(100, dp.percent));
                     } else if (Number(dp.total_bytes) > 0) {
                         pct = Math.max(0, Math.min(100, (Number(dp.bytes_read || 0) / Number(dp.total_bytes)) * 100));
                     }
+                    var dpStatus = String(dp.status || 'downloading').toLowerCase();
                     var fileName = dp.name || dp.filename || '';
-                    status = (dp.status || 'downloading') + (fileName ? (' - ' + fileName) : '');
-                } else if (device.current_video || device.reported_current_video) {
+                    status = dpStatus + (fileName ? (' - ' + fileName) : '');
+                    ready = dpStatus === 'completed';
+                }
+            }
+
+            if (!ready) {
+                var deviceVideo = normalizeVideoKey(device.reported_current_video || device.current_video || '');
+                if (targetVideo && deviceVideo === targetVideo) {
                     pct = 100;
                     status = 'Ready/playing';
+                    ready = true;
                 }
+            }
+
+            return { pct: pct, status: status, ready: ready };
+        }
+
+        function renderPerDevicePlaybackProgress() {
+            var listEl = document.getElementById('playbackPerDeviceProgressList');
+            if (!listEl) return;
+            if (!playbackProgressTracking.active || !playbackProgressTracking.targetIds.length) {
+                listEl.innerHTML = '';
+                if (playbackProgressTracking.closeTimer) {
+                    clearTimeout(playbackProgressTracking.closeTimer);
+                    playbackProgressTracking.closeTimer = null;
+                }
+                return;
+            }
+            var trackedDevices = getPlaybackTrackedDevices();
+            var readyCount = 0;
+            var totalPct = 0;
+            var rows = trackedDevices.map(function(device) {
+                var resolved = resolveDevicePlaybackProgress(device);
+                var pct = resolved.pct;
+                var status = resolved.status;
+                if (resolved.ready) readyCount += 1;
+                totalPct += pct;
                 var safeName = (device.name || device.id || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 var safeStatus = String(status).replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 return '<div style="margin:8px 0;padding:8px;border:1px solid var(--border);border-radius:8px;">'
@@ -2331,6 +2367,33 @@
                     + '</div>';
             });
             listEl.innerHTML = rows.join('');
+
+            var totalDevices = trackedDevices.length;
+            var aggregatePct = totalDevices > 0 ? Math.round(totalPct / totalDevices) : 0;
+            var bar = document.getElementById('playbackProgressBar');
+            var statusEl = document.getElementById('playbackProgressStatus');
+            if (bar) bar.style.width = aggregatePct + '%';
+            if (statusEl) {
+                if (readyCount === totalDevices && totalDevices > 0) {
+                    statusEl.textContent = 'Completed on ' + readyCount + '/' + totalDevices + ' display(s)';
+                } else {
+                    statusEl.textContent = 'Downloading... ' + readyCount + '/' + totalDevices + ' ready (' + aggregatePct + '%)';
+                }
+            }
+            if (readyCount === totalDevices && totalDevices > 0) {
+                if (!playbackProgressTracking.closeTimer) {
+                    playbackProgressTracking.closeTimer = setTimeout(function() {
+                        playbackProgressTracking.active = false;
+                        playbackProgressTracking.targetIds = [];
+                        playbackProgressTracking.targetVideo = null;
+                        playbackProgressTracking.closeTimer = null;
+                        closeModal('playbackProgressModal');
+                    }, 3000);
+                }
+            } else if (playbackProgressTracking.closeTimer) {
+                clearTimeout(playbackProgressTracking.closeTimer);
+                playbackProgressTracking.closeTimer = null;
+            }
         }
 
         function setPlaybackProgress(pct, status) {
@@ -2356,6 +2419,11 @@
             if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
             playbackProgressTracking.active = true;
             playbackProgressTracking.targetIds = targetIds.slice();
+            playbackProgressTracking.targetVideo = null;
+            if (playbackProgressTracking.closeTimer) {
+                clearTimeout(playbackProgressTracking.closeTimer);
+                playbackProgressTracking.closeTimer = null;
+            }
             setPlaybackProgress(0, 'Sending to devices...');
             openModal('playbackProgressModal');
             const isDrive = videoEntry && (videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.startsWith('drive:')));
@@ -2371,32 +2439,30 @@
             } else {
                 payload.filename = typeof videoEntry === 'string' ? videoEntry : (videoEntry && videoEntry.filename);
             }
+            playbackProgressTracking.targetVideo = payload.filename || (payload.drive_file_id ? ('drive:' + payload.drive_file_id) : null);
             const displayName = videoEntry && videoEntry.name ? videoEntry.name : (payload.filename || payload.drive_file_id);
             try {
                 setPlaybackProgress(20, 'Sending to devices...');
                 const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-                setPlaybackProgress(80, 'Updating displays...');
+                setPlaybackProgress(35, 'Command sent. Waiting for device download progress...');
                 const result = await response.json();
                 if (result.success) {
-                    setPlaybackProgress(100, 'Done — playing on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)');
                     showToast('Playing "' + displayName + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
                     selectedDevices = [];
                     var playAllEl = document.getElementById('playbackPlayAllDisplays');
                     if (playAllEl) playAllEl.checked = false;
                     await loadDevices();
-                    setTimeout(function() {
-                        playbackProgressTracking.active = false;
-                        closeModal('playbackProgressModal');
-                    }, 8000);
                 } else {
                     setPlaybackProgress(100, 'Failed: ' + (result.error || 'Unknown error'));
                     showToast('Playback failed: ' + (result.error || 'Unknown'), 'error');
                     playbackProgressTracking.active = false;
+                    playbackProgressTracking.targetVideo = null;
                 }
             } catch (error) {
                 setPlaybackProgress(100, 'Failed: network error');
                 showToast('Failed to play video', 'error');
                 playbackProgressTracking.active = false;
+                playbackProgressTracking.targetVideo = null;
             }
         }
         
@@ -3930,7 +3996,7 @@
                 return d ? (d.name || id) : id;
             }).join(', ');
         }
-        var playbackProgressTracking = { active: false, targetIds: [] };
+        var playbackProgressTracking = { active: false, targetIds: [], targetVideo: null, closeTimer: null };
 
         function getPlaybackTrackedDevices() {
             var ids = (playbackProgressTracking.targetIds || []);
@@ -3939,29 +4005,65 @@
             });
         }
 
-        function renderPerDevicePlaybackProgress() {
-            var listEl = document.getElementById('playbackPerDeviceProgressList');
-            if (!listEl) return;
-            if (!playbackProgressTracking.active || !playbackProgressTracking.targetIds.length) {
-                listEl.innerHTML = '';
-                return;
-            }
-            var rows = getPlaybackTrackedDevices().map(function(device) {
-                var dp = device.download_progress || null;
-                var pct = 0;
-                var status = device.online ? 'Waiting for device...' : 'Offline';
-                if (dp && typeof dp === 'object') {
+        function normalizeVideoKey(value) {
+            return String(value || '').trim();
+        }
+
+        function resolveDevicePlaybackProgress(device) {
+            var targetVideo = normalizeVideoKey(playbackProgressTracking.targetVideo);
+            var dp = device.download_progress || null;
+            var pct = 0;
+            var status = device.online ? 'Waiting for device heartbeat...' : 'Offline';
+            var ready = false;
+
+            if (dp && typeof dp === 'object') {
+                var dpFilename = normalizeVideoKey(dp.filename || '');
+                var matchesTarget = !targetVideo || !dpFilename || dpFilename === targetVideo;
+                if (matchesTarget) {
                     if (typeof dp.percent === 'number') {
                         pct = Math.max(0, Math.min(100, dp.percent));
                     } else if (Number(dp.total_bytes) > 0) {
                         pct = Math.max(0, Math.min(100, (Number(dp.bytes_read || 0) / Number(dp.total_bytes)) * 100));
                     }
+                    var dpStatus = String(dp.status || 'downloading').toLowerCase();
                     var fileName = dp.name || dp.filename || '';
-                    status = (dp.status || 'downloading') + (fileName ? (' - ' + fileName) : '');
-                } else if (device.current_video || device.reported_current_video) {
+                    status = dpStatus + (fileName ? (' - ' + fileName) : '');
+                    ready = dpStatus === 'completed';
+                }
+            }
+
+            if (!ready) {
+                var deviceVideo = normalizeVideoKey(device.reported_current_video || device.current_video || '');
+                if (targetVideo && deviceVideo === targetVideo) {
                     pct = 100;
                     status = 'Ready/playing';
+                    ready = true;
                 }
+            }
+
+            return { pct: pct, status: status, ready: ready };
+        }
+
+        function renderPerDevicePlaybackProgress() {
+            var listEl = document.getElementById('playbackPerDeviceProgressList');
+            if (!listEl) return;
+            if (!playbackProgressTracking.active || !playbackProgressTracking.targetIds.length) {
+                listEl.innerHTML = '';
+                if (playbackProgressTracking.closeTimer) {
+                    clearTimeout(playbackProgressTracking.closeTimer);
+                    playbackProgressTracking.closeTimer = null;
+                }
+                return;
+            }
+            var trackedDevices = getPlaybackTrackedDevices();
+            var readyCount = 0;
+            var totalPct = 0;
+            var rows = trackedDevices.map(function(device) {
+                var resolved = resolveDevicePlaybackProgress(device);
+                var pct = resolved.pct;
+                var status = resolved.status;
+                if (resolved.ready) readyCount += 1;
+                totalPct += pct;
                 var safeName = (device.name || device.id || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 var safeStatus = String(status).replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 return '<div style="margin:8px 0;padding:8px;border:1px solid var(--border);border-radius:8px;">'
@@ -3972,6 +4074,33 @@
                     + '</div>';
             });
             listEl.innerHTML = rows.join('');
+
+            var totalDevices = trackedDevices.length;
+            var aggregatePct = totalDevices > 0 ? Math.round(totalPct / totalDevices) : 0;
+            var bar = document.getElementById('playbackProgressBar');
+            var statusEl = document.getElementById('playbackProgressStatus');
+            if (bar) bar.style.width = aggregatePct + '%';
+            if (statusEl) {
+                if (readyCount === totalDevices && totalDevices > 0) {
+                    statusEl.textContent = 'Completed on ' + readyCount + '/' + totalDevices + ' display(s)';
+                } else {
+                    statusEl.textContent = 'Downloading... ' + readyCount + '/' + totalDevices + ' ready (' + aggregatePct + '%)';
+                }
+            }
+            if (readyCount === totalDevices && totalDevices > 0) {
+                if (!playbackProgressTracking.closeTimer) {
+                    playbackProgressTracking.closeTimer = setTimeout(function() {
+                        playbackProgressTracking.active = false;
+                        playbackProgressTracking.targetIds = [];
+                        playbackProgressTracking.targetVideo = null;
+                        playbackProgressTracking.closeTimer = null;
+                        closeModal('playbackProgressModal');
+                    }, 3000);
+                }
+            } else if (playbackProgressTracking.closeTimer) {
+                clearTimeout(playbackProgressTracking.closeTimer);
+                playbackProgressTracking.closeTimer = null;
+            }
         }
 
         function setPlaybackProgress(pct, status) {
@@ -3997,6 +4126,11 @@
             if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
             playbackProgressTracking.active = true;
             playbackProgressTracking.targetIds = targetIds.slice();
+            playbackProgressTracking.targetVideo = null;
+            if (playbackProgressTracking.closeTimer) {
+                clearTimeout(playbackProgressTracking.closeTimer);
+                playbackProgressTracking.closeTimer = null;
+            }
             setPlaybackProgress(0, 'Sending to devices...');
             openModal('playbackProgressModal');
             const isDrive = videoEntry && (videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.startsWith('drive:')));
@@ -4012,32 +4146,30 @@
             } else {
                 payload.filename = typeof videoEntry === 'string' ? videoEntry : (videoEntry && videoEntry.filename);
             }
+            playbackProgressTracking.targetVideo = payload.filename || (payload.drive_file_id ? ('drive:' + payload.drive_file_id) : null);
             const displayName = videoEntry && videoEntry.name ? videoEntry.name : (payload.filename || payload.drive_file_id);
             try {
                 setPlaybackProgress(20, 'Sending to devices...');
                 const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-                setPlaybackProgress(80, 'Updating displays...');
+                setPlaybackProgress(35, 'Command sent. Waiting for device download progress...');
                 const result = await response.json();
                 if (result.success) {
-                    setPlaybackProgress(100, 'Done — playing on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)');
                     showToast('Playing "' + displayName + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
                     selectedDevices = [];
                     var playAllEl = document.getElementById('playbackPlayAllDisplays');
                     if (playAllEl) playAllEl.checked = false;
                     await loadDevices();
-                    setTimeout(function() {
-                        playbackProgressTracking.active = false;
-                        closeModal('playbackProgressModal');
-                    }, 8000);
                 } else {
                     setPlaybackProgress(100, 'Failed: ' + (result.error || 'Unknown error'));
                     showToast('Playback failed: ' + (result.error || 'Unknown'), 'error');
                     playbackProgressTracking.active = false;
+                    playbackProgressTracking.targetVideo = null;
                 }
             } catch (error) {
                 setPlaybackProgress(100, 'Failed: network error');
                 showToast('Failed to play video', 'error');
                 playbackProgressTracking.active = false;
+                playbackProgressTracking.targetVideo = null;
             }
         }
         

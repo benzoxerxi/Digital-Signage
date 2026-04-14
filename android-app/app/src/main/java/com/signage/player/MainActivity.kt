@@ -75,6 +75,8 @@ class MainActivity : AppCompatActivity() {
     private var lastManifestSentAtMs = 0L
     @Volatile
     private var downloadProgressHeartbeatJson: String? = null
+    @Volatile
+    private var lastDownloadHeartbeatNudgeAtMs = 0L
     private val inFlightDownloads = mutableMapOf<String, Deferred<Boolean>>()
     private val downloadLock = Any()
     private var bufferingStartedAtMs = 0L
@@ -98,9 +100,12 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_CACHE_FILE_LABELS = "cache_file_labels_json"
         private const val HEARTBEAT_ACTIVE_INTERVAL_MS = 4_000L
         private const val HEARTBEAT_IDLE_INTERVAL_MS = 12_000L
+        private const val HEARTBEAT_DOWNLOAD_INTERVAL_MS = 1_500L
         private const val HEARTBEAT_FAILURE_BASE_MS = 3_000L
         private const val HEARTBEAT_FAILURE_MAX_MS = 60_000L
         private const val HEARTBEAT_JITTER_MS = 700L
+        private const val DOWNLOAD_HEARTBEAT_NUDGE_MS = 700L
+        private const val DOWNLOAD_HEARTBEAT_NUDGE_THROTTLE_MS = 1_000L
         private const val MANIFEST_RESEND_INTERVAL_MS = 180_000L
         private const val OFFLINE_MODE_AFTER_MS = 120_000L
         /** Avoid hammering /api/playlist every heartbeat; reduces network contention with video streaming. */
@@ -399,6 +404,7 @@ class MainActivity : AppCompatActivity() {
                 (HEARTBEAT_FAILURE_BASE_MS * (1L shl (heartbeatFailureCount - 1).coerceAtMost(5)))
                     .coerceAtMost(HEARTBEAT_FAILURE_MAX_MS)
             }
+            downloadProgressHeartbeatJson != null -> HEARTBEAT_DOWNLOAD_INTERVAL_MS
             now < fastHeartbeatUntilMs || inLayoutMode || player?.isPlaying == true -> HEARTBEAT_ACTIVE_INTERVAL_MS
             else -> HEARTBEAT_IDLE_INTERVAL_MS
         }
@@ -780,12 +786,21 @@ class MainActivity : AppCompatActivity() {
             obj.put("status", status)
             obj.put("updated_at_ms", System.currentTimeMillis())
             downloadProgressHeartbeatJson = obj.toString()
+            nudgeHeartbeatForDownloadProgress()
         } catch (_: Exception) {
         }
     }
 
     private fun clearDownloadProgressHeartbeat() {
         downloadProgressHeartbeatJson = null
+    }
+
+    private fun nudgeHeartbeatForDownloadProgress() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastDownloadHeartbeatNudgeAtMs < DOWNLOAD_HEARTBEAT_NUDGE_THROTTLE_MS) return
+        lastDownloadHeartbeatNudgeAtMs = now
+        handler.removeCallbacks(heartbeatTickRunnable)
+        handler.postDelayed(heartbeatTickRunnable, DOWNLOAD_HEARTBEAT_NUDGE_MS)
     }
 
     private suspend fun ensureVideoCached(

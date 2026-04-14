@@ -91,6 +91,7 @@ class MainActivity : AppCompatActivity() {
     private var lastCachedResumeAttemptAtMs = 0L
     private var lastExplicitVideoKey: String? = null
     private var lastExplicitVideoAtMs = 0L
+    private var currentPlayingCacheKey: String? = null
     /** When true, do not resume from playlist (set by format/clear_cache; cleared when server sends explicit play). */
     private var doNotResumeFromPlaylist = false
 
@@ -493,6 +494,7 @@ class MainActivity : AppCompatActivity() {
                     clearDownloadProgressHeartbeat()
                     exitLayoutMode()
                     player?.stop()
+                    currentPlayingCacheKey = null
                     showScreensaver(true)
                     clearVideoCache()
                     currentPlaylist = emptyList()
@@ -559,6 +561,7 @@ class MainActivity : AppCompatActivity() {
                         clearDownloadProgressHeartbeat()
                         lastExplicitVideoKey = null
                         player?.stop()
+                        currentPlayingCacheKey = null
                         showScreensaver(true)
                         clearVideoCache()
                         currentPlaylist = emptyList()
@@ -606,6 +609,7 @@ class MainActivity : AppCompatActivity() {
         scope.launch(Dispatchers.IO) {
             try {
                 clearDownloadProgressHeartbeat()
+                currentPlayingCacheKey = null
                 val cacheSize = videoCache.getCacheSize()
                 videoCache.clearCache()
                 withContext(Dispatchers.Main) {
@@ -684,6 +688,7 @@ class MainActivity : AppCompatActivity() {
         if (removedCurrent) {
             Log.d(TAG, "Current cached file was deleted by server command")
             player?.stop()
+            currentPlayingCacheKey = null
             prefs.edit().remove(KEY_CACHED_VIDEO_FILENAME).remove(KEY_CACHED_VIDEO_DISPLAY_NAME).apply()
             showScreensaver(true)
         }
@@ -924,6 +929,15 @@ class MainActivity : AppCompatActivity() {
         val key = cacheKey(filename)
         scope.launch {
             try {
+                val exo = player
+                val exoState = exo?.playbackState ?: Player.STATE_IDLE
+                val alreadyPlayingSame =
+                    currentPlayingCacheKey == key &&
+                        (exo?.isPlaying == true || exoState == Player.STATE_READY || exoState == Player.STATE_BUFFERING)
+                if (alreadyPlayingSame) {
+                    Log.d(TAG, "Ignoring replay command for already active media: $filename")
+                    return@launch
+                }
                 if (!videoCache.isCached(key)) {
                     if (cacheOnly) {
                         Log.w(TAG, "cache_only command but file missing: $key")
@@ -963,6 +977,7 @@ class MainActivity : AppCompatActivity() {
                         prepare()
                         play()
                     }
+                    currentPlayingCacheKey = key
                     getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         .edit()
                         .putString(KEY_CACHED_VIDEO_FILENAME, key)
@@ -1101,6 +1116,7 @@ class MainActivity : AppCompatActivity() {
     private fun playCurrentVideo() {
         if (currentPlaylist.isEmpty()) {
             showScreensaver(true)
+            currentPlayingCacheKey = null
             Log.w(TAG, "No videos in playlist")
             return
         }
@@ -1119,6 +1135,7 @@ class MainActivity : AppCompatActivity() {
                 prepare()
                 play()
             }
+            currentPlayingCacheKey = key
             getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putString(KEY_CACHED_VIDEO_FILENAME, key)
@@ -1155,6 +1172,7 @@ class MainActivity : AppCompatActivity() {
     private fun playNextVideo() {
         if (currentPlaylist.isEmpty()) {
             showScreensaver(true)
+            currentPlayingCacheKey = null
             return
         }
 
@@ -1166,6 +1184,7 @@ class MainActivity : AppCompatActivity() {
                 playCurrentVideo()
             } else {
                 showScreensaver(true)
+                currentPlayingCacheKey = null
                 Log.d(TAG, "Playlist ended")
             }
         } else {

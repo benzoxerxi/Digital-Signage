@@ -5,7 +5,10 @@ Main Application File
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, g
 from flask_cors import CORS
 from flask_login import LoginManager, login_required, current_user
-from flask_migrate import Migrate
+try:
+    from flask_migrate import Migrate
+except Exception:
+    Migrate = None
 from sqlalchemy import text
 from models import db, User, ActivityLog, PaymentHistory, TenantDisplay
 from config import Config
@@ -47,7 +50,8 @@ CORS(app)
 
 # Initialize extensions
 db.init_app(app)
-migrate = Migrate(app, db)
+if Migrate is not None:
+    migrate = Migrate(app, db)
 
 _METRIC_LOCK = threading.Lock()
 _METRIC_COUNTS = defaultdict(int)

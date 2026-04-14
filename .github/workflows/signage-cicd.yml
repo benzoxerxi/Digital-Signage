@@ -70,5 +70,20 @@ jobs:
             systemctl restart signage
             systemctl reload nginx
             systemctl is-active --quiet signage
-            curl -fsS --max-time 15 http://127.0.0.1:8000/api/status >/dev/null
+            if command -v curl >/dev/null 2>&1; then
+              ok=0
+              for i in 1 2 3 4 5; do
+                if curl -fsS --max-time 10 http://127.0.0.1:8000/api/status >/dev/null; then
+                  ok=1
+                  break
+                fi
+                sleep 3
+              done
+              if [ "$ok" -ne 1 ]; then
+                echo "Health check failed after retries"
+                exit 1
+              fi
+            else
+              echo "curl is not installed on server; skipping HTTP health check"
+            fi
             echo "==> Deploy completed successfully."

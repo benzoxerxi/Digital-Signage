@@ -1,293 +1,889 @@
 {% extends "base.html" %}
 
-{% block title %}Digital Signage SaaS - Professional Content Management{% endblock %}
+{% block title %}Digital Signage SaaS - Cloud Digital Signage Platform{% endblock %}
 
 {% block extra_css %}
 <style>
+    .landing-shell {
+        background: #0c0118;
+    }
+
+    .landing-main {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 1.5rem 4rem 1.5rem;
+    }
+
     .hero {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 5rem 2rem;
-        text-align: center;
+        background:
+          radial-gradient(ellipse 80% 60% at 0% 0%, rgba(124, 58, 237, 0.55) 0%, transparent 55%),
+          radial-gradient(ellipse 70% 50% at 100% 0%, rgba(219, 39, 119, 0.35) 0%, transparent 50%),
+          radial-gradient(ellipse 60% 50% at 50% 100%, rgba(29, 78, 216, 0.3) 0%, transparent 55%),
+          #0c0118;
+        color: #e5e7eb;
+        padding: 4.5rem 1.5rem 4rem 1.5rem;
     }
-    
-    .hero h1 {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        font-weight: 700;
-    }
-    
-    .hero p {
-        font-size: 1.25rem;
-        margin-bottom: 2rem;
-        opacity: 0.9;
-    }
-    
-    .hero .cta-buttons {
-        display: flex;
-        gap: 1rem;
-        justify-content: center;
-        margin-top: 2rem;
-    }
-    
-    .hero .btn {
-        padding: 1rem 2rem;
-        font-size: 1.1rem;
-    }
-    
-    .features {
-        padding: 5rem 2rem;
-        background: #f8f9fa;
-    }
-    
-    .features .container {
-        max-width: 1200px;
+
+    .hero-inner {
+        max-width: 1120px;
         margin: 0 auto;
     }
-    
-    .features h2 {
-        text-align: center;
-        font-size: 2.5rem;
-        margin-bottom: 3rem;
-    }
-    
-    .features-grid {
+
+    .hero-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 2rem;
+        grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr);
+        gap: 3rem;
+        align-items: center;
     }
-    
-    .feature-card {
-        background: white;
-        padding: 2rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    
-    .feature-card .icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-    }
-    
-    .feature-card h3 {
-        font-size: 1.5rem;
-        margin-bottom: 1rem;
-    }
-    
-    .feature-card p {
-        color: #666;
-        line-height: 1.6;
-    }
-    
-    .pricing {
-        padding: 5rem 2rem;
-    }
-    
-    .pricing .container {
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-    
-    .pricing h2 {
-        text-align: center;
-        font-size: 2.5rem;
-        margin-bottom: 3rem;
-    }
-    
-    .pricing-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 2rem;
-    }
-    
-    .pricing-card {
-        background: white;
-        border: 2px solid #e0e0e0;
-        border-radius: 12px;
-        padding: 2rem;
-        text-align: center;
-        transition: all 0.3s;
-    }
-    
-    .pricing-card:hover {
-        border-color: var(--primary);
-        transform: translateY(-5px);
-        box-shadow: 0 8px 24px rgba(0, 102, 255, 0.2);
-    }
-    
-    .pricing-card.featured {
-        border-color: var(--primary);
-        border-width: 3px;
-        position: relative;
-    }
-    
-    .pricing-card.featured::before {
-        content: 'POPULAR';
-        position: absolute;
-        top: -15px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: var(--primary);
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
+
+    .hero-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        background: rgba(46, 16, 101, 0.6);
+        border: 1px solid rgba(167, 139, 250, 0.35);
         font-size: 0.75rem;
-        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: #c4b5fd;
+        margin-bottom: 1.25rem;
     }
-    
-    .pricing-card h3 {
-        font-size: 1.5rem;
+
+    .hero-title {
+        font-size: clamp(2.3rem, 4vw, 3rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
         margin-bottom: 1rem;
+        color: #f9fafb;
     }
-    
-    .pricing-card .price {
-        font-size: 3rem;
+
+    .hero-subtitle {
+        font-size: 1.05rem;
+        line-height: 1.7;
+        max-width: 32rem;
+        color: #c4b5fd;
+        margin-bottom: 1.75rem;
+    }
+
+    .hero-metadata {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        font-size: 0.85rem;
+        color: #9ca3af;
+        margin-top: 1.5rem;
+    }
+
+    .hero-metadata span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .hero-metadata strong {
+        color: #e5e7eb;
+    }
+
+    .hero-cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    .hero-cta .btn-primary {
+        padding: 0.95rem 2.3rem;
+        border-radius: 999px;
+        font-size: 0.95rem;
+        background: linear-gradient(135deg, #fb923c 0%, #f97316 35%, #c2410c 100%);
+        box-shadow: 0 0 0 1px rgba(248, 250, 252, 0.06),
+                    0 18px 45px rgba(12, 1, 24, 0.9);
+    }
+
+    .hero-cta .btn-secondary {
+        padding: 0.8rem 1.4rem;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        background: transparent;
+        border-width: 1px;
+        border-color: rgba(167, 139, 250, 0.4);
+        color: #e5e7eb;
+    }
+
+    .hero-cta .btn-secondary:hover {
+        background: rgba(46, 16, 101, 0.5);
+        color: #f9fafb;
+    }
+
+    .hero-note {
+        font-size: 0.8rem;
+        color: #9ca3af;
+    }
+
+    .hero-note strong {
+        color: #e5e7eb;
+    }
+
+    .hero-card {
+        background: radial-gradient(circle at top, rgba(124, 58, 237, 0.22) 0%, rgba(21, 2, 37, 0.95) 55%, #0c0118 100%);
+        border-radius: 24px;
+        border: 1px solid rgba(167, 139, 250, 0.2);
+        box-shadow: 0 24px 70px rgba(12, 1, 24, 0.9);
+        padding: 1.75rem 1.75rem 1.5rem 1.75rem;
+        color: #e5e7eb;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .hero-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.25rem;
+    }
+
+    .hero-card-title {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: #9ca3af;
+    }
+
+    .hero-card-pill {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        background: rgba(22, 163, 74, 0.15);
+        color: #86efac;
+        border: 1px solid rgba(34, 197, 94, 0.5);
+    }
+
+    .hero-card-metric {
+        font-size: 2.1rem;
         font-weight: 700;
-        color: var(--primary);
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.15rem;
     }
-    
-    .pricing-card .price span {
-        font-size: 1.5rem;
-        color: #666;
+
+    .hero-card-metric span {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #9ca3af;
+        margin-left: 0.35rem;
     }
-    
-    .pricing-card .features-list {
-        list-style: none;
-        padding: 2rem 0;
+
+    .hero-card-sub {
+        font-size: 0.85rem;
+        color: #9ca3af;
+        margin-bottom: 1.2rem;
+    }
+
+    .hero-card-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+        font-size: 0.8rem;
+    }
+
+    .hero-card-item {
+        padding: 0.7rem 0.75rem;
+        border-radius: 10px;
+        background: rgba(12, 1, 24, 0.7);
+        border: 1px solid rgba(46, 16, 101, 0.7);
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+
+    .hero-card-item-label {
+        color: #9ca3af;
+    }
+
+    .hero-card-item-value {
+        color: #e5e7eb;
+        font-weight: 600;
+    }
+
+    .hero-card-footer {
+        margin-top: 1.1rem;
+        padding-top: 0.9rem;
+        border-top: 1px dashed rgba(167, 139, 250, 0.25);
+        font-size: 0.8rem;
+        color: #9ca3af;
+    }
+
+    .hero-card-footer strong {
+        color: #e5e7eb;
+    }
+
+    .hero-card-orbit {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.3;
+        background: radial-gradient(circle at 15% 10%, rgba(167, 139, 250, 0.6) 0%, transparent 45%),
+                    radial-gradient(circle at 85% 90%, rgba(124, 58, 237, 0.5) 0%, transparent 45%);
+        mix-blend-mode: screen;
+    }
+
+    .trust-strip {
+        padding: 1.75rem 0 0 0;
+        border-top: 1px solid rgba(46, 16, 101, 0.6);
+        margin-top: 2.25rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem 2.5rem;
+        align-items: center;
+    }
+
+    .trust-strip-label {
+        font-size: 0.8rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #6b7280;
+    }
+
+    .trust-strip-logos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem 2rem;
+        align-items: center;
+        font-size: 0.85rem;
+        color: #9ca3af;
+    }
+
+    .trust-chip {
+        padding: 0.25rem 0.7rem;
+        border-radius: 999px;
+        border: 1px solid rgba(46, 16, 101, 0.8);
+        background: rgba(21, 2, 37, 0.8);
+    }
+
+    .section {
+        padding: 3.5rem 0 0 0;
+        color: #e5e7eb;
+    }
+
+    .section-header {
+        margin-bottom: 2.25rem;
         text-align: left;
     }
-    
-    .pricing-card .features-list li {
-        padding: 0.5rem 0;
-        color: #666;
+
+    .section-kicker {
+        font-size: 0.8rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin-bottom: 0.5rem;
     }
-    
-    .pricing-card .features-list li::before {
-        content: '✓ ';
-        color: var(--success);
-        font-weight: bold;
-        margin-right: 0.5rem;
+
+    .section-title {
+        font-size: 1.6rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.3rem;
     }
-    
-    .cta-section {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 4rem 2rem;
-        text-align: center;
+
+    .section-subtitle {
+        font-size: 0.95rem;
+        color: #9ca3af;
+        max-width: 32rem;
     }
-    
-    .cta-section h2 {
-        font-size: 2.5rem;
-        margin-bottom: 1rem;
+
+    .three-column-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1.5rem;
     }
-    
-    .cta-section p {
-        font-size: 1.25rem;
+
+    .feature-card {
+        background: radial-gradient(ellipse 80% 60% at top left, rgba(124, 58, 237, 0.14) 0%, rgba(21, 2, 37, 0.97) 50%, #0c0118 100%);
+        border-radius: 18px;
+        border: 1px solid rgba(46, 16, 101, 0.7);
+        padding: 1.7rem 1.5rem 1.5rem 1.5rem;
+        box-shadow: 0 20px 50px rgba(12, 1, 24, 0.9);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .feature-pill {
+        font-size: 0.75rem;
+        color: #c4b5fd;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+    }
+
+    .feature-title {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .feature-body {
+        font-size: 0.9rem;
+        color: #9ca3af;
+    }
+
+    .feature-meta {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-top: auto;
+        padding-top: 0.75rem;
+        border-top: 1px solid rgba(46, 16, 101, 0.5);
+    }
+
+    .split-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.1fr);
+        gap: 2.5rem;
+        align-items: flex-start;
+    }
+
+    .bullet-list {
+        list-style: none;
+        padding: 0;
+        margin: 1.25rem 0 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .bullet-list li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+        color: #9ca3af;
+    }
+
+    .bullet-list li span {
+        font-size: 1rem;
+        line-height: 1.4;
+    }
+
+    .list-check {
+        font-size: 1rem;
+        margin-top: 0.15rem;
+        color: #22c55e;
+    }
+
+    .vertical-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+        font-size: 0.88rem;
+        color: #9ca3af;
+    }
+
+    .step-item {
+        position: relative;
+        padding-left: 2rem;
+    }
+
+    .step-badge {
+        position: absolute;
+        left: 0;
+        top: 0.15rem;
+        width: 1.4rem;
+        height: 1.4rem;
+        border-radius: 999px;
+        background: rgba(124, 58, 237, 0.25);
+        border: 1px solid rgba(167, 139, 250, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        color: #c4b5fd;
+    }
+
+    .step-label {
+        font-weight: 600;
+        color: #e5e7eb;
+        margin-bottom: 0.1rem;
+    }
+
+    .pricing-section {
+        margin-top: 3.5rem;
+        padding: 3.25rem 1.75rem;
+        border-radius: 20px;
+        background: radial-gradient(circle at top left, rgba(124, 58, 237, 0.1) 0%, rgba(21, 2, 37, 0.96) 52%, #0c0118 100%);
+        border: 1px solid rgba(46, 16, 101, 0.7);
+        box-shadow: 0 22px 60px rgba(12, 1, 24, 0.9);
+    }
+
+    .pricing-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 1.25rem;
+        align-items: flex-end;
         margin-bottom: 2rem;
-        opacity: 0.9;
     }
-    
-    footer {
-        background: #2d3748;
-        color: white;
-        padding: 2rem;
+
+    .pricing-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+
+    .pricing-copy {
+        font-size: 0.9rem;
+        color: #9ca3af;
+        max-width: 26rem;
+    }
+
+    .pricing-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.4rem;
+    }
+
+    .pricing-card {
+        background: rgba(21, 2, 37, 0.95);
+        border-radius: 16px;
+        border: 1px solid rgba(46, 16, 101, 0.6);
+        padding: 1.75rem 1.5rem 1.6rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .pricing-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .pricing-plan-name {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .pricing-pill {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid rgba(167, 139, 250, 0.6);
+        color: #c4b5fd;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+    }
+
+    .pricing-amount {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-top: 0.2rem;
+    }
+
+    .pricing-amount span {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #9ca3af;
+        margin-left: 0.25rem;
+    }
+
+    .pricing-features {
+        list-style: none;
+        padding: 0.75rem 0 0.5rem 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        font-size: 0.85rem;
+        color: #9ca3af;
+    }
+
+    .pricing-features li {
+        display: flex;
+        gap: 0.45rem;
+    }
+
+    .pricing-cta {
+        margin-top: 0.9rem;
+    }
+
+    .pricing-cta .btn-primary {
+        width: 100%;
+        border-radius: 999px;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.9rem;
+    }
+
+    .pricing-footnote {
+        margin-top: 1.4rem;
+        font-size: 0.8rem;
+        color: #6b7280;
+    }
+
+    .cta-final {
+        margin-top: 3.25rem;
+        padding: 2.2rem 2rem;
+        border-radius: 18px;
+        border: 1px solid rgba(124, 58, 237, 0.5);
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(167, 139, 250, 0.06));
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 1.5rem;
+        align-items: center;
+    }
+
+    .cta-final-text {
+        max-width: 26rem;
+    }
+
+    .cta-final-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.3rem;
+    }
+
+    .cta-final-sub {
+        font-size: 0.9rem;
+        color: #e5e7eb;
+    }
+
+    .cta-final-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    .cta-final-actions .btn-primary {
+        border-radius: 999px;
+        padding: 0.8rem 1.5rem;
+        font-size: 0.9rem;
+    }
+
+    .cta-final-small {
+        font-size: 0.8rem;
+        color: #e5e7eb;
+    }
+
+    .landing-footer {
+        padding: 1.75rem 0 0 0;
+        font-size: 0.8rem;
+        color: #6b7280;
+        border-top: 1px solid rgba(46, 16, 101, 0.5);
+        margin-top: 3rem;
         text-align: center;
+    }
+
+    @media (max-width: 960px) {
+        .hero-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .hero-card {
+            margin-top: 1.75rem;
+        }
+
+        .three-column-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .split-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
+    @media (max-width: 720px) {
+        .three-column-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .hero {
+            padding-top: 3.5rem;
+        }
+
+        .pricing-section {
+            padding: 2.5rem 1.4rem;
+        }
+
+        .cta-final {
+            padding: 1.7rem 1.4rem;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Hero Section -->
-<section class="hero">
-    <div class="container">
-        <h1>🎬 Professional Digital Signage Management</h1>
-        <p>Manage and distribute content to unlimited displays with ease. Perfect for businesses, restaurants, retail stores, and more.</p>
-        <div class="cta-buttons">
-            <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Start Free Trial</a>
-            <a href="{{ url_for('main.pricing') }}" class="btn btn-secondary">View Pricing</a>
-        </div>
-    </div>
-</section>
-
-<!-- Features Section -->
-<section class="features">
-    <div class="container">
-        <h2>Everything You Need</h2>
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="icon">🖥️</div>
-                <h3>Multi-Display Control</h3>
-                <p>Control unlimited displays from a single dashboard. Group devices, schedule content, and monitor status in real-time.</p>
-            </div>
-            <div class="feature-card">
-                <div class="icon">📅</div>
-                <h3>Smart Scheduling</h3>
-                <p>Schedule content to play at specific times and days. Perfect for daily specials, promotions, and time-based messaging.</p>
-            </div>
-            <div class="feature-card">
-                <div class="icon">📁</div>
-                <h3>Content Library</h3>
-                <p>Upload and manage videos and images. Organize content into playlists for easy rotation and management.</p>
-            </div>
-            <div class="feature-card">
-                <div class="icon">📊</div>
-                <h3>Analytics Dashboard</h3>
-                <p>Track playback history, monitor device status, and gain insights into your content performance.</p>
-            </div>
-            <div class="feature-card">
-                <div class="icon">🔒</div>
-                <h3>Secure & Reliable</h3>
-                <p>Enterprise-grade security with isolated tenant data. Your content is safe and accessible only to you.</p>
-            </div>
-            <div class="feature-card">
-                <div class="icon">⚡</div>
-                <h3>Easy Setup</h3>
-                <p>Get started in minutes. No technical expertise required. Just sign up, upload content, and go live.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Pricing Section -->
-<section class="pricing">
-    <div class="container">
-        <h2>Simple, Transparent Pricing</h2>
-        <div class="pricing-grid">
-            {% for plan_key, plan in plans.items() %}
-                {% if plan_key != 'free' %}
-                <div class="pricing-card {% if plan_key == 'professional' %}featured{% endif %}">
-                    <h3>{{ plan.name }}</h3>
-                    <div class="price">
-                        ${{ plan.price }}<span>/month</span>
+<div class="landing-shell">
+    <!-- HERO (full-width) -->
+    <section class="hero">
+        <div class="hero-inner">
+            <div class="hero-grid">
+                <!-- Left: copy -->
+                <div>
+                    <div class="hero-eyebrow">
+                        <span>Cloud Digital Signage Platform</span>
                     </div>
-                    <ul class="features-list">
-                        {% for feature in plan.features %}
-                            <li>{{ feature }}</li>
-                        {% endfor %}
-                    </ul>
-                    <a href="{{ url_for('auth.register') }}?plan={{ plan_key }}" class="btn btn-primary">Get Started</a>
+                    <h1 class="hero-title">Streamlined signage, from one control plane.</h1>
+                    <p class="hero-subtitle">
+                        Connect Android players, manage playlists, and push updates to every screen worldwide from a single, multi-tenant dashboard.
+                        Built for agencies, retailers, and venues that need reliability, not babysitting.
+                    </p>
+                    <div class="hero-cta">
+                        <a href="{{ BASE_PATH }}{{ url_for('auth.register') }}" class="btn btn-primary">
+                            Start 7‑day free trial
+                        </a>
+                        <a href="{{ BASE_PATH }}{{ url_for('main.pricing') }}" class="btn btn-secondary">
+                            View pricing
+                        </a>
+                        <div class="hero-note">
+                            <strong>No credit card</strong> · Unlimited devices in trial
+                        </div>
+                    </div>
+                    <div class="hero-metadata">
+                        <span><strong>Offline playback</strong> via local cache</span>
+                        <span>Designed for <strong>Android TV boxes & sticks</strong></span>
+                        <span>Watchdog autostart &amp; crash recovery</span>
+                    </div>
+                    <div class="trust-strip">
+                        <div class="trust-strip-label">Optimized for</div>
+                        <div class="trust-strip-logos">
+                            <span class="trust-chip">Retail &amp; QSR menus</span>
+                            <span class="trust-chip">Gyms &amp; fitness clubs</span>
+                            <span class="trust-chip">Clinics &amp; waiting rooms</span>
+                            <span class="trust-chip">Office &amp; lobby displays</span>
+                        </div>
+                    </div>
                 </div>
-                {% endif %}
-            {% endfor %}
+
+                <!-- Right: metrics card -->
+                <div>
+                    <div class="hero-card">
+                        <div class="hero-card-orbit"></div>
+                        <div class="hero-card-header">
+                            <div>
+                                <div class="hero-card-title">Live fleet overview</div>
+                                <div style="font-size:0.8rem;color:#9ca3af;">From a single multi‑tenant dashboard</div>
+                            </div>
+                            <div class="hero-card-pill">Always‑on playback</div>
+                        </div>
+                        <div class="hero-card-metric">
+                            10,000+
+                            <span>minutes played per device / month</span>
+                        </div>
+                        <div class="hero-card-sub">
+                            Local video cache and watchdog restart ensure your content keeps running even when networks or power are flaky.
+                        </div>
+                        <div class="hero-card-grid">
+                            <div class="hero-card-item">
+                                <div class="hero-card-item-label">Health</div>
+                                <div class="hero-card-item-value">Online, responding &lt; 3s</div>
+                            </div>
+                            <div class="hero-card-item">
+                                <div class="hero-card-item-label">Devices per tenant</div>
+                                <div class="hero-card-item-value">Unlimited</div>
+                            </div>
+                            <div class="hero-card-item">
+                                <div class="hero-card-item-label">Layouts</div>
+                                <div class="hero-card-item-value">Multi‑zone, video + web + text</div>
+                            </div>
+                            <div class="hero-card-item">
+                                <div class="hero-card-item-label">Control</div>
+                                <div class="hero-card-item-value">Instant commands + schedules</div>
+                            </div>
+                        </div>
+                        <div class="hero-card-footer">
+                            <strong>Android player + watchdog APK</strong> connect via a simple 9‑digit code – no VPNs, SSH, or local IT required.
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <p style="text-align: center; margin-top: 2rem; color: #666;">
-            All plans include 7-day free trial. No credit card required.
-        </p>
-    </div>
-</section>
+    </section>
 
-<!-- CTA Section -->
-<section class="cta-section">
-    <div class="container">
-        <h2>Ready to Transform Your Displays?</h2>
-        <p>Join hundreds of businesses using our platform to engage their audience.</p>
-        <a href="{{ url_for('auth.register') }}" class="btn btn-primary" style="background: white; color: var(--primary);">Start Your Free Trial</a>
-    </div>
-</section>
+    <main class="landing-main">
+        <!-- WHY SECTION (3 cards like Adoptium benefits) -->
+        <section class="section">
+            <header class="section-header">
+                <div class="section-kicker">Why this platform</div>
+                <h2 class="section-title">Built for real‑world digital signage fleets.</h2>
+                <p class="section-subtitle">
+                    Everything is tuned for screens that must “just work”: offline‑first playback, simple onboarding, and clear multi‑tenant billing.
+                </p>
+            </header>
 
-<!-- Footer -->
-<footer>
-    <p>&copy; 2024 Digital Signage SaaS. All rights reserved.</p>
-</footer>
+            <div class="three-column-grid">
+                <article class="feature-card">
+                    <div class="feature-pill">Reliable playback</div>
+                    <h3 class="feature-title">Offline‑first Android player</h3>
+                    <p class="feature-body">
+                        Video files are cached on each device so content keeps playing even when the internet drops.
+                        When you change playlists, only deltas are downloaded.
+                    </p>
+                    <div class="feature-meta">
+                        Works with cheap Android TV sticks and boxes – no custom hardware required.
+                    </div>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-pill">Always on</div>
+                    <h3 class="feature-title">Watchdog autostart &amp; crash recovery</h3>
+                    <p class="feature-body">
+                        A tiny companion app starts your player on boot, restarts it if Android kills it,
+                        and can pin the screen in kiosk mode to keep staff from exiting playback.
+                    </p>
+                    <div class="feature-meta">
+                        Designed for unattended screens in shops, lobbies, and public spaces.
+                    </div>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-pill">SaaS ready</div>
+                    <h3 class="feature-title">Multi‑tenant billing &amp; admin</h3>
+                    <p class="feature-body">
+                        Each customer gets isolated data, connection codes, and device lists.
+                        Track plans, trial vs. paid status, and revenue from a single admin panel.
+                    </p>
+                    <div class="feature-meta">
+                        Stripe‑ready config so you can charge for displays instead of projects.
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <!-- HOW IT WORKS -->
+        <section class="section">
+            <div class="split-grid">
+                <div>
+                    <header class="section-header" style="margin-bottom:1.4rem;">
+                        <div class="section-kicker">How it works</div>
+                        <h2 class="section-title">From dashboard to screen in three steps.</h2>
+                        <p class="section-subtitle">
+                            Designed so non‑technical staff can onboard new screens in minutes – you keep full
+                            control over tenants, content, and schedules.
+                        </p>
+                    </header>
+                    <ul class="bullet-list">
+                        <li>
+                            <span class="list-check">✓</span>
+                            <span><strong>Create a tenant</strong> in the admin panel and invite the customer to their own dashboard.</span>
+                        </li>
+                        <li>
+                            <span class="list-check">✓</span>
+                            <span><strong>Install the Android player + watchdog</strong> and enter the 9‑digit connection code shown on the Devices page.</span>
+                        </li>
+                        <li>
+                            <span class="list-check">✓</span>
+                            <span><strong>Upload videos or create layouts</strong> and assign them to devices or groups on a schedule.</span>
+                        </li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="section-kicker">For your ops team</div>
+                    <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:0.6rem;">One place to see what’s on every screen.</h3>
+                    <div class="vertical-steps">
+                        <div class="step-item">
+                            <div class="step-badge">1</div>
+                            <div class="step-label">Fleet health at a glance</div>
+                            <div>See online/offline state, last check‑in, and currently playing asset per device.</div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-badge">2</div>
+                            <div class="step-label">Instant commands</div>
+                            <div>Send “play now”, clear cache, or layout updates instantly – no SSH or remote desktop.</div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-badge">3</div>
+                            <div class="step-label">Safe unattended mode</div>
+                            <div>Watchdog keeps the player in the foreground and restarts it if Android closes the app.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PRICING (using existing plans) -->
+        <section class="section">
+            <div class="pricing-section">
+                <div class="pricing-header">
+                    <div>
+                        <div class="section-kicker">Simple pricing</div>
+                        <h2 class="pricing-title">Start free, upgrade when you launch.</h2>
+                    </div>
+                    <p class="pricing-copy">
+                        Use the trial to connect real devices, build playlists, and test watchdog stability.
+                        When you’re ready to charge customers, switch to the paid plan – no migration required.
+                    </p>
+                </div>
+
+                <div class="pricing-grid">
+                    {% for plan_key, plan in plans.items() %}
+                        {% if plan_key != 'free' %}
+                        <article class="pricing-card">
+                            <div class="pricing-card-header">
+                                <div>
+                                    <div class="pricing-plan-name">{{ plan.name }}</div>
+                                    <div style="font-size:0.8rem;color:#9ca3af;">For agencies &amp; operators</div>
+                                </div>
+                                <div class="pricing-pill">Unlimited displays</div>
+                            </div>
+                            <div class="pricing-amount">
+                                ${{ plan.price }}<span>/month</span>
+                            </div>
+                            <ul class="pricing-features">
+                                {% for feature in plan.features %}
+                                    <li>
+                                        <span class="list-check">✓</span>
+                                        <span>{{ feature }}</span>
+                                    </li>
+                                {% endfor %}
+                                <li>
+                                    <span class="list-check">✓</span>
+                                    <span>Offline video cache on devices</span>
+                                </li>
+                                <li>
+                                    <span class="list-check">✓</span>
+                                    <span>Player + watchdog APKs for Android</span>
+                                </li>
+                            </ul>
+                            <div class="pricing-cta">
+                                <a href="{{ BASE_PATH }}{{ url_for('auth.register') }}?plan={{ plan_key }}" class="btn btn-primary">
+                                    Get started with {{ plan.name }}
+                                </a>
+                            </div>
+                        </article>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <div class="pricing-footnote">
+                    Trial accounts start on the free tier with time‑limited access. Upgrade when you’re ready to onboard paying customers.
+                </div>
+            </div>
+        </section>
+
+        <!-- FINAL CTA -->
+        <section class="section">
+            <div class="cta-final">
+                <div class="cta-final-text">
+                    <div class="cta-final-title">Ready to put your screens to work?</div>
+                    <p class="cta-final-sub">
+                        Create an account, connect your first Android player, and see your own content on a TV in minutes –
+                        not weeks of integration work.
+                    </p>
+                </div>
+                <div class="cta-final-actions">
+                    <a href="{{ BASE_PATH }}{{ url_for('auth.register') }}" class="btn btn-primary">
+                        Start 7‑day free trial
+                    </a>
+                    <div class="cta-final-small">
+                        Or <a href="{{ BASE_PATH }}{{ url_for('auth.login') }}" style="color:#c4b5fd;text-decoration:underline;">log in</a> if you already have an account.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="landing-footer">
+            &copy; 2024 Digital Signage SaaS. All rights reserved.
+        </footer>
+    </main>
+</div>
 {% endblock %}

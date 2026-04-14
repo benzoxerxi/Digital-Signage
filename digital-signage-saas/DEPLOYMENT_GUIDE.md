@@ -2,6 +2,23 @@
 
 This guide will walk you through deploying your Digital Signage SaaS platform from scratch. **No prior experience required!**
 
+## ⚠️ Keep users and data across deploys
+
+On **Render**, **Heroku**, and similar platforms, the server filesystem is **ephemeral**: every new deploy gets a fresh disk. If you use the default SQLite database, **all users and data are lost on each deploy**.
+
+**Fix:** Use a **persistent database** and set `DATABASE_URL`:
+
+- **Render:** In the dashboard, add a **PostgreSQL** service, then in your Web Service add the Postgres instance as a "Database" dependency. Render will set `DATABASE_URL` automatically so users and data survive deploys.
+
+**Render Run Command (required):** Your Web Service must listen on the port Render gives you. In the service **Settings** → **Build & Deploy** → **Start Command**, use:
+```bash
+gunicorn -w 4 -b 0.0.0.0:$PORT app:app
+```
+Do **not** use a fixed port like `8080` — use `$PORT` or the site will not load.
+
+**First-time admin on Render:** See **[ADMIN_SETUP.md](ADMIN_SETUP.md)** for the easiest step-by-step (unlink old bootstrap, add token, open URL, login, remove token). Short version: add `ADMIN_BOOTSTRAP_TOKEN` (any secret string) to Render env, deploy, visit `https://your-app.onrender.com/admin/bootstrap?token=YOUR_TOKEN`, then log in at `/auth/login` with admin / admin123. Remove `ADMIN_BOOTSTRAP_TOKEN` afterward for security.
+- **Other hosts:** Create a PostgreSQL (or compatible) database and set the `DATABASE_URL` environment variable to its connection URL (e.g. `postgresql://user:password@host/dbname`).
+
 ## Part 1: Local Testing (Do This First!)
 
 ### Step 1: Install Python

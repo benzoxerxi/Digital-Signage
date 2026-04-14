@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Program Editor — Digital Signage</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+    --bg:#0d1117;--panel:#161b22;--panel2:#1c2129;--border:#30363d;
+    --text:#e6edf3;--muted:#8b949e;--primary:#3b82f6;--primary-glow:rgba(59,130,246,.25);
+    --accent:#8b5cf6;--accent-glow:rgba(139,92,246,.2);
+    --success:#22c55e;--danger:#ef4444;
+    --canvas-bg:#000;--handle:#3b82f6;--grid-line:rgba(255,255,255,.04);
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+
+/* ═══ TOOLBAR ═══ */
+.pe-toolbar{
+    position:fixed;top:0;left:0;right:0;height:44px;background:var(--panel);
+    border-bottom:1px solid var(--border);display:flex;align-items:center;
+    padding:0 12px;gap:8px;z-index:200;
+}
+.pe-toolbar-brand{display:flex;align-items:center;gap:8px}
+.pe-toolbar-brand svg{width:20px;height:20px;fill:var(--primary)}
+.pe-back{
+    display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;
+    font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);
+    background:var(--panel);color:var(--muted);text-decoration:none;transition:all .15s;
+}
+.pe-back:hover{color:var(--text);border-color:var(--muted);background:var(--panel2)}
+.pe-divider{width:1px;height:24px;background:var(--border);margin:0 4px}
+.pe-title{
+    font-weight:600;font-size:14px;flex:1;min-width:0;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;
+}
+.pe-badge{
+    padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;
+    background:var(--accent-glow);color:var(--accent);border:1px solid rgba(139,92,246,.3);
+    font-family:'JetBrains Mono',monospace;letter-spacing:.03em;
+}
+.pe-btn{
+    padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;
+    cursor:pointer;border:1px solid var(--border);background:var(--panel2);
+    color:var(--text);transition:all .15s;display:flex;align-items:center;gap:5px;
+}
+.pe-btn:hover{background:var(--border)}
+.pe-btn-save{background:var(--primary);color:#fff;border-color:var(--primary)}
+.pe-btn-save:hover{opacity:.9;box-shadow:0 0 16px var(--primary-glow)}
+.pe-btn-save.saved{background:var(--success);border-color:var(--success)}
+.pe-zoom{display:flex;align-items:center;gap:4px}
+.pe-zoom button{
+    width:28px;height:28px;border-radius:6px;border:1px solid var(--border);
+    background:var(--panel2);color:var(--muted);cursor:pointer;font-size:14px;
+    display:flex;align-items:center;justify-content:center;
+}
+.pe-zoom button:hover{color:var(--text);background:var(--border)}
+.pe-zoom span{font-size:11px;color:var(--muted);width:40px;text-align:center;font-family:'JetBrains Mono',monospace}
+
+/* ═══ SIDEBAR ═══ */
+.pe-sidebar{
+    position:fixed;left:0;top:44px;bottom:0;width:56px;background:var(--panel);
+    border-right:1px solid var(--border);display:flex;flex-direction:column;
+    align-items:center;gap:2px;padding:10px 0;z-index:190;
+}
+.pe-tool{
+    width:44px;height:44px;padding:0;border-radius:10px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:18px;cursor:pointer;color:var(--muted);transition:all .15s;
+    border:none;background:none;position:relative;
+}
+.pe-tool span{font-size:9px;margin-top:1px;font-weight:600;letter-spacing:.02em}
+.pe-tool:hover{background:var(--primary-glow);color:var(--primary)}
+.pe-tool.active{background:var(--primary-glow);color:var(--primary);box-shadow:inset 0 0 0 1.5px var(--primary)}
+.pe-tool-sep{width:32px;height:1px;background:var(--border);margin:4px 0}
+
+/* ═══ CANVAS ═══ */
+.pe-canvas-wrap{
+    position:fixed;left:56px;top:44px;right:300px;bottom:32px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--bg);overflow:auto;
+    background-image:radial-gradient(circle,var(--grid-line) 1px,transparent 1px);
+    background-size:20px 20px;
+}
+.pe-artboard{
+    position:relative;background:var(--canvas-bg);flex-shrink:0;
+    box-shadow:0 0 0 1px rgba(255,255,255,.06),0 8px 60px rgba(0,0,0,.6);
+    transition:width .2s,height .2s;
+}
+.pe-artboard-ruler-x,.pe-artboard-ruler-y{position:absolute;pointer-events:none}
+
+/* ═══ ELEMENTS ON CANVAS ═══ */
+.pe-element{
+    position:absolute;border:2px solid transparent;cursor:move;user-select:none;overflow:visible;
+    transition:border-color .1s;
+}
+.pe-element:hover{border-color:rgba(59,130,246,.5)}
+.pe-element.active{border-color:var(--handle);box-shadow:0 0 0 1px var(--handle),0 0 20px var(--primary-glow)}
+.pe-element.active .pe-resize{display:block}
+.pe-resize{
+    display:none;position:absolute;width:10px;height:10px;
+    background:var(--handle);border:2px solid #fff;border-radius:2px;z-index:10;
+}
+.pe-resize.se{right:-6px;bottom:-6px;cursor:se-resize}
+.pe-resize.sw{left:-6px;bottom:-6px;cursor:sw-resize}
+.pe-resize.ne{right:-6px;top:-6px;cursor:ne-resize}
+.pe-resize.nw{left:-6px;top:-6px;cursor:nw-resize}
+.pe-el-label{
+    position:absolute;bottom:-1px;left:-1px;right:-1px;padding:3px 8px;
+    font-size:10px;font-weight:600;color:#fff;
+    background:linear-gradient(transparent,rgba(0,0,0,.8));
+    text-align:center;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.pe-el-icon{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:32px;opacity:.4;pointer-events:none;
+}
+.pe-el-preview{width:100%;height:100%;object-fit:cover;pointer-events:none;display:block}
+.pe-el-zone{
+    position:absolute;inset:0;
+    background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(59,130,246,.08) 8px,rgba(59,130,246,.08) 16px);
+    border:1px dashed rgba(59,130,246,.3);pointer-events:none;
+}
+
+/* ═══ RIGHT PANEL ═══ */
+.pe-panel{
+    position:fixed;right:0;top:44px;bottom:32px;width:300px;background:var(--panel);
+    border-left:1px solid var(--border);overflow-y:auto;z-index:190;
+    display:flex;flex-direction:column;
+}
+.pe-section{padding:14px 16px;border-bottom:1px solid var(--border)}
+.pe-section:last-child{border-bottom:none;flex:1}
+.pe-section-title{
+    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:6px;
+}
+.pe-section-title svg{width:14px;height:14px;fill:var(--muted)}
+.pe-prop-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pe-prop-cell{display:flex;flex-direction:column;gap:2px}
+.pe-prop-cell label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.pe-prop-cell input{
+    padding:5px 8px;border-radius:5px;border:1px solid var(--border);
+    background:var(--bg);color:var(--text);font-size:12px;font-family:'JetBrains Mono',monospace;
+    width:100%;
+}
+.pe-prop-cell input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-glow)}
+.pe-btn-del{
+    width:100%;margin-top:8px;padding:6px;border-radius:6px;border:1px solid rgba(239,68,68,.3);
+    background:rgba(239,68,68,.08);color:var(--danger);font-size:12px;font-weight:600;
+    cursor:pointer;transition:all .15s;
+}
+.pe-btn-del:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
+
+/* Layers */
+.pe-layers{display:flex;flex-direction:column;gap:3px}
+.pe-layer{
+    padding:7px 10px;border-radius:6px;font-size:12px;cursor:pointer;
+    border:1px solid transparent;background:var(--bg);
+    display:flex;align-items:center;gap:8px;transition:all .1s;
+}
+.pe-layer:hover{border-color:var(--border)}
+.pe-layer.active{border-color:var(--primary);background:var(--primary-glow)}
+.pe-layer-icon{font-size:14px;opacity:.6}
+.pe-layer-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pe-layer-z{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+/* Content library */
+.pe-content-item{
+    padding:8px 10px;border-radius:6px;border:1px solid var(--border);
+    font-size:12px;cursor:grab;display:flex;align-items:center;gap:8px;
+    background:var(--bg);transition:all .15s;
+}
+.pe-content-item:hover{border-color:var(--primary);background:var(--primary-glow)}
+.pe-content-item:active{cursor:grabbing}
+.pe-content-icon{font-size:16px;flex-shrink:0}
+.pe-content-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ═══ STATUS BAR ═══ */
+.pe-status{
+    position:fixed;left:0;right:0;bottom:0;height:32px;background:var(--panel);
+    border-top:1px solid var(--border);display:flex;align-items:center;
+    padding:0 16px;gap:16px;font-size:11px;color:var(--muted);z-index:200;
+}
+.pe-status-dot{width:7px;height:7px;border-radius:50%;background:var(--success);flex-shrink:0}
+.pe-status span{display:flex;align-items:center;gap:4px}
+
+/* empty state */
+.pe-empty{color:var(--muted);font-size:12px;text-align:center;padding:16px 8px;line-height:1.6}
+
+/* Keyboard shortcut hints */
+.pe-kbd{
+    display:inline-block;padding:1px 5px;border-radius:3px;font-size:10px;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font-family:'JetBrains Mono',monospace;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ TOOLBAR ═══ -->
+<div class="pe-toolbar">
+    <a href="/dashboard" class="pe-back">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M7.78 12.53a.75.75 0 01-1.06 0L2.47 8.28a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 1.06L4.81 7h7.44a.75.75 0 010 1.5H4.81l2.97 2.97a.75.75 0 010 1.06z"/></svg>
+        Dashboard
+    </a>
+    <div class="pe-divider"></div>
+    <div class="pe-title" id="peTitle">Loading…</div>
+    <div class="pe-badge" id="peSizeBadge">—</div>
+    <div class="pe-divider"></div>
+    <div class="pe-zoom">
+        <button type="button" onclick="peZoom(-1)" title="Zoom out">−</button>
+        <span id="peZoomLabel">100%</span>
+        <button type="button" onclick="peZoom(1)" title="Zoom in">+</button>
+        <button type="button" onclick="peZoom(0)" title="Fit to screen" style="font-size:11px">⊡</button>
+    </div>
+    <div class="pe-divider"></div>
+    <button class="pe-btn pe-btn-save" id="peSaveBtn" onclick="peSave()">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M.5 1.163A1.163 1.163 0 011.663 0h10.674l3 3v10.663A1.163 1.163 0 0114.174 15H1.663A1.163 1.163 0 01.5 13.837V1.163zM12 14v-4H4v4h8zm0-9V2h-1v3H5V2H2v12h1V9.5a.5.5 0 01.5-.5h9a.5.5 0 01.5.5V14h1V5.5L12 5z"/></svg>
+        Save
+    </button>
+</div>
+
+<!-- ═══ SIDEBAR ═══ -->
+<div class="pe-sidebar">
+    <button class="pe-tool" id="toolSelect" title="Select (V)" onclick="peSetMode('select')">
+        <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor"><path d="M3.5 2.5l10 6-4 1.5 3 5.5-2 1-3-5.5L5 14z"/></svg>
+        <span>Select</span>
+    </button>
+    <div class="pe-tool-sep"></div>
+    <button class="pe-tool" title="Add Video zone" onclick="peAddZone('video')">🎬<span>Video</span></button>
+    <button class="pe-tool" title="Add Image zone" onclick="peAddZone('image')">🖼️<span>Image</span></button>
+    <button class="pe-tool" title="Add Text zone" onclick="peAddZone('text')">Aa<span>Text</span></button>
+    <button class="pe-tool" title="Add WebView zone" onclick="peAddZone('webview')">🌐<span>Web</span></button>
+    <div class="pe-tool-sep"></div>
+    <button class="pe-tool" title="Duplicate (Ctrl+D)" onclick="peDuplicate()">📋<span>Copy</span></button>
+</div>
+
+<!-- ═══ CANVAS ═══ -->
+<div class="pe-canvas-wrap" id="peCanvasWrap">
+    <div class="pe-artboard" id="peArtboard"></div>
+</div>
+
+<!-- ═══ RIGHT PANEL ═══ -->
+<div class="pe-panel">
+    <div class="pe-section" id="pePropSection" style="display:none">
+        <div class="pe-section-title">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M3.5 2A1.5 1.5 0 002 3.5v9A1.5 1.5 0 003.5 14h9a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0012.5 2h-9zM3 3.5a.5.5 0 01.5-.5h9a.5.5 0 01.5.5v9a.5.5 0 01-.5.5h-9a.5.5 0 01-.5-.5v-9z"/></svg>
+            Properties
+        </div>
+        <div class="pe-prop-grid">
+            <div class="pe-prop-cell"><label>X</label><input type="number" id="pePropX" onchange="pePropChange()"></div>
+            <div class="pe-prop-cell"><label>Y</label><input type="number" id="pePropY" onchange="pePropChange()"></div>
+            <div class="pe-prop-cell"><label>Width</label><input type="number" id="pePropW" onchange="pePropChange()"></div>
+            <div class="pe-prop-cell"><label>Height</label><input type="number" id="pePropH" onchange="pePropChange()"></div>
+            <div class="pe-prop-cell"><label>Z-Index</label><input type="number" id="pePropZ" onchange="pePropChange()"></div>
+            <div class="pe-prop-cell"><label>Type</label><input type="text" id="pePropType" readonly style="opacity:.6"></div>
+        </div>
+        <button class="pe-btn-del" onclick="peDeleteSelected()">Remove element <span class="pe-kbd">Del</span></button>
+    </div>
+
+    <div class="pe-section">
+        <div class="pe-section-title">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M0 2a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H2a2 2 0 01-2-2V2zm4.5 0a.5.5 0 00-.5.5v11a.5.5 0 001 0v-11a.5.5 0 00-.5-.5zm7 0a.5.5 0 00-.5.5v11a.5.5 0 001 0v-11a.5.5 0 00-.5-.5z"/></svg>
+            Layers (<span id="peLayerCount">0</span>)
+        </div>
+        <div class="pe-layers" id="peLayers"></div>
+    </div>
+
+    <div class="pe-section">
+        <div class="pe-section-title">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M14.5 3a.5.5 0 01.5.5v9a.5.5 0 01-.5.5h-13a.5.5 0 01-.5-.5v-9a.5.5 0 01.5-.5h13zM1.5 2A1.5 1.5 0 000 3.5v9A1.5 1.5 0 001.5 14h13a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0014.5 2h-13z"/><path d="M6.258 5.691l4.66 2.809-4.66 2.809V5.691z"/></svg>
+            Content Library
+        </div>
+        <div id="peContentList" style="display:flex;flex-direction:column;gap:4px">
+            <div class="pe-empty">Loading…</div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ STATUS BAR ═══ -->
+<div class="pe-status">
+    <span><span class="pe-status-dot"></span> Ready</span>
+    <span id="peStatusInfo">—</span>
+    <span style="margin-left:auto">
+        <span class="pe-kbd">V</span> select &nbsp;
+        <span class="pe-kbd">Del</span> remove &nbsp;
+        <span class="pe-kbd">Ctrl+D</span> duplicate &nbsp;
+        <span class="pe-kbd">Ctrl+S</span> save
+    </span>
+</div>
+
+<script>
+(function(){
+    var PROGRAM_ID = '{{ program_id }}';
+    var program = null, elements = [], activeId = null, allContent = [];
+    var artboard, artboardW = 1920, artboardH = 1080;
+    var drag = null, scale = 1, nextId = 1, unsaved = false;
+
+    function $(id){ return document.getElementById(id); }
+
+    /* ── Init ── */
+    async function init(){
+        artboard = $('peArtboard');
+        try {
+            var r = await fetch('/api/programs/' + PROGRAM_ID);
+            if(!r.ok){ document.body.innerHTML='<div style="padding:40px;text-align:center;color:#ef4444">Program not found.</div>'; return; }
+            program = await r.json();
+            artboardW = program.width; artboardH = program.height;
+            elements = (program.elements||[]).map(function(el,i){ el._id = el.id||('el_'+(++nextId)); return el; });
+            $('peTitle').textContent = program.name;
+            $('peSizeBadge').textContent = artboardW + ' × ' + artboardH;
+        } catch(e){ console.error(e); }
+        fitArtboard();
+        render();
+        loadContent();
+        window.addEventListener('resize', fitArtboard);
+        artboard.addEventListener('mousedown', onDown);
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        document.addEventListener('keydown', onKey);
+        setMode('select');
+        setStatus();
+    }
+
+    /* ── Zoom / Fit ── */
+    function fitArtboard(){
+        var wrap = $('peCanvasWrap');
+        var maxW = wrap.clientWidth - 60, maxH = wrap.clientHeight - 40;
+        scale = Math.min(maxW/artboardW, maxH/artboardH, 1.5);
+        applyScale();
+    }
+    function applyScale(){
+        artboard.style.width  = (artboardW*scale)+'px';
+        artboard.style.height = (artboardH*scale)+'px';
+        $('peZoomLabel').textContent = Math.round(scale*100)+'%';
+        render();
+    }
+    window.peZoom = function(dir){
+        if(dir===0){ fitArtboard(); return; }
+        scale = Math.max(.1, Math.min(3, scale + dir * .15));
+        applyScale();
+    };
+
+    /* ── Mode ── */
+    var mode = 'select';
+    function setMode(m){ mode=m; document.querySelectorAll('.pe-tool').forEach(function(t){t.classList.remove('active')}); if(m==='select')$('toolSelect').classList.add('active'); }
+    window.peSetMode = setMode;
+
+    /* ── Render ── */
+    function render(){
+        artboard.innerHTML='';
+        elements.sort(function(a,b){return(a.zIndex||0)-(b.zIndex||0)});
+        elements.forEach(function(el){
+            var d = document.createElement('div');
+            d.className = 'pe-element'+(el._id===activeId?' active':'');
+            d.setAttribute('data-id',el._id);
+            d.style.left=(el.x*scale)+'px'; d.style.top=(el.y*scale)+'px';
+            d.style.width=(el.width*scale)+'px'; d.style.height=(el.height*scale)+'px';
+            d.style.zIndex=el.zIndex||0;
+
+            if(el.type==='image'&&el.src){
+                var img=document.createElement('img'); img.className='pe-el-preview'; img.src=el.src;
+                img.onerror=function(){this.style.display='none'}; d.appendChild(img);
+            } else {
+                var zone=document.createElement('div'); zone.className='pe-el-zone'; d.appendChild(zone);
+                var ico=document.createElement('div'); ico.className='pe-el-icon';
+                ico.textContent={video:'▶',image:'🖼',text:'Aa',webview:'🌐'}[el.type]||'◻';
+                d.appendChild(ico);
+            }
+
+            var lbl=document.createElement('div'); lbl.className='pe-el-label';
+            lbl.textContent=el.name||(el.type+' zone'); d.appendChild(lbl);
+            ['se','sw','ne','nw'].forEach(function(c){
+                var h=document.createElement('div');h.className='pe-resize '+c;h.setAttribute('data-corner',c);d.appendChild(h);
+            });
+            artboard.appendChild(d);
+        });
+        renderLayers(); updateProps(); setStatus();
+    }
+
+    function renderLayers(){
+        var list=$('peLayers'), sorted=elements.slice().sort(function(a,b){return(b.zIndex||0)-(a.zIndex||0)});
+        $('peLayerCount').textContent=sorted.length;
+        if(!sorted.length){ list.innerHTML='<div class="pe-empty">No layers yet.<br>Add zones from the sidebar or drag content here.</div>'; return; }
+        list.innerHTML=sorted.map(function(el){
+            var icon={video:'🎬',image:'🖼️',text:'Aa',webview:'🌐'}[el.type]||'◻';
+            return '<div class="pe-layer'+(el._id===activeId?' active':'')+'" onclick="peSelect(\''+el._id+'\')">'
+                +'<span class="pe-layer-icon">'+icon+'</span>'
+                +'<span class="pe-layer-name">'+(el.name||el.type)+'</span>'
+                +'<span class="pe-layer-z">z'+((el.zIndex||0))+'</span>'
+                +'</div>';
+        }).join('');
+    }
+
+    function updateProps(){
+        var el=elements.find(function(e){return e._id===activeId});
+        $('pePropSection').style.display=el?'block':'none';
+        if(!el)return;
+        $('pePropX').value=Math.round(el.x); $('pePropY').value=Math.round(el.y);
+        $('pePropW').value=Math.round(el.width); $('pePropH').value=Math.round(el.height);
+        $('pePropZ').value=el.zIndex||0; $('pePropType').value=el.type;
+    }
+    window.pePropChange=function(){
+        var el=elements.find(function(e){return e._id===activeId}); if(!el)return;
+        el.x=+$('pePropX').value||0; el.y=+$('pePropY').value||0;
+        el.width=Math.max(20,+$('pePropW').value||100); el.height=Math.max(20,+$('pePropH').value||100);
+        el.zIndex=+$('pePropZ').value||0; unsaved=true; render();
+    };
+
+    function setStatus(){
+        $('peStatusInfo').textContent = elements.length+' element'+(elements.length!==1?'s':'')
+            + (activeId ? ' · Selected: '+(elements.find(function(e){return e._id===activeId})||{}).name : '')
+            + (unsaved?' · Unsaved changes':'');
+    }
+
+    /* ── Select / Delete / Duplicate ── */
+    window.peSelect=function(id){ activeId=id; render(); };
+    window.peDeleteSelected=function(){
+        if(!activeId)return;
+        elements=elements.filter(function(e){return e._id!==activeId});
+        activeId=null; unsaved=true; render();
+    };
+    window.peDuplicate=function(){
+        var el=elements.find(function(e){return e._id===activeId}); if(!el)return;
+        var id='el_'+(++nextId)+'_'+Date.now();
+        var copy=JSON.parse(JSON.stringify(el));
+        copy._id=id; copy.id=id; copy.x+=20; copy.y+=20; copy.zIndex=elements.length;
+        elements.push(copy); activeId=id; unsaved=true; render();
+    };
+
+    /* ── Mouse: move & resize ── */
+    function onDown(e){
+        var rh=e.target.closest('.pe-resize'), ed=e.target.closest('.pe-element');
+        if(!ed){activeId=null;render();return;}
+        var id=ed.getAttribute('data-id'); activeId=id; render();
+        var el=elements.find(function(e){return e._id===id}); if(!el)return;
+        e.preventDefault();
+        if(rh){
+            drag={type:'resize',corner:rh.getAttribute('data-corner'),el:el,startX:e.clientX,startY:e.clientY,
+                origX:el.x,origY:el.y,origW:el.width,origH:el.height};
+        }else{
+            drag={type:'move',el:el,startX:e.clientX,startY:e.clientY,origX:el.x,origY:el.y};
+        }
+    }
+    function onMove(e){
+        if(!drag)return;
+        var dx=(e.clientX-drag.startX)/scale, dy=(e.clientY-drag.startY)/scale;
+        if(drag.type==='move'){
+            drag.el.x=Math.max(0,Math.min(artboardW-drag.el.width,drag.origX+dx));
+            drag.el.y=Math.max(0,Math.min(artboardH-drag.el.height,drag.origY+dy));
+        } else {
+            var c=drag.corner,nw=drag.origW,nh=drag.origH,nx=drag.origX,ny=drag.origY;
+            if(c==='se'){nw=Math.max(30,drag.origW+dx);nh=Math.max(30,drag.origH+dy);}
+            else if(c==='sw'){nw=Math.max(30,drag.origW-dx);nh=Math.max(30,drag.origH+dy);nx=drag.origX+(drag.origW-nw);}
+            else if(c==='ne'){nw=Math.max(30,drag.origW+dx);nh=Math.max(30,drag.origH-dy);ny=drag.origY+(drag.origH-nh);}
+            else if(c==='nw'){nw=Math.max(30,drag.origW-dx);nh=Math.max(30,drag.origH-dy);nx=drag.origX+(drag.origW-nw);ny=drag.origY+(drag.origH-nh);}
+            drag.el.x=Math.max(0,nx);drag.el.y=Math.max(0,ny);drag.el.width=nw;drag.el.height=nh;
+        }
+        unsaved=true; render();
+    }
+    function onUp(){if(drag){drag=null;}}
+
+    /* ── Keyboard ── */
+    function onKey(e){
+        if(e.target.tagName==='INPUT')return;
+        if(e.key==='Delete'&&activeId){peDeleteSelected();return;}
+        if(e.key==='v'||e.key==='V'){setMode('select');return;}
+        if(e.ctrlKey&&e.key==='d'){e.preventDefault();peDuplicate();return;}
+        if(e.ctrlKey&&e.key==='s'){e.preventDefault();peSave();return;}
+    }
+
+    /* ── Content library ── */
+    async function loadContent(){
+        var el=$('peContentList');
+        try{var r=await fetch('/api/playlist');var d=await r.json();
+            allContent=(d.videos||[]).map(function(v){
+                var isImg=/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(v.filename||'');
+                return{filename:v.filename,name:v.name||v.filename,url:v.url,type:isImg?'image':'video'};
+            });
+        }catch(e){allContent=[];}
+        try{var r2=await fetch('/api/drive/files?folder_id=root');var d2=await r2.json();
+            (d2.files||[]).forEach(function(f){
+                var isImg=/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f.name||'');
+                allContent.push({filename:'drive:'+f.id,name:f.name,url:'/api/video/drive/'+f.id,type:isImg?'image':'video'});
+            });
+        }catch(e){}
+        if(!allContent.length){el.innerHTML='<div class="pe-empty">No content uploaded yet.</div>';return;}
+        el.innerHTML=allContent.map(function(c,i){
+            return '<div class="pe-content-item" draggable="true" ondragstart="peDragStart(event,'+i+')" ondblclick="peDropContent('+i+')">'
+                +'<span class="pe-content-icon">'+(c.type==='video'?'🎬':'🖼️')+'</span>'
+                +'<span class="pe-content-name">'+(c.name||c.filename)+'</span></div>';
+        }).join('');
+    }
+
+    /* ── Drag from library ── */
+    window.peDragStart=function(e,idx){e.dataTransfer.setData('text/plain',''+idx);};
+    $('peCanvasWrap').addEventListener('dragover',function(e){e.preventDefault();});
+    $('peCanvasWrap').addEventListener('drop',function(e){
+        e.preventDefault();
+        var idx=+e.dataTransfer.getData('text/plain'); if(isNaN(idx)||!allContent[idx])return;
+        var rect=artboard.getBoundingClientRect();
+        addElement(allContent[idx],(e.clientX-rect.left)/scale-100,(e.clientY-rect.top)/scale-75);
+    });
+    window.peDropContent=function(idx){if(!allContent[idx])return;addElement(allContent[idx],artboardW/2-150,artboardH/2-100);};
+
+    /* ── Add elements ── */
+    function addElement(content,x,y){
+        var id='el_'+(++nextId)+'_'+Date.now();
+        elements.push({_id:id,id:id,type:content.type||'video',src:content.url||'',name:content.name||content.filename||'Zone',
+            x:Math.max(0,x||0),y:Math.max(0,y||0),width:300,height:200,zIndex:elements.length});
+        activeId=id; unsaved=true; render();
+    }
+    window.peAddZone=function(type){
+        var names={video:'Video zone',image:'Image zone',text:'Text zone',webview:'Web zone'};
+        addElement({type:type,name:names[type]||'Zone',url:''},artboardW/2-150,artboardH/2-100);
+    };
+
+    /* ── Save ── */
+    window.peSave=async function(){
+        var btn=$('peSaveBtn');
+        btn.innerHTML='<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" style="animation:spin .6s linear infinite"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="28" stroke-dashoffset="8"/></svg> Saving…';
+        try{
+            var r=await fetch('/api/programs/'+PROGRAM_ID,{method:'PUT',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({elements:elements.map(function(el){
+                    return{id:el._id||el.id,type:el.type,src:el.src,name:el.name,x:el.x,y:el.y,width:el.width,height:el.height,zIndex:el.zIndex||0};
+                })})
+            });
+            var res=await r.json();
+            if(res.success){
+                unsaved=false; setStatus();
+                btn.classList.add('saved');
+                btn.innerHTML='<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg> Saved';
+                setTimeout(function(){btn.classList.remove('saved');btn.innerHTML='<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M.5 1.163A1.163 1.163 0 011.663 0h10.674l3 3v10.663A1.163 1.163 0 0114.174 15H1.663A1.163 1.163 0 01.5 13.837V1.163zM12 14v-4H4v4h8zm0-9V2h-1v3H5V2H2v12h1V9.5a.5.5 0 01.5-.5h9a.5.5 0 01.5.5V14h1V5.5L12 5z"/></svg> Save';},1500);
+            }
+        }catch(e){btn.textContent='Save failed!';setTimeout(function(){btn.textContent='Save';},2000);}
+    };
+
+    /* ── Warn on leave ── */
+    window.addEventListener('beforeunload',function(e){if(unsaved){e.preventDefault();e.returnValue='';}});
+
+    init();
+})();
+</script>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</body>
+</html>

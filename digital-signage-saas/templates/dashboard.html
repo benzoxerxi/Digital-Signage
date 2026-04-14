@@ -24,6 +24,27 @@
             --border: #2A3459;
         }
         
+        /* Light theme */
+        html[data-theme="light"] {
+            --primary: #0066FF;
+            --primary-dark: #0052CC;
+            --secondary: #0099CC;
+            --success: #00A86B;
+            --warning: #E6A800;
+            --danger: #E53935;
+            --dark: #F5F5F7;
+            --dark-2: #FFFFFF;
+            --dark-3: #E8E8ED;
+            --dark-4: #D1D1D6;
+            --text: #1D1D1F;
+            --text-muted: #6E6E73;
+            --border: #D1D1D6;
+        }
+        
+        html[data-theme="light"] .bg-grid {
+            opacity: 0.15;
+        }
+        
         body {
             font-family: 'Instrument Sans', -apple-system, sans-serif;
             background: var(--dark);
@@ -53,6 +74,7 @@
             max-width: 1600px;
             margin: 0 auto;
             padding: 24px;
+            overflow-x: hidden;
         }
         
         /* Header */
@@ -128,6 +150,74 @@
             letter-spacing: 1px;
         }
         
+        .header-theme {
+            display: flex;
+            align-items: center;
+        }
+        
+        .theme-switcher {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            background: var(--dark-3);
+            border-radius: 999px;
+            padding: 4px;
+            border: 1px solid var(--border);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+            min-width: 140px;
+        }
+        
+        .theme-slide {
+            position: absolute;
+            left: 4px;
+            top: 4px;
+            bottom: 4px;
+            width: calc(50% - 4px);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 999px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0, 102, 255, 0.35);
+        }
+        
+        .theme-switcher[data-theme="light"] .theme-slide {
+            transform: translateX(100%);
+        }
+        
+        .theme-opt {
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            min-width: 0;
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 999px;
+            transition: color 0.2s;
+            text-align: center;
+        }
+        
+        .theme-opt:hover {
+            color: var(--text);
+        }
+        
+        .theme-opt.active {
+            color: #fff;
+        }
+        
+        .theme-switcher[data-theme="light"] .theme-opt[data-theme="dark"] {
+            color: var(--text-muted);
+        }
+        
+        .theme-switcher[data-theme="light"] .theme-opt[data-theme="light"] {
+            color: var(--primary);
+            font-weight: 700;
+        }
+        
         /* Tabs */
         .tabs {
             display: flex;
@@ -137,10 +227,23 @@
             background: var(--dark-2);
             border-radius: 12px;
             border: 1px solid var(--border);
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+        .tabs::-webkit-scrollbar {
+            height: 6px;
+        }
+        .tabs::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
         }
         
         .tab {
             flex: 1;
+            flex-shrink: 0;
+            min-width: 100px;
             padding: 12px 24px;
             background: transparent;
             border: none;
@@ -187,6 +290,15 @@
         }
         
         .grid-2 { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+        .content-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 24px;
+        }
+        @media (max-width: 900px) {
+            .content-split { grid-template-columns: 1fr; }
+        }
         .grid-3 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
         .grid-4 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
         
@@ -210,6 +322,11 @@
             align-items: center;
             margin-bottom: 20px;
         }
+        .card-header-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
         
         .card-title {
             font-size: 18px;
@@ -227,21 +344,114 @@
         }
         
         /* Device cards */
+        .device-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
         .device-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+            gap: 10px;
+        }
+        
+        .device-grid-offline .device-card {
+            opacity: 0.85;
         }
         
         .device-card {
             background: var(--dark-3);
-            border-radius: 12px;
+            border-radius: 10px;
             border: 2px solid var(--border);
             padding: 20px;
             cursor: pointer;
             transition: all 0.3s;
             position: relative;
             overflow: hidden;
+        }
+        
+        .device-card.device-tile {
+            padding: 10px 10px 10px 12px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 6px;
+            min-height: 0;
+        }
+        
+        .device-card.device-tile:hover {
+            transform: translateY(-1px);
+        }
+        
+        .device-tile-main {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .device-tile .device-status {
+            margin-bottom: 6px;
+        }
+        
+        .device-tile .device-status span {
+            font-size: 10px !important;
+            letter-spacing: 0.04em;
+        }
+        
+        .device-tile .device-name {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 0;
+            padding: 2px 4px;
+            line-height: 1.25;
+            word-break: break-word;
+        }
+        
+        .device-tile-info-btn {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--dark-4);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+        
+        .device-tile-info-btn:hover {
+            background: var(--dark-3);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .device-detail-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        
+        .device-detail-body .info-row {
+            flex-wrap: wrap;
+            gap: 4px 12px;
+        }
+        
+        .device-detail-mono {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-size: 11px;
+            word-break: break-all;
+            text-align: right;
+            max-width: 100%;
         }
         
         .device-card::before {
@@ -395,6 +605,63 @@
             flex: 1;
         }
         
+        /* Drive file list: more compact rows */
+        .drive-file-list .video-item {
+            padding: 8px 12px;
+            gap: 10px;
+            border-radius: 8px;
+        }
+        .drive-file-list .video-thumb {
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+        }
+        .drive-file-list .video-name {
+            font-size: 13px;
+        }
+        .drive-file-list .video-meta {
+            font-size: 11px;
+        }
+        /* Drive grid layout */
+        .drive-file-list.drive-layout-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+        .drive-file-list.drive-layout-grid .video-item {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 12px;
+        }
+        .drive-file-list.drive-layout-grid .video-thumb {
+            width: 56px;
+            height: 56px;
+            font-size: 28px;
+            margin-bottom: 4px;
+        }
+        .drive-file-list.drive-layout-grid .video-info {
+            width: 100%;
+            min-width: 0;
+        }
+        .drive-file-list.drive-layout-grid .video-name {
+            font-size: 12px;
+            word-break: break-word;
+            margin-bottom: 2px;
+        }
+        .drive-file-list.drive-layout-grid .video-meta {
+            font-size: 10px;
+            margin-bottom: 8px;
+        }
+        .drive-file-list.drive-layout-grid .video-actions {
+            margin-top: auto;
+        }
+        .drive-layout-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
         .video-name {
             font-size: 14px;
             font-weight: 600;
@@ -454,6 +721,12 @@
             background: #E63300;
         }
         
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        
         .btn-secondary {
             background: var(--dark-3);
             color: var(--text);
@@ -463,6 +736,16 @@
         .btn-secondary:hover {
             background: var(--dark-4);
             border-color: var(--primary);
+        }
+        
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover {
+            color: var(--text);
+            border-color: var(--border);
         }
         
         .btn-small {
@@ -507,6 +790,36 @@
         }
         
         input[type="file"] { display: none; }
+        
+        .upload-progress-container {
+            margin-top: 20px;
+            width: 100%;
+        }
+        .upload-progress-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+        .upload-progress-pct {
+            color: var(--primary);
+            font-family: 'JetBrains Mono', monospace;
+            margin-left: 4px;
+        }
+        .upload-progress-bar-wrap {
+            height: 12px;
+            background: var(--dark-4);
+            border-radius: 999px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+        }
+        .upload-progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 999px;
+            transition: width 0.15s ease-out;
+        }
         
         /* Form elements */
         .form-group {
@@ -779,6 +1092,9 @@
             border: 1px solid var(--border);
             margin-bottom: 12px;
         }
+        #groupList .group-card {
+            margin-bottom: 0;
+        }
         
         .group-header {
             display: flex;
@@ -811,6 +1127,79 @@
             background: var(--dark-4);
             border-radius: 6px;
             font-size: 12px;
+        }
+        
+        /* Device Groups: always visible; cards in a horizontal-flow grid */
+        .device-groups-wrap {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        .device-groups-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 0 12px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .device-groups-label {
+            flex: 1;
+            font-weight: 600;
+            color: var(--text);
+            font-size: 14px;
+        }
+        .device-groups-content {
+            display: block;
+            margin-top: 0;
+            padding-left: 0;
+        }
+        #groupList {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            align-items: stretch;
+        }
+        #groupList > .empty-state {
+            grid-column: 1 / -1;
+        }
+        .device-groups-content .group-card {
+            padding: 14px 16px;
+            margin-bottom: 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .device-groups-content .group-name {
+            font-size: 13px;
+        }
+        .device-groups-content .group-count {
+            font-size: 11px;
+            padding: 2px 8px;
+        }
+        .device-groups-content .group-device-badge {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        .device-groups-content .group-devices {
+            gap: 6px;
+        }
+        .pgsize-btn { display:flex !important; flex-direction:column; align-items:center; transition:all .15s !important; }
+        .pgsize-btn.active { border-color:var(--primary) !important; background:rgba(59,130,246,.12) !important; color:var(--primary) !important; }
+        .pgsize-btn:hover { border-color:var(--primary) !important; }
+
+        .device-groups-content .group-header {
+            margin-bottom: 8px;
+        }
+        .device-groups-content .btn-small {
+            padding: 4px 10px;
+            font-size: 11px;
+        }
+        @media (max-width: 640px) {
+            #groupList {
+                grid-template-columns: 1fr;
+            }
         }
         
         /* Loading spinner */
@@ -860,28 +1249,185 @@
             background: var(--primary);
         }
         
-        /* Responsive */
-        @media (max-width: 768px) {
+        /* Responsive – mobile friendly */
+        @media (max-width: 900px) {
             .header {
-                flex-direction: column;
-                gap: 20px;
+                flex-wrap: wrap;
+                gap: 16px;
+            }
+            
+            .header-left {
+                flex: 1 1 100%;
+            }
+            
+            .header-left h1 {
+                font-size: 24px;
+            }
+            
+            .header-theme {
+                order: 2;
+                flex: 1 1 auto;
+            }
+            
+            .theme-switcher {
+                min-width: 120px;
             }
             
             .header-stats {
-                flex-direction: column;
-                width: 100%;
+                order: 3;
+                flex: 1 1 100%;
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
             }
             
             .stat {
                 width: 100%;
             }
             
-            .tabs {
+            .stat-value {
+                font-size: 22px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+            
+            .header {
                 flex-direction: column;
+                align-items: stretch;
+                gap: 16px;
+                padding: 16px;
+            }
+            
+            .header-left h1 {
+                font-size: 20px;
+            }
+            
+            .header-left p {
+                font-size: 13px;
+            }
+            
+            .header-theme {
+                display: flex;
+                justify-content: center;
+            }
+            
+            .theme-switcher {
+                width: 100%;
+                max-width: 200px;
+                margin: 0 auto;
+            }
+            
+            .header-stats {
+                flex-direction: row;
+                flex-wrap: wrap;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+            }
+            
+            .stat {
+                min-width: 0;
+            }
+            
+            .stat-value {
+                font-size: 20px;
+            }
+            
+            .stat-label {
+                font-size: 10px;
+            }
+            
+            .tabs {
+                flex-wrap: wrap;
+                gap: 6px;
+                padding: 6px;
+            }
+            
+            .tab {
+                flex: 1 1 calc(50% - 6px);
+                min-width: 0;
+                padding: 10px 12px;
+                font-size: 13px;
             }
             
             .grid-2, .grid-3, .grid-4 {
                 grid-template-columns: 1fr;
+            }
+            
+            .card-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+            
+            .card-header-actions {
+                width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            
+            .card-header-actions .btn,
+            .card-header-actions .btn-small {
+                flex: 1 1 calc(50% - 4px);
+                min-width: 0;
+                min-height: 44px;
+            }
+            
+            .card-header .btn, .card-header .btn-small {
+                min-height: 44px;
+            }
+            
+            .device-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .device-card {
+                min-height: auto;
+            }
+            
+            .device-name, .device-id {
+                font-size: 14px;
+            }
+            
+            .btn, .btn-small {
+                min-height: 44px;
+                padding: 10px 16px;
+            }
+            
+            .selection-bar {
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 12px;
+            }
+            
+            .video-list .video-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .playlist-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .tab {
+                flex: 1 1 100%;
+            }
+            
+            .header-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .card-header-actions .btn,
+            .card-header-actions .btn-small {
+                flex: 1 1 100%;
             }
         }
     
@@ -898,6 +1444,13 @@
             <div class="header-left">
                 <h1>🎬 Digital Signage Control Center</h1>
                 <p>Enterprise content management and distribution platform</p>
+            </div>
+            <div class="header-theme">
+                <div class="theme-switcher" id="themeSwitcher" role="switch" aria-label="Theme">
+                    <span class="theme-slide" id="themeSlide"></span>
+                    <button type="button" class="theme-opt active" data-theme="dark" aria-pressed="true">Dark</button>
+                    <button type="button" class="theme-opt" data-theme="light" aria-pressed="false">Light</button>
+                </div>
             </div>
             <div class="header-stats">
                 <div class="stat">
@@ -917,28 +1470,50 @@
         
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('devices')">🖥️ Devices</button>
-            <button class="tab" onclick="switchTab('content')">📹 Content</button>
-            <button class="tab" onclick="switchTab('playlists')">📋 Playlists</button>
-            <button class="tab" onclick="switchTab('schedules')">⏰ Schedules</button>
-            <button class="tab" onclick="switchTab('groups')">👥 Groups</button>
-            <button class="tab" onclick="switchTab('analytics')">📊 Analytics</button>
+            <button type="button" class="tab active" data-tab="devices" onclick="switchTab('devices', this)">🖥️ Devices</button>
+            <button type="button" class="tab" data-tab="content" onclick="switchTab('content', this)">📹 Content</button>
+            <button type="button" class="tab" data-tab="programs" onclick="switchTab('programs', this)">🎨 Programs</button>
+            <button type="button" class="tab" data-tab="playlists" onclick="switchTab('playlists', this)">📋 Playlists</button>
+            <button type="button" class="tab" data-tab="schedules" onclick="switchTab('schedules', this)">⏰ Schedules</button>
+            <button type="button" class="tab" data-tab="analytics" onclick="switchTab('analytics', this)">📊 Analytics</button>
         </div>
         
         <!-- Devices Tab -->
         <div id="devicesTab" class="tab-content active">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">Connected Displays</h2>
-                    <div style="display: flex; gap: 8px;">
+                    <h2 class="card-title">Displays</h2>
+                    <div class="card-header-actions">
                         <button class="btn btn-secondary btn-small" onclick="selectAllDevices()">Select All</button>
                         <button class="btn btn-secondary btn-small" onclick="deselectAllDevices()">Clear</button>
                         <button class="btn btn-secondary btn-small" onclick="selectOnlineDevices()">Online Only</button>
-                        <button class="btn btn-danger btn-small" onclick="formatSelectedDisplays()">🔄 Format Cache</button>
+                        <label class="playback-play-all-label" style="display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; font-size: 13px; cursor: pointer; color: var(--text-muted); white-space: nowrap;" title="When checked, Play sends to every display. Leave unchecked and select displays below.">
+                            <input type="checkbox" id="playbackPlayAllDisplays" />
+                            Play on all displays
+                        </label>
+                        <button class="btn btn-danger btn-small" id="formatCacheBtn" onclick="formatSelectedDisplays()" title="Only available for online displays">🔄 Format Cache</button>
+                        <button class="btn btn-danger btn-small" onclick="removeSelectedDisplays()">🗑️ Remove from panel</button>
                         <button class="btn btn-primary btn-small" onclick="refreshDevices()">Refresh</button>
                     </div>
                 </div>
-                <div id="deviceGrid" class="device-grid"></div>
+                <p id="devicesSummary" style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;"></p>
+                <div id="devicesOnlineSection" class="device-section">
+                    <h3 class="device-section-title">Online</h3>
+                    <div id="deviceGrid" class="device-grid"></div>
+                </div>
+                <div id="devicesOfflineSection" class="device-section" style="margin-top: 24px;">
+                    <h3 class="device-section-title">Offline</h3>
+                    <div id="deviceGridOffline" class="device-grid device-grid-offline"></div>
+                </div>
+                <div class="device-groups-wrap">
+                    <div class="device-groups-header">
+                        <span class="device-groups-label">Device Groups</span>
+                        <button type="button" class="btn btn-primary btn-small" onclick="openCreateGroupModal();">+ Create</button>
+                    </div>
+                    <div id="deviceGroupsContent" class="device-groups-content" aria-hidden="false">
+                        <div id="groupList"></div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -956,6 +1531,12 @@
                         <p style="color: var(--text-muted); margin-top: 8px;">
                             Supports: MP4, AVI, MKV, MOV, WEBM, JPG, PNG, GIF
                         </p>
+                        <div id="uploadProgressContainer" class="upload-progress-container" style="display: none;">
+                            <div id="uploadProgressLabel" class="upload-progress-label"></div>
+                            <div class="upload-progress-bar-wrap">
+                                <div id="uploadProgressBar" class="upload-progress-bar"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -974,12 +1555,44 @@
                 </div>
             </div>
             
-            <div class="card" style="margin-top: 24px;">
-                <div class="card-header">
-                    <h2 class="card-title">Video Library</h2>
-                    <div class="card-badge" id="videoBadge">0 videos</div>
+            <div class="content-split grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Video Library</h2>
+                        <div class="card-badge" id="videoBadge">0 videos</div>
+                    </div>
+                    <div id="videoList" class="video-list"></div>
                 </div>
-                <div id="videoList" class="video-list"></div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Google Drive</h2>
+                        <button type="button" class="btn btn-primary btn-small" id="driveConnectBtn" onclick="connectGoogleDrive()">Connect Google Drive</button>
+                        <button type="button" class="btn btn-secondary btn-small" id="driveDisconnectBtn" style="display: none;" onclick="disconnectGoogleDrive()">Disconnect</button>
+                    </div>
+                    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">Connect your own Google account to play videos from a Drive folder. Devices stream from Drive (server stays light) and cache videos locally.</p>
+                    <div id="driveToolbar" style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap;">
+                        <div id="driveBackBar" style="display: none;">
+                            <button type="button" class="btn btn-secondary btn-small" onclick="driveBack()">← Back</button>
+                        </div>
+                        <div style="margin-left: auto; display: flex; gap: 4px;">
+                            <button type="button" class="btn btn-ghost btn-small drive-layout-btn" id="driveLayoutList" onclick="setDriveLayout('list')" title="List view">☰ List</button>
+                            <button type="button" class="btn btn-ghost btn-small drive-layout-btn" id="driveLayoutGrid" onclick="setDriveLayout('grid')" title="Grid view">⊞ Grid</button>
+                        </div>
+                    </div>
+                    <div id="driveFileList" class="video-list drive-file-list"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Programs Tab -->
+        <div id="programsTab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Programs</h2>
+                    <button type="button" class="btn btn-primary btn-small" onclick="openCreateProgramModal()">+ New Program</button>
+                </div>
+                <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Multi-zone layouts — arrange videos &amp; images freely on a canvas.</p>
+                <div id="programList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px"></div>
             </div>
         </div>
         
@@ -994,6 +1607,14 @@
                         </button>
                     </div>
                     <div id="playlistList"></div>
+
+                    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+                        <div class="card-header" style="margin-bottom:10px">
+                            <h2 class="card-title" style="font-size:16px">Saved Programs</h2>
+                        </div>
+                        <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px">Multi-zone layouts — select a program below to play on your displays.</p>
+                        <div id="playlistProgramList"></div>
+                    </div>
                 </div>
                 
                 <div class="card">
@@ -1018,19 +1639,6 @@
                     </button>
                 </div>
                 <div id="scheduleList"></div>
-            </div>
-        </div>
-        
-        <!-- Groups Tab -->
-        <div id="groupsTab" class="tab-content">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">Device Groups</h2>
-                    <button class="btn btn-primary btn-small" onclick="openCreateGroupModal()">
-                        + Create Group
-                    </button>
-                </div>
-                <div id="groupList"></div>
             </div>
         </div>
         
@@ -1110,7 +1718,7 @@
     </div>
     
     <div class="modal" id="createPlaylistModal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 560px;">
             <div class="modal-header">
                 <h3 class="modal-title">Create Playlist</h3>
                 <button class="modal-close" onclick="closeModal('createPlaylistModal')">×</button>
@@ -1120,8 +1728,18 @@
                 <input type="text" class="form-input" id="playlistName" placeholder="e.g., Morning Rotation">
             </div>
             <div class="form-group">
-                <label class="form-label">Add Videos</label>
-                <select class="form-select" id="playlistVideos" multiple size="8"></select>
+                <label class="form-label">From Video Library</label>
+                <select class="form-select" id="playlistVideos" multiple size="4"></select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">From Google Drive</label>
+                <p class="form-hint" style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">Load Drive, then choose a folder and select videos to add.</p>
+                <button type="button" class="btn btn-secondary btn-small" id="loadDriveForPlaylistBtn" onclick="loadDriveVideosForPlaylist()">Load Drive</button>
+                <label class="form-label" style="margin-top: 10px; font-size: 12px;">Folder</label>
+                <select class="form-select" id="playlistDriveFolder" style="margin-bottom: 8px;" onchange="loadDriveFolderForPlaylist(this.value)">
+                    <option value="root">Root</option>
+                </select>
+                <select class="form-select" id="playlistDriveVideos" multiple size="4" style="margin-top: 4px;"></select>
             </div>
             <button class="btn btn-primary" onclick="savePlaylist()">Create Playlist</button>
         </div>
@@ -1145,6 +1763,101 @@
         </div>
     </div>
     
+    <div class="modal" id="createProgramModal">
+        <div class="modal-content" style="max-width:480px">
+            <div class="modal-header">
+                <h3 class="modal-title">Create New Program</h3>
+                <button type="button" class="modal-close" onclick="closeModal('createProgramModal')">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Program name</label>
+                <input type="text" class="form-input" id="programNewName" placeholder="e.g. Lobby Display, Menu Board…" autofocus>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Canvas size</label>
+                <div id="programSizeGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+                    <button type="button" class="btn btn-secondary btn-small pgsize-btn active" data-size="1920x1080" onclick="selectProgramSize(this)" style="flex-direction:column;padding:10px 6px;text-align:center">
+                        <div style="width:48px;height:27px;border:2px solid currentColor;border-radius:3px;margin:0 auto 4px"></div>
+                        <div style="font-size:11px;font-weight:600">1920×1080</div>
+                        <div style="font-size:10px;opacity:.6">Full HD</div>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-small pgsize-btn" data-size="3840x2160" onclick="selectProgramSize(this)" style="flex-direction:column;padding:10px 6px;text-align:center">
+                        <div style="width:48px;height:27px;border:2px solid currentColor;border-radius:3px;margin:0 auto 4px"></div>
+                        <div style="font-size:11px;font-weight:600">3840×2160</div>
+                        <div style="font-size:10px;opacity:.6">4K UHD</div>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-small pgsize-btn" data-size="1080x1920" onclick="selectProgramSize(this)" style="flex-direction:column;padding:10px 6px;text-align:center">
+                        <div style="width:27px;height:48px;border:2px solid currentColor;border-radius:3px;margin:0 auto 4px"></div>
+                        <div style="font-size:11px;font-weight:600">1080×1920</div>
+                        <div style="font-size:10px;opacity:.6">Vertical</div>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-small pgsize-btn" data-size="2160x3840" onclick="selectProgramSize(this)" style="flex-direction:column;padding:10px 6px;text-align:center">
+                        <div style="width:27px;height:48px;border:2px solid currentColor;border-radius:3px;margin:0 auto 4px"></div>
+                        <div style="font-size:11px;font-weight:600">2160×3840</div>
+                        <div style="font-size:10px;opacity:.6">4K Vertical</div>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-small pgsize-btn" data-size="1920x360" onclick="selectProgramSize(this)" style="flex-direction:column;padding:10px 6px;text-align:center">
+                        <div style="width:48px;height:12px;border:2px solid currentColor;border-radius:2px;margin:0 auto 4px"></div>
+                        <div style="font-size:11px;font-weight:600">1920×360</div>
+                        <div style="font-size:10px;opacity:.6">Ultra-wide</div>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-small pgsize-btn" data-size="custom" onclick="selectProgramSize(this)" style="flex-direction:column;padding:10px 6px;text-align:center">
+                        <div style="width:48px;height:27px;border:2px dashed currentColor;border-radius:3px;margin:0 auto 4px;display:flex;align-items:center;justify-content:center;font-size:16px">⚙</div>
+                        <div style="font-size:11px;font-weight:600">Custom</div>
+                        <div style="font-size:10px;opacity:.6">Any size</div>
+                    </button>
+                </div>
+                <input type="hidden" id="programNewSize" value="1920x1080">
+            </div>
+            <div class="form-group" id="programCustomSize" style="display:none">
+                <div style="display:flex;gap:8px;">
+                    <div style="flex:1"><label class="form-label" style="font-size:12px">Width (px)</label><input type="number" class="form-input" id="programCustomW" value="1920" min="320" max="7680"></div>
+                    <div style="flex:1"><label class="form-label" style="font-size:12px">Height (px)</label><input type="number" class="form-input" id="programCustomH" value="1080" min="240" max="4320"></div>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createProgramModal')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createProgram()">Create &amp; Open Editor</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="deviceDetailModal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="deviceDetailTitle">Display</h3>
+                <button type="button" class="modal-close" onclick="closeModal('deviceDetailModal')">×</button>
+            </div>
+            <div class="device-detail-body">
+                <div class="info-row">
+                    <span class="info-label">Device ID</span>
+                    <span class="info-value device-detail-mono" id="deviceDetailId"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status</span>
+                    <span class="info-value" id="deviceDetailStatus"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Current Video</span>
+                    <span class="info-value" id="deviceDetailVideo" style="text-align: right; max-width: 65%; word-break: break-word;"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Last Seen</span>
+                    <span class="info-value" id="deviceDetailLastSeen"></span>
+                </div>
+                <button type="button" class="btn btn-secondary btn-small" style="width: 100%; margin-top: 4px;" id="deviceDetailScreenshotBtn">📸 Request screenshot</button>
+                <div style="margin-top: 14px;">
+                    <div class="info-label" style="margin-bottom: 6px;">Cached on device (disk)</div>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Videos save to the display’s internal storage (not RAM), then play from disk. While downloading, the player shows progress on screen. “Play (cache)” plays without re-downloading; “Delete” queues removal on the next sync.</p>
+                    <div id="deviceDetailCacheDiag" style="font-size: 11px; color: var(--accent); margin-bottom: 8px; line-height: 1.45;"></div>
+                    <div id="deviceDetailCacheTotal" style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;"></div>
+                    <div id="deviceDetailCacheList" style="max-height: 220px; overflow-y: auto; font-size: 12px;"></div>
+                </div>
+                <p style="font-size: 12px; color: var(--text-muted); margin: 12px 0 0 0;">Rename: click the display name on the tile.</p>
+            </div>
+        </div>
+    </div>
+    
     <div class="modal" id="screenshotModal">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header">
@@ -1158,17 +1871,67 @@
         </div>
     </div>
     
+    <div class="modal" id="playbackProgressModal">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Starting playback</h3>
+                <button class="modal-close" onclick="closeModal('playbackProgressModal')">×</button>
+            </div>
+            <p id="playbackProgressTargets" style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;"></p>
+            <div class="upload-progress-bar-wrap" style="margin-bottom: 8px;">
+                <div id="playbackProgressBar" class="upload-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div id="playbackProgressStatus" style="font-size: 14px; font-weight: 600; color: var(--text); margin-top: 8px;"></div>
+        </div>
+    </div>
+    
     <script>
         let selectedDevices = [];
         let allDevices = [];
         let allVideos = [];
         let allPlaylists = [];
+        let allPrograms = [];
         let allSchedules = [];
         let selectedScheduleDays = [];
         let editingDeviceId = null;
         
+        // Theme (dark/light) – apply saved theme immediately to avoid flash
+        (function applySavedTheme() {
+            var theme = localStorage.getItem('controlCenterTheme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+        
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('controlCenterTheme', theme);
+            var sw = document.getElementById('themeSwitcher');
+            if (sw) {
+                sw.setAttribute('data-theme', theme);
+                sw.querySelectorAll('.theme-opt').forEach(function(btn) {
+                    var isActive = btn.getAttribute('data-theme') === theme;
+                    btn.classList.toggle('active', isActive);
+                    btn.setAttribute('aria-pressed', isActive);
+                });
+            }
+        }
+        
         // Initialize
         async function init() {
+            var sw = document.getElementById('themeSwitcher');
+            if (sw) {
+                sw.querySelectorAll('.theme-opt').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        setTheme(btn.getAttribute('data-theme'));
+                    });
+                });
+                var saved = localStorage.getItem('controlCenterTheme') || 'dark';
+                sw.setAttribute('data-theme', saved);
+                sw.querySelectorAll('.theme-opt').forEach(function(btn) {
+                    var isActive = btn.getAttribute('data-theme') === saved;
+                    btn.classList.toggle('active', isActive);
+                    btn.setAttribute('aria-pressed', isActive);
+                });
+            }
             await loadAll();
             setInterval(loadAll, 3000);
         }
@@ -1178,44 +1941,118 @@
                 loadDevices(),
                 loadVideos(),
                 loadPlaylists(),
+                loadPrograms(),
                 loadSchedules(),
                 loadGroups(),
                 loadAnalytics()
             ]);
+            if (typeof loadDriveStatus === 'function') loadDriveStatus();
             updateStats();
         }
         
         // Tab switching
-        function switchTab(tabName) {
+        function switchTab(tabName, tabButton) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            
-            event.target.classList.add('active');
-            document.getElementById(tabName + 'Tab').classList.add('active');
+            const btn = tabButton || document.querySelector('.tab[data-tab="' + tabName + '"]');
+            if (btn) btn.classList.add('active');
+            const panel = document.getElementById(tabName + 'Tab');
+            if (panel) panel.classList.add('active');
+            if (tabName === 'content' && typeof loadDriveStatus === 'function') loadDriveStatus();
         }
         
-        // Load devices
-        async function loadDevices() {
-            try {
-                const response = await fetch('/api/devices');
-                const data = await response.json();
-                allDevices = data.devices;
-                
-                const grid = document.getElementById('deviceGrid');
-                
-                if (allDevices.length === 0) {
-                    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No displays connected yet</p></div>';
-                    return;
+        function formatCacheManifestDiag(d) {
+            var at = d.cache_manifest_updated_at;
+            var cnt = d.cache_manifest_file_count;
+            var tb = d.cache_manifest_total_bytes;
+            var cm = d.cache_manifest;
+            if (cnt == null && Array.isArray(cm)) cnt = cm.length;
+            if (tb == null && Array.isArray(cm)) {
+                tb = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
+            }
+            var parts = [];
+            if (at) {
+                try {
+                    var dt = new Date(at);
+                    if (!isNaN(dt.getTime())) {
+                        parts.push('Server: last manifest saved ' + dt.toLocaleString());
+                    } else {
+                        parts.push('Server: last manifest saved ' + at);
+                    }
+                } catch (e) {
+                    parts.push('Server: last manifest saved ' + at);
                 }
-                
-                // Don't update the grid if we're currently editing a device name
-                if (editingDeviceId) {
-                    return;
-                }
-                
-                grid.innerHTML = allDevices.map(device => `
-                    <div class="device-card ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
-                         onclick="toggleDevice('${device.id}', event)">
+            } else {
+                parts.push('Server: never received a cache manifest — heartbeat may not include it (update APK) or POST body is blocked.');
+            }
+            if (cnt != null) parts.push('files: ' + cnt);
+            if (tb != null) parts.push('~' + (tb / (1024 * 1024)).toFixed(1) + ' MB total (reported sizes)');
+            return parts.join(' · ');
+        }
+
+        function updateDeviceDetailCacheUI(deviceId, d) {
+            var cacheEl = document.getElementById('deviceDetailCacheList');
+            var totalEl = document.getElementById('deviceDetailCacheTotal');
+            var diagEl = document.getElementById('deviceDetailCacheDiag');
+            var cm = d.cache_manifest;
+            if (diagEl) diagEl.textContent = formatCacheManifestDiag(d);
+            if (!cacheEl) return;
+            if (!Array.isArray(cm)) {
+                if (totalEl) totalEl.textContent = '';
+                cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No cache list yet. Wait for the display to sync (or update the app).</p>';
+            } else if (cm.length === 0) {
+                if (totalEl) totalEl.textContent = 'Total cached on device: 0 MB (reported)';
+                cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No files in the player cache folder (or playback is streaming without saving to disk).</p>';
+            } else {
+                var totalBytes = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
+                if (totalEl) totalEl.textContent = 'Total cached on device: ~' + (totalBytes / (1024 * 1024)).toFixed(1) + ' MB (reported)';
+                cacheEl.innerHTML = cm.map(function(item) {
+                    var k = (item.k != null ? String(item.k) : '').replace(/"/g, '&quot;');
+                    var l = item.l != null ? String(item.l) : '';
+                    var n = item.n != null ? String(item.n) : '';
+                    var s = item.s != null ? Number(item.s) : 0;
+                    var mb = (s / (1024 * 1024)).toFixed(1);
+                    var label = (n || l || k).replace(/</g, '');
+                    var safeL = l.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    var safeK = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    var safeN = (n || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    var safeDev = deviceId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    return '<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">' +
+                        '<span style="word-break:break-all;color:var(--text);flex:1;min-width:100px;">' + label + ' <span style="color:var(--text-muted);">(' + mb + ' MB)</span></span>' +
+                        '<button type="button" class="btn btn-primary btn-small" onclick="window.playCachedOnDevice(\'' + safeDev + '\',\'' + safeK + '\',\'' + safeL + '\',\'' + safeN + '\')">Play (cache)</button>' +
+                        '<button type="button" class="btn btn-secondary btn-small" onclick="window.deleteCacheFromDevice(\'' + safeDev + '\',\'' + safeK + '\')">Delete</button></div>';
+                }).join('');
+            }
+        }
+
+        function openDeviceInfo(deviceId, evt) {
+            if (evt) {
+                evt.stopPropagation();
+                evt.preventDefault();
+            }
+            var d = allDevices.find(function(x) { return x.id === deviceId; });
+            if (!d) return;
+            document.getElementById('deviceDetailTitle').textContent = d.name || deviceId;
+            document.getElementById('deviceDetailId').textContent = d.id;
+            document.getElementById('deviceDetailStatus').textContent = d.online ? 'Online' : 'Offline';
+            document.getElementById('deviceDetailVideo').textContent = d.reported_current_video_name || d.reported_current_video || d.current_video || 'None';
+            document.getElementById('deviceDetailLastSeen').textContent = d.online ? (d.last_seen_ago != null ? d.last_seen_ago + 's ago' : '—') : 'Offline';
+            document.getElementById('deviceDetailScreenshotBtn').onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeModal('deviceDetailModal');
+                requestScreenshot(deviceId, e);
+            };
+            updateDeviceDetailCacheUI(deviceId, d);
+            openModal('deviceDetailModal');
+        }
+
+        function renderDeviceCard(device) {
+            return `
+                <div class="device-card device-tile ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
+                     data-device-id="${device.id}"
+                     onclick="toggleDevice('${device.id}', event)">
+                    <div class="device-tile-main">
                         <div class="device-status">
                             <div class="status-dot"></div>
                             <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
@@ -1228,23 +2065,48 @@
                              title="Click to rename">
                             ${device.name}
                         </div>
-                        <div class="device-id">${device.id}</div>
-                        <div class="device-info">
-                            <div class="info-row">
-                                <span class="info-label">Current Video:</span>
-                                <span class="info-value">${device.current_video || 'None'}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Last Seen:</span>
-                                <span class="info-value">${device.online ? device.last_seen_ago + 's ago' : 'Offline'}</span>
-                            </div>
-                            <button class="btn btn-secondary btn-small" style="margin-top: 8px; width: 100%;" 
-                                    onclick="requestScreenshot('${device.id}', event)">
-                                📸 Screenshot
-                            </button>
-                        </div>
                     </div>
-                `).join('');
+                    <button type="button" class="device-tile-info-btn" title="Details & actions" aria-label="Display details"
+                            onclick="openDeviceInfo('${device.id}', event)">ℹ</button>
+                </div>
+            `;
+        }
+        
+        // Load devices (online + offline; names stored per device)
+        async function loadDevices() {
+            try {
+                const response = await fetch('/api/devices');
+                const data = await response.json();
+                allDevices = data.devices || [];
+                
+                const grid = document.getElementById('deviceGrid');
+                const gridOffline = document.getElementById('deviceGridOffline');
+                const summaryEl = document.getElementById('devicesSummary');
+                const onlineSection = document.getElementById('devicesOnlineSection');
+                const offlineSection = document.getElementById('devicesOfflineSection');
+                
+                if (allDevices.length === 0) {
+                    summaryEl.textContent = '';
+                    onlineSection.style.display = 'block';
+                    offlineSection.style.display = 'none';
+                    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No displays yet. Connect a device to see it here.</p></div>';
+                    gridOffline.innerHTML = '';
+                    return;
+                }
+                
+                if (editingDeviceId) return;
+                
+                const online = allDevices.filter(d => d.online);
+                const offline = allDevices.filter(d => !d.online);
+                
+                summaryEl.textContent = `${online.length} online, ${offline.length} offline`;
+                onlineSection.style.display = 'block';
+                offlineSection.style.display = offline.length ? 'block' : 'none';
+                
+                grid.innerHTML = online.length
+                    ? online.map(device => renderDeviceCard(device)).join('')
+                    : '<div class="empty-state" style="padding: 24px;"><p style="color: var(--text-muted);">No devices online</p></div>';
+                gridOffline.innerHTML = offline.map(device => renderDeviceCard(device)).join('');
                 
                 updateSelectionBar();
             } catch (error) {
@@ -1253,6 +2115,9 @@
         }
         
         function toggleDevice(deviceId, event) {
+            if (event.target.closest && event.target.closest('.device-tile-info-btn')) {
+                return;
+            }
             // Don't toggle if clicking on the name to edit
             if (event.target.classList.contains('device-name') || 
                 event.target.classList.contains('device-name-input')) {
@@ -1348,12 +2213,19 @@
         function updateSelectionBar() {
             const bar = document.getElementById('selectionBar');
             const text = document.getElementById('selectionText');
+            const formatBtn = document.getElementById('formatCacheBtn');
             
             if (selectedDevices.length > 0) {
                 text.textContent = `${selectedDevices.length} display(s) selected`;
                 bar.classList.add('active');
+                const selectedOnline = selectedDevices.every(id => allDevices.find(d => d.id === id)?.online);
+                if (formatBtn) {
+                    formatBtn.disabled = !selectedOnline;
+                    formatBtn.title = selectedOnline ? 'Clear cache and stop playback on selected displays' : 'Format Cache is only available for online displays';
+                }
             } else {
                 bar.classList.remove('active');
+                if (formatBtn) formatBtn.disabled = true;
             }
         }
         
@@ -1399,33 +2271,76 @@
             }
         }
         
+        function playbackPlayAllChecked() {
+            var el = document.getElementById('playbackPlayAllDisplays');
+            return !!(el && el.checked);
+        }
+        function getPlaybackTargetNames() {
+            if (playbackPlayAllChecked()) return 'All displays (explicit)';
+            if (selectedDevices.length === 0) return 'None selected — pick displays or tick Play on all';
+            return selectedDevices.map(function(id) {
+                var d = allDevices.find(function(dev) { return dev.id === id; });
+                return d ? (d.name || id) : id;
+            }).join(', ');
+        }
+        
+        function setPlaybackProgress(pct, status) {
+            var bar = document.getElementById('playbackProgressBar');
+            var statusEl = document.getElementById('playbackProgressStatus');
+            if (bar) bar.style.width = (pct || 0) + '%';
+            if (statusEl) statusEl.textContent = status || '';
+        }
+        
+        async function playVideoFromPlaylist(videoEntry) {
+            var playAll = playbackPlayAllChecked();
+            if (!playAll && selectedDevices.length === 0) {
+                showToast('Select one or more displays, or tick Play on all displays.', 'error');
+                return;
+            }
+            var targetsEl = document.getElementById('playbackProgressTargets');
+            if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
+            setPlaybackProgress(0, 'Sending to devices...');
+            openModal('playbackProgressModal');
+            const isDrive = videoEntry && (videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.startsWith('drive:')));
+            const payload = {};
+            if (playAll) {
+                payload.target_all = true;
+            } else if (selectedDevices.length > 0) {
+                payload.device_ids = selectedDevices;
+            }
+            if (isDrive) {
+                payload.drive_file_id = videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.replace(/^drive:/, ''));
+                payload.name = videoEntry.name || payload.drive_file_id;
+            } else {
+                payload.filename = typeof videoEntry === 'string' ? videoEntry : (videoEntry && videoEntry.filename);
+            }
+            const displayName = videoEntry && videoEntry.name ? videoEntry.name : (payload.filename || payload.drive_file_id);
+            try {
+                setPlaybackProgress(20, 'Sending to devices...');
+                const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                setPlaybackProgress(80, 'Updating displays...');
+                const result = await response.json();
+                if (result.success) {
+                    setPlaybackProgress(100, 'Done — playing on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)');
+                    showToast('Playing "' + displayName + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
+                    await loadDevices();
+                    setTimeout(function() { closeModal('playbackProgressModal'); }, 2000);
+                } else {
+                    setPlaybackProgress(100, 'Failed: ' + (result.error || 'Unknown error'));
+                    showToast('Playback failed: ' + (result.error || 'Unknown'), 'error');
+                }
+            } catch (error) {
+                setPlaybackProgress(100, 'Failed: network error');
+                showToast('Failed to play video', 'error');
+            }
+        }
+        
         async function playVideo(filename, fromPlaylist = false) {
-            // Block direct video playback - only allow from playlists
             if (!fromPlaylist) {
                 showToast('❌ Videos can only be played from playlists. Go to Playlists tab.', 'error');
                 return;
             }
-            
-            try {
-                const payload = {filename: filename};
-                if (selectedDevices.length > 0) {
-                    payload.device_ids = selectedDevices;
-                }
-                
-                const response = await fetch('/api/playback/play', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    showToast(`Playing "${filename}" on ${result.target === 'all' ? 'all' : result.devices_updated} display(s)`, 'success');
-                    await loadDevices();
-                }
-            } catch (error) {
-                showToast('Failed to play video', 'error');
-            }
+            await playVideoFromPlaylist({ filename: filename, name: filename });
         }
         
         async function deleteVideo(filename) {
@@ -1440,6 +2355,121 @@
             } catch (error) {
                 showToast('Failed to delete video', 'error');
             }
+        }
+        
+        function connectGoogleDrive() { window.location = '/api/auth/google/drive'; }
+        var driveFolderStack = [];
+        var currentDriveFolderId = 'root';
+        function driveBack() {
+            if (driveFolderStack.length) loadDriveFiles(driveFolderStack.pop(), true);
+        }
+        function setDriveLayout(mode) {
+            try { localStorage.setItem('driveLayout', mode); } catch (e) {}
+            var list = document.getElementById('driveFileList');
+            if (list) list.classList.toggle('drive-layout-grid', mode === 'grid');
+            var listBtn = document.getElementById('driveLayoutList');
+            var gridBtn = document.getElementById('driveLayoutGrid');
+            if (listBtn) listBtn.classList.toggle('active', mode === 'list');
+            if (gridBtn) gridBtn.classList.toggle('active', mode === 'grid');
+        }
+        function applyDriveLayout() {
+            var mode = 'list';
+            try { mode = localStorage.getItem('driveLayout') || 'list'; } catch (e) {}
+            setDriveLayout(mode);
+        }
+        async function loadDriveStatus() {
+            try {
+                const r = await fetch('/api/drive/status');
+                const data = await r.json();
+                const connectBtn = document.getElementById('driveConnectBtn');
+                const disconnectBtn = document.getElementById('driveDisconnectBtn');
+                const listEl = document.getElementById('driveFileList');
+                if (data.connected) {
+                    if (connectBtn) connectBtn.style.display = 'none';
+                    if (disconnectBtn) disconnectBtn.style.display = 'inline-block';
+                    var atRoot = (driveFolderStack.length === 0 && currentDriveFolderId === 'root');
+                    if (atRoot) {
+                        driveFolderStack = [];
+                        currentDriveFolderId = 'root';
+                        await loadDriveFiles(data.folder_id || 'root');
+                    }
+                    if (typeof applyDriveLayout === 'function') applyDriveLayout();
+                } else {
+                    if (connectBtn) connectBtn.style.display = 'inline-block';
+                    if (disconnectBtn) disconnectBtn.style.display = 'none';
+                    driveFolderStack = [];
+                    currentDriveFolderId = 'root';
+                    if (listEl) listEl.innerHTML = '<div class="empty-state"><p>Connect your Google account to list videos from Drive.</p></div>';
+                }
+            } catch (e) {
+                const listEl = document.getElementById('driveFileList');
+                if (listEl) listEl.innerHTML = '<div class="empty-state"><p>Google Drive not configured or unavailable.</p></div>';
+            }
+        }
+        async function loadDriveFiles(folderId, fromBack) {
+            const listEl = document.getElementById('driveFileList');
+            if (!listEl) return;
+            if (!fromBack && currentDriveFolderId !== undefined && currentDriveFolderId !== 'root') driveFolderStack.push(currentDriveFolderId);
+            currentDriveFolderId = folderId || 'root';
+            const backBar = document.getElementById('driveBackBar');
+            if (backBar) backBar.style.display = driveFolderStack.length ? 'block' : 'none';
+            try {
+                const r = await fetch('/api/drive/files?folder_id=' + encodeURIComponent(currentDriveFolderId));
+                const data = await r.json();
+                if (data.error && !data.files) {
+                    listEl.innerHTML = '<div class="empty-state"><p>' + (data.error || 'Failed to load') + '</p></div>';
+                    return;
+                }
+                const files = data.files || [];
+                const folders = data.folders || [];
+                let html = '';
+                const esc = function(s) { return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+                folders.forEach(f => {
+                    const parentId = esc(currentDriveFolderId);
+                    const subId = esc(f.id);
+                    const name = (f.name || f.id).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    html += '<div class="video-item"><div class="video-thumb">📁</div><div class="video-info"><div class="video-name">' + name + '</div></div><button class="btn btn-secondary btn-small" onclick="driveFolderStack.push(\'' + parentId + '\'); loadDriveFiles(\'' + subId + '\')">Open</button></div>';
+                });
+                files.forEach(v => {
+                    const sizeMb = v.size ? (v.size / (1024*1024)).toFixed(1) + ' MB' : '';
+                    const safeName = (v.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    html += '<div class="video-item"><div class="video-thumb">🎬</div><div class="video-info"><div class="video-name">' + (v.name || v.id) + '</div><div class="video-meta">' + sizeMb + ' (Drive)</div></div><div class="video-actions"><button class="btn btn-primary btn-small" onclick="playDriveVideo(\'' + v.id + '\', \'' + safeName + '\')">▶ Play</button></div></div>';
+                });
+                if (files.length === 0 && folders.length === 0) html += '<div class="empty-state"><p>No video files in this folder.</p></div>';
+                listEl.innerHTML = html || '<div class="empty-state"><p>No files</p></div>';
+                if (typeof applyDriveLayout === 'function') applyDriveLayout();
+            } catch (e) {
+                listEl.innerHTML = '<div class="empty-state"><p>Failed to load Drive files.</p></div>';
+            }
+        }
+        async function playDriveVideo(driveFileId, name) {
+            try {
+                var playAll = playbackPlayAllChecked();
+                if (!playAll && selectedDevices.length === 0) {
+                    showToast('Select one or more displays, or tick Play on all displays.', 'error');
+                    return;
+                }
+                const payload = { drive_file_id: driveFileId, name: name || '' };
+                if (playAll) {
+                    payload.target_all = true;
+                } else if (selectedDevices.length > 0) {
+                    payload.device_ids = selectedDevices;
+                }
+                const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Playing "' + (name || 'Drive video') + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
+                    await loadDevices();
+                } else showToast(result.error || 'Failed to play', 'error');
+            } catch (e) { showToast('Failed to play Drive video', 'error'); }
+        }
+        async function disconnectGoogleDrive() {
+            if (!confirm('Disconnect Google Drive? You can reconnect anytime.')) return;
+            try {
+                await fetch('/api/drive/disconnect', { method: 'POST' });
+                showToast('Drive disconnected', 'success');
+                loadDriveStatus();
+            } catch (e) { showToast('Failed to disconnect', 'error'); }
         }
         
         // File upload
@@ -1472,24 +2502,57 @@
             await loadVideos();
         }
         
-        async function uploadFile(file) {
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            try {
-                showToast(`Uploading ${file.name}...`, 'success');
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    showToast(`✓ ${file.name} uploaded`, 'success');
-                }
-            } catch (error) {
-                showToast(`Failed to upload ${file.name}`, 'error');
-            }
+        function uploadFile(file) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                const container = document.getElementById('uploadProgressContainer');
+                const label = document.getElementById('uploadProgressLabel');
+                const bar = document.getElementById('uploadProgressBar');
+                container.style.display = 'block';
+                label.textContent = file.name;
+                bar.style.width = '0%';
+                const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const pct = Math.round((e.loaded / e.total) * 100);
+                        bar.style.width = pct + '%';
+                        var pctEl = label.querySelector('.upload-progress-pct');
+                        if (!pctEl) {
+                            label.textContent = file.name + ' — ';
+                            pctEl = document.createElement('span');
+                            pctEl.className = 'upload-progress-pct';
+                            label.appendChild(pctEl);
+                        }
+                        pctEl.textContent = pct + '%';
+                    }
+                };
+                xhr.onload = () => {
+                    container.style.display = 'none';
+                    bar.style.width = '0%';
+                    try {
+                        const result = JSON.parse(xhr.responseText);
+                        if (result.success) {
+                            showToast('✓ ' + file.name + ' uploaded', 'success');
+                            resolve();
+                        } else {
+                            showToast('Upload failed: ' + (result.error || 'Unknown'), 'error');
+                            reject(new Error(result.error));
+                        }
+                    } catch (_) {
+                        showToast('Failed to upload ' + file.name, 'error');
+                        reject(new Error('Invalid response'));
+                    }
+                };
+                xhr.onerror = () => {
+                    container.style.display = 'none';
+                    bar.style.width = '0%';
+                    showToast('Failed to upload ' + file.name, 'error');
+                    reject(new Error('Network error'));
+                };
+                xhr.open('POST', '/api/upload');
+                xhr.send(formData);
+            });
         }
         
         // Playlists
@@ -1506,11 +2569,15 @@
                     return;
                 }
                 
-                list.innerHTML = allPlaylists.map(playlist => `
+                list.innerHTML = allPlaylists.map(playlist => {
+                    const videoCount = (playlist.videos || []).length;
+                    return `
                     <div class="group-card">
                         <div class="group-header">
                             <div class="group-name">${playlist.name}</div>
-                            <div class="group-count">${playlist.videos.length} videos</div>
+                            <div class="group-count">
+                                ${videoCount} video(s)
+                            </div>
                         </div>
                         <div style="display: flex; gap: 8px; margin-top: 12px;">
                             <button class="btn btn-success btn-small" onclick="playPlaylist('${playlist.id}')">
@@ -1524,7 +2591,8 @@
                             </button>
                         </div>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             } catch (error) {
                 console.error('Error loading playlists:', error);
             }
@@ -1533,18 +2601,73 @@
         function openCreatePlaylistModal() {
             const select = document.getElementById('playlistVideos');
             select.innerHTML = allVideos.map(v => 
-                `<option value="${v.filename}">${v.name}</option>`
+                `<option value="${(v.filename || '').replace(/"/g, '&quot;')}">${(v.name || v.filename || '').replace(/</g, '&lt;')}</option>`
             ).join('');
+            const driveSelect = document.getElementById('playlistDriveVideos');
+            const folderSelect = document.getElementById('playlistDriveFolder');
+            if (driveSelect) driveSelect.innerHTML = '';
+            if (folderSelect) { folderSelect.innerHTML = '<option value="root">Root</option>'; folderSelect.value = 'root'; }
             openModal('createPlaylistModal');
+        }
+        
+        async function loadDriveVideosForPlaylist() {
+            const btn = document.getElementById('loadDriveForPlaylistBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
+            await loadDriveFolderForPlaylist('root');
+            if (btn) { btn.disabled = false; btn.textContent = 'Load Drive'; }
+        }
+        
+        async function loadDriveFolderForPlaylist(folderId) {
+            const sel = document.getElementById('playlistDriveVideos');
+            const folderSelect = document.getElementById('playlistDriveFolder');
+            if (!sel) return;
+            const id = (folderId === 'root' || !folderId) ? 'root' : folderId;
+            var currentFolderName = 'Root';
+            if (folderSelect && folderSelect.selectedIndex >= 0) currentFolderName = folderSelect.options[folderSelect.selectedIndex].text;
+            try {
+                const r = await fetch('/api/drive/files?folder_id=' + encodeURIComponent(id));
+                const data = await r.json();
+                if (data.error && !data.files) {
+                    sel.innerHTML = '<option disabled>Connect Drive on Content tab first</option>';
+                    if (folderSelect) folderSelect.innerHTML = '<option value="root">Root</option>';
+                    return;
+                }
+                const files = data.files || [];
+                const folders = data.folders || [];
+                sel.innerHTML = files.map(f => {
+                    const name = (f.name || f.id).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                    return `<option value="${f.id}" data-name="${name}">${name} (Drive)</option>`;
+                }).join('');
+                if (files.length === 0 && folders.length === 0) sel.innerHTML = '<option disabled>No video files in this folder</option>';
+                if (folderSelect) {
+                    var opts = '<option value="root">Root</option>';
+                    if (id !== 'root') opts += '<option value="' + id + '">' + (currentFolderName.replace(/</g, '&lt;')) + '</option>';
+                    folders.forEach(f => {
+                        const name = (f.name || f.id).replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                        opts += '<option value="' + f.id + '">' + name + '</option>';
+                    });
+                    folderSelect.innerHTML = opts;
+                    folderSelect.value = id;
+                }
+            } catch (e) {
+                sel.innerHTML = '<option disabled>Failed to load folder</option>';
+                if (folderSelect) folderSelect.innerHTML = '<option value="root">Root</option>';
+            }
         }
         
         async function savePlaylist() {
             const name = document.getElementById('playlistName').value;
             const select = document.getElementById('playlistVideos');
-            const videos = Array.from(select.selectedOptions).map(o => o.value);
+            const driveSelect = document.getElementById('playlistDriveVideos');
+            const serverVideos = Array.from(select.selectedOptions).map(o => ({ filename: o.value, name: o.textContent }));
+            const driveVideos = Array.from(driveSelect ? driveSelect.selectedOptions : []).map(o => ({
+                drive_file_id: o.value,
+                name: o.getAttribute('data-name') || o.textContent.replace(/\s*\(Drive\)\s*$/, '')
+            }));
+            const videos = serverVideos.concat(driveVideos);
             
             if (!name || videos.length === 0) {
-                showToast('Please enter a name and select videos', 'error');
+                showToast('Please enter a name and select at least one video (Library or Drive)', 'error');
                 return;
             }
             
@@ -1552,13 +2675,16 @@
                 const response = await fetch('/api/playlists', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({name, videos})
+                    body: JSON.stringify({ name, videos })
                 });
                 
                 if (response.ok) {
                     showToast('Playlist created', 'success');
                     closeModal('createPlaylistModal');
                     await loadPlaylists();
+                } else {
+                    const err = await response.json();
+                    showToast(err.error || 'Failed to create playlist', 'error');
                 }
             } catch (error) {
                 showToast('Failed to create playlist', 'error');
@@ -1567,26 +2693,25 @@
         
         async function playPlaylist(playlistId) {
             const playlist = allPlaylists.find(p => p.id === playlistId);
-            if (!playlist || playlist.videos.length === 0) {
+            const videoCount = playlist && playlist.videos ? playlist.videos.length : 0;
+            if (!playlist || videoCount === 0) {
                 showToast('Playlist is empty', 'error');
                 return;
             }
             
             try {
-                // Activate this playlist first (copies to playlist.json for Android)
                 const response = await fetch(`/api/playlists/${playlistId}/activate`, {
                     method: 'POST'
                 });
-                
                 const result = await response.json();
-                if (result.success) {
-                    showToast(`✅ Activated: ${result.playlist_name} (${result.video_count} videos)`, 'success');
-                    // Pass TRUE to allow playback from playlist
-                    const firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : playlist.videos[0];
-                    console.log("Playing first video:", firstVideo);
-                    await playVideo(firstVideo, true);
-                } else {
+                if (!result.success) {
                     showToast('Failed to activate playlist', 'error');
+                    return;
+                }
+                showToast(`✅ Activated: ${playlist.name} (${result.video_count || videoCount} videos)`, 'success');
+                const firstEntry = result.videos && result.videos[0] ? result.videos[0] : (playlist.videos[0] || null);
+                if (firstEntry) {
+                    await playVideoFromPlaylist(firstEntry);
                 }
             } catch (error) {
                 console.error('Activation error:', error);
@@ -1598,14 +2723,16 @@
             const playlist = allPlaylists.find(p => p.id === playlistId);
             if (playlist) {
                 const preview = document.getElementById('playlistPreview');
+                const videos = playlist.videos || [];
+                const names = videos.map(v => typeof v === 'object' && v && v.name ? v.name : (v || ''));
                 preview.innerHTML = `
                     <h3 style="margin-bottom: 16px;">${playlist.name}</h3>
                     <div class="video-list">
-                        ${playlist.videos.map((v, i) => `
+                        ${names.map((name, i) => `
                             <div class="video-item">
                                 <div style="font-weight: 600; color: var(--primary); width: 30px;">${i + 1}</div>
                                 <div class="video-info">
-                                    <div class="video-name">${v}</div>
+                                    <div class="video-name">${(name || '').replace(/</g, '&lt;')}</div>
                                 </div>
                             </div>
                         `).join('')}
@@ -1752,6 +2879,166 @@
             }
         }
         
+        // Programs
+        async function loadPrograms() {
+            try {
+                var r = await fetch('/api/programs');
+                var data = await r.json();
+                allPrograms = data.programs || [];
+                var list = document.getElementById('programList');
+                if (!list) return;
+                if (allPrograms.length === 0) {
+                    list.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🎨</div><p>No programs yet. Click <b>+ New Program</b> to get started.</p></div>';
+                    return;
+                }
+                list.innerHTML = allPrograms.map(function(p) {
+                    var elCount = p.elements ? p.elements.length : 0;
+                    var orient = p.width >= p.height ? 'Horizontal' : 'Vertical';
+                    return '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--dark-2);transition:border-color .15s" onmouseenter="this.style.borderColor=\'var(--primary)\'" onmouseleave="this.style.borderColor=\'var(--border)\'">'
+                        + '<div style="position:relative;height:120px;background:#0a0a0a;overflow:hidden;display:flex;align-items:center;justify-content:center">'
+                        + '<canvas id="progCanvas_'+p.id+'" style="max-width:90%;max-height:100px"></canvas>'
+                        + '</div>'
+                        + '<div style="padding:12px 14px">'
+                        + '<div style="font-weight:600;font-size:14px;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.name||'Untitled') + '</div>'
+                        + '<div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--text-muted);margin-bottom:10px">'
+                        + '<span style="background:var(--dark-3);padding:2px 8px;border-radius:6px;font-family:monospace">' + p.width + '×' + p.height + '</span>'
+                        + '<span style="background:var(--dark-3);padding:2px 8px;border-radius:6px">' + orient + '</span>'
+                        + '<span style="background:var(--dark-3);padding:2px 8px;border-radius:6px">' + elCount + ' zone' + (elCount!==1?'s':'') + '</span>'
+                        + '</div>'
+                        + '<div style="display:flex;gap:6px">'
+                        + '<button type="button" class="btn btn-small" style="background:var(--success);color:#fff;border-color:var(--success);padding:6px 12px" onclick="playProgram(\'' + p.id + '\',\'' + (p.name||'').replace(/'/g,'') + '\')" title="Play on devices">▶ Play</button>'
+                        + '<a href="/program-editor/' + p.id + '" class="btn btn-primary btn-small" style="flex:1;text-align:center;text-decoration:none">Edit</a>'
+                        + '<button type="button" class="btn btn-danger btn-small" onclick="deleteProgram(\'' + p.id + '\')" style="padding:6px 10px" title="Delete">🗑️</button>'
+                        + '</div></div></div>';
+                }).join('');
+                allPrograms.forEach(function(p){ renderProgramMiniCanvas(p); });
+                renderPlaylistProgramList();
+            } catch(e) { console.error('loadPrograms', e); }
+        }
+
+        function renderPlaylistProgramList() {
+            var el = document.getElementById('playlistProgramList');
+            if (!el) return;
+            if (!allPrograms || allPrograms.length === 0) {
+                el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px 0">No programs created yet. Go to the Programs tab to create one.</div>';
+                return;
+            }
+            el.innerHTML = allPrograms.map(function(p) {
+                var elCount = p.elements ? p.elements.length : 0;
+                var safeName = (p.name || 'Untitled').replace(/'/g, '');
+                return '<div class="group-card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px">'
+                    + '<div style="width:48px;height:32px;background:#0a0a0a;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">🎨</div>'
+                    + '<div style="flex:1;min-width:0">'
+                    + '<div class="group-name">' + (p.name || 'Untitled') + '</div>'
+                    + '<div style="font-size:11px;color:var(--text-muted)">' + p.width + '×' + p.height + ' · ' + elCount + ' zone' + (elCount !== 1 ? 's' : '') + '</div>'
+                    + '</div>'
+                    + '<button class="btn btn-success btn-small" onclick="playProgram(\'' + p.id + '\',\'' + safeName + '\')">▶ Play</button>'
+                    + '</div>';
+            }).join('');
+        }
+
+        function renderProgramMiniCanvas(p) {
+            var c = document.getElementById('progCanvas_' + p.id);
+            if (!c) return;
+            var maxW = 200, maxH = 90;
+            var ratio = Math.min(maxW / p.width, maxH / p.height);
+            c.width = Math.round(p.width * ratio);
+            c.height = Math.round(p.height * ratio);
+            var ctx = c.getContext('2d');
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, c.width, c.height);
+            var colors = ['rgba(59,130,246,.4)','rgba(139,92,246,.4)','rgba(34,211,238,.4)','rgba(249,115,22,.4)','rgba(34,197,94,.4)'];
+            (p.elements || []).forEach(function(el, i) {
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fillRect(el.x * ratio, el.y * ratio, el.width * ratio, el.height * ratio);
+                ctx.strokeStyle = colors[i % colors.length].replace('.4','.8');
+                ctx.lineWidth = 1;
+                ctx.strokeRect(el.x * ratio + .5, el.y * ratio + .5, el.width * ratio - 1, el.height * ratio - 1);
+            });
+            if (!(p.elements && p.elements.length)) {
+                ctx.fillStyle = 'rgba(255,255,255,.15)';
+                ctx.font = '11px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Empty canvas', c.width / 2, c.height / 2 + 4);
+            }
+        }
+
+        function openCreateProgramModal() {
+            document.getElementById('programNewName').value = '';
+            document.getElementById('programNewSize').value = '1920x1080';
+            document.getElementById('programCustomSize').style.display = 'none';
+            document.querySelectorAll('.pgsize-btn').forEach(function(b){ b.classList.remove('active'); });
+            var def = document.querySelector('.pgsize-btn[data-size="1920x1080"]');
+            if(def) def.classList.add('active');
+            openModal('createProgramModal');
+        }
+
+        window.selectProgramSize = function(btn) {
+            document.querySelectorAll('.pgsize-btn').forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            var sz = btn.getAttribute('data-size');
+            document.getElementById('programNewSize').value = sz;
+            document.getElementById('programCustomSize').style.display = sz === 'custom' ? 'block' : 'none';
+        };
+
+        async function createProgram() {
+            var name = document.getElementById('programNewName').value.trim();
+            if (!name) { showToast('Enter a program name', 'error'); return; }
+            var sel = document.getElementById('programNewSize').value;
+            var w, h;
+            if (sel === 'custom') {
+                w = +document.getElementById('programCustomW').value || 1920;
+                h = +document.getElementById('programCustomH').value || 1080;
+            } else {
+                var parts = sel.split('x');
+                w = +parts[0]; h = +parts[1];
+            }
+            try {
+                var r = await fetch('/api/programs', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: name, width: w, height: h }) });
+                var res = await r.json();
+                if (res.success) {
+                    closeModal('createProgramModal');
+                    window.location.href = '/program-editor/' + res.program.id;
+                } else {
+                    showToast(res.error || 'Failed', 'error');
+                }
+            } catch(e) { showToast('Failed to create program', 'error'); }
+        }
+
+        async function deleteProgram(pid) {
+            if (!confirm('Delete this program?')) return;
+            try {
+                var r = await fetch('/api/programs/' + pid, { method: 'DELETE' });
+                if (r.ok) { showToast('Program deleted', 'success'); await loadPrograms(); }
+            } catch(e) { showToast('Failed to delete', 'error'); }
+        }
+
+        async function playProgram(programId, programName) {
+            var playAll = typeof playbackPlayAllChecked === 'function' && playbackPlayAllChecked();
+            var payload = { program_id: programId };
+            if (playAll) {
+                payload.target_all = true;
+            } else if (typeof selectedDevices !== 'undefined' && selectedDevices.length > 0) {
+                payload.device_ids = selectedDevices;
+            } else {
+                payload.target_all = true;
+            }
+            try {
+                var r = await fetch('/api/playback/play-program', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                var res = await r.json();
+                if (res.success) {
+                    var target = res.target === 'all' ? 'all displays' : res.devices_updated + ' display(s)';
+                    showToast('Program "' + (programName || res.program_name) + '" playing on ' + target, 'success');
+                } else {
+                    showToast(res.error || 'Failed to play program', 'error');
+                }
+            } catch(e) { showToast('Failed to play program', 'error'); }
+        }
+
         // Groups
         async function loadGroups() {
             try {
@@ -1779,10 +3066,10 @@
                             }).join('')}
                         </div>
                         <div style="display: flex; gap: 8px; margin-top: 12px;">
-                            <button class="btn btn-success btn-small" onclick="selectGroup('${group.id}')">
+                            <button type="button" class="btn btn-success btn-small" onclick="selectGroup('${group.id}')">
                                 ✓ Select Group
                             </button>
-                            <button class="btn btn-danger btn-small" onclick="deleteGroup('${group.id}')">
+                            <button type="button" class="btn btn-danger btn-small" onclick="deleteGroup('${group.id}')">
                                 🗑️
                             </button>
                         </div>
@@ -1828,16 +3115,35 @@
             }
         }
         
+        function applyDeviceSelectionToCards() {
+            document.querySelectorAll('.device-card[data-device-id]').forEach(function(card) {
+                var id = card.getAttribute('data-device-id');
+                if (selectedDevices.indexOf(id) !== -1) {
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+            });
+            updateSelectionBar();
+        }
+
         async function selectGroup(groupId) {
-            const response = await fetch('/api/groups');
-            const data = await response.json();
-            const group = data.groups.find(g => g.id === groupId);
-            
-            if (group) {
-                selectedDevices = group.device_ids;
-                switchTab('devices');
-                await loadDevices();
-                showToast(`Selected ${group.name}`, 'success');
+            try {
+                const response = await fetch('/api/groups');
+                const data = await response.json();
+                const group = (data.groups || []).find(g => g.id === groupId);
+                if (!group) return;
+                selectedDevices = group.device_ids.slice();
+                const devicesPanel = document.getElementById('devicesTab');
+                if (devicesPanel && !devicesPanel.classList.contains('active')) {
+                    const tabBtn = document.querySelector('.tab[data-tab="devices"]');
+                    switchTab('devices', tabBtn);
+                }
+                applyDeviceSelectionToCards();
+                showToast('Selected ' + group.name, 'success');
+            } catch (e) {
+                console.error(e);
+                showToast('Could not select group', 'error');
             }
         }
         
@@ -1998,26 +3304,43 @@
         async function loadAnalytics() {
             try {
                 const response = await fetch('/api/analytics');
+                if (!response.ok) throw new Error('Analytics failed');
                 const data = await response.json();
-                
-                document.getElementById('totalPlays').textContent = data.stats.total_plays || 0;
-                document.getElementById('activeDevices').textContent = data.stats.active_devices || 0;
-                document.getElementById('contentSize').textContent = `${data.stats.content_size_gb || 0} GB`;
-                
-                // Activity log
+                const stats = data.stats || {};
+                const events = data.events || [];
+
+                document.getElementById('totalPlays').textContent = stats.total_plays ?? 0;
+                document.getElementById('activeDevices').textContent = stats.active_devices ?? 0;
+                const contentGb = stats.content_size_gb ?? stats.storage_used_gb ?? 0;
+                document.getElementById('contentSize').textContent = contentGb.toFixed(2) + ' GB';
+
+                const uptime = stats.avg_uptime_percent ?? 98;
+                document.getElementById('avgUptime').textContent = uptime + '%';
+                const uptimeTrend = document.querySelector('#analyticsTab .metric-card:nth-child(2) .metric-trend');
+                if (uptimeTrend) uptimeTrend.textContent = uptime >= 95 ? '✅ Excellent' : (uptime >= 80 ? '⚠️ Good' : '❌ Low');
+
+                // Activity log (newest first, show up to 20)
                 const activityLog = document.getElementById('activityLog');
-                if (data.events.length === 0) {
+                if (events.length === 0) {
                     activityLog.innerHTML = '<div class="empty-state"><p>No recent activity</p></div>';
                 } else {
-                    activityLog.innerHTML = data.events.slice(-10).reverse().map(event => `
-                        <div class="info-row" style="padding: 12px; border-bottom: 1px solid var(--border);">
-                            <span class="info-label">${new Date(event.timestamp).toLocaleTimeString()}</span>
-                            <span class="info-value">${event.type}: ${JSON.stringify(event.data).substring(0, 50)}...</span>
-                        </div>
-                    `).join('');
+                    const slice = events.slice(0, 20);
+                    activityLog.innerHTML = slice.map(event => {
+                        const time = new Date(event.timestamp).toLocaleTimeString();
+                        const dataStr = JSON.stringify(event.data || {});
+                        const short = dataStr.length > 60 ? dataStr.substring(0, 60) + '…' : dataStr;
+                        return `<div class="info-row" style="padding: 12px; border-bottom: 1px solid var(--border);">
+                            <span class="info-label">${time}</span>
+                            <span class="info-value">${event.type}: ${short}</span>
+                        </div>`;
+                    }).join('');
                 }
             } catch (error) {
                 console.error('Error loading analytics:', error);
+                document.getElementById('totalPlays').textContent = '—';
+                document.getElementById('activeDevices').textContent = '—';
+                document.getElementById('contentSize').textContent = '— GB';
+                document.getElementById('activityLog').innerHTML = '<div class="empty-state"><p>Failed to load analytics</p></div>';
             }
         }
         
@@ -2078,7 +3401,11 @@
                 showToast('Please select displays to format', 'error');
                 return;
             }
-            
+            const hasOffline = selectedDevices.some(id => !allDevices.find(d => d.id === id)?.online);
+            if (hasOffline) {
+                showToast('Format Cache is only available for online displays. Select online displays only.', 'error');
+                return;
+            }
             const deviceNames = allDevices
                 .filter(d => selectedDevices.includes(d.id))
                 .map(d => d.name)
@@ -2106,6 +3433,79 @@
             }
         }
         
+        async function removeSelectedDisplays() {
+            if (selectedDevices.length === 0) {
+                showToast('Please select displays to remove', 'error');
+                return;
+            }
+            const deviceNames = allDevices
+                .filter(d => selectedDevices.includes(d.id))
+                .map(d => d.name)
+                .join(', ');
+            if (!confirm(`Remove ${selectedDevices.length} display(s) from the panel?\n\n${deviceNames}\n\nThe device(s) will return to the setup screen and must reconnect to appear again.`)) {
+                return;
+            }
+            try {
+                let ok = 0;
+                for (const id of selectedDevices) {
+                    const res = await fetch(`/api/devices/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                    if (res.ok) ok++;
+                }
+                showToast(ok ? `Removed ${ok} display(s) from panel` : 'Failed to remove displays', ok ? 'success' : 'error');
+                selectedDevices = [];
+                await loadDevices();
+            } catch (error) {
+                showToast('Failed to remove displays', 'error');
+            }
+        }
+        
+        window.playCachedOnDevice = async function(deviceId, cacheKey, logicalVideo, displayName) {
+            if (!deviceId || !cacheKey) return;
+            try {
+                var body = { device_ids: [deviceId], cache_key: cacheKey };
+                if (logicalVideo) body.logical_video = logicalVideo;
+                if (displayName) body.name = displayName;
+                var r = await fetch('/api/playback/play-cached', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                var j = await r.json();
+                if (j.success) {
+                    showToast('Play from device cache sent', 'success');
+                    closeModal('deviceDetailModal');
+                    await loadDevices();
+                } else {
+                    showToast(j.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                showToast('Failed to send play-cached', 'error');
+            }
+        };
+
+        window.deleteCacheFromDevice = async function(deviceId, cacheKey) {
+            if (!deviceId || !cacheKey) return;
+            if (!confirm('Remove this file from the display local storage?')) return;
+            try {
+                var r = await fetch('/api/devices/' + encodeURIComponent(deviceId) + '/cache-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys: [cacheKey] })
+                });
+                var j = await r.json();
+                if (j.success) {
+                    showToast('Delete queued — player removes it on next sync (~3s)', 'success');
+                    await loadDevices();
+                    var d = allDevices.find(function(x) { return x.id === deviceId; });
+                    if (d) openDeviceInfo(deviceId, null);
+                } else {
+                    showToast(j.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                showToast('Failed to queue delete', 'error');
+            }
+        };
+
         // Initialize on load
         init();
     </script>
@@ -2119,6 +3519,7 @@
         let allDevices = [];
         let allVideos = [];
         let allPlaylists = [];
+        let allPrograms = [];
         let allSchedules = [];
         let selectedScheduleDays = [];
         let editingDeviceId = null;
@@ -2134,44 +3535,118 @@
                 loadDevices(),
                 loadVideos(),
                 loadPlaylists(),
+                loadPrograms(),
                 loadSchedules(),
                 loadGroups(),
                 loadAnalytics()
             ]);
+            if (typeof loadDriveStatus === 'function') loadDriveStatus();
             updateStats();
         }
         
         // Tab switching
-        function switchTab(tabName) {
+        function switchTab(tabName, tabButton) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            
-            event.target.classList.add('active');
-            document.getElementById(tabName + 'Tab').classList.add('active');
+            const btn = tabButton || document.querySelector('.tab[data-tab="' + tabName + '"]');
+            if (btn) btn.classList.add('active');
+            const panel = document.getElementById(tabName + 'Tab');
+            if (panel) panel.classList.add('active');
+            if (tabName === 'content' && typeof loadDriveStatus === 'function') loadDriveStatus();
         }
         
-        // Load devices
-        async function loadDevices() {
-            try {
-                const response = await fetch('/api/devices');
-                const data = await response.json();
-                allDevices = data.devices;
-                
-                const grid = document.getElementById('deviceGrid');
-                
-                if (allDevices.length === 0) {
-                    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No displays connected yet</p></div>';
-                    return;
+        function formatCacheManifestDiag(d) {
+            var at = d.cache_manifest_updated_at;
+            var cnt = d.cache_manifest_file_count;
+            var tb = d.cache_manifest_total_bytes;
+            var cm = d.cache_manifest;
+            if (cnt == null && Array.isArray(cm)) cnt = cm.length;
+            if (tb == null && Array.isArray(cm)) {
+                tb = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
+            }
+            var parts = [];
+            if (at) {
+                try {
+                    var dt = new Date(at);
+                    if (!isNaN(dt.getTime())) {
+                        parts.push('Server: last manifest saved ' + dt.toLocaleString());
+                    } else {
+                        parts.push('Server: last manifest saved ' + at);
+                    }
+                } catch (e) {
+                    parts.push('Server: last manifest saved ' + at);
                 }
-                
-                // Don't update the grid if we're currently editing a device name
-                if (editingDeviceId) {
-                    return;
-                }
-                
-                grid.innerHTML = allDevices.map(device => `
-                    <div class="device-card ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
-                         onclick="toggleDevice('${device.id}', event)">
+            } else {
+                parts.push('Server: never received a cache manifest — heartbeat may not include it (update APK) or POST body is blocked.');
+            }
+            if (cnt != null) parts.push('files: ' + cnt);
+            if (tb != null) parts.push('~' + (tb / (1024 * 1024)).toFixed(1) + ' MB total (reported sizes)');
+            return parts.join(' · ');
+        }
+
+        function updateDeviceDetailCacheUI(deviceId, d) {
+            var cacheEl = document.getElementById('deviceDetailCacheList');
+            var totalEl = document.getElementById('deviceDetailCacheTotal');
+            var diagEl = document.getElementById('deviceDetailCacheDiag');
+            var cm = d.cache_manifest;
+            if (diagEl) diagEl.textContent = formatCacheManifestDiag(d);
+            if (!cacheEl) return;
+            if (!Array.isArray(cm)) {
+                if (totalEl) totalEl.textContent = '';
+                cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No cache list yet. Wait for the display to sync (or update the app).</p>';
+            } else if (cm.length === 0) {
+                if (totalEl) totalEl.textContent = 'Total cached on device: 0 MB (reported)';
+                cacheEl.innerHTML = '<p style="color: var(--text-muted); padding: 8px 0;">No files in the player cache folder (or playback is streaming without saving to disk).</p>';
+            } else {
+                var totalBytes = cm.reduce(function(a, x) { return a + (Number(x.s) || 0); }, 0);
+                if (totalEl) totalEl.textContent = 'Total cached on device: ~' + (totalBytes / (1024 * 1024)).toFixed(1) + ' MB (reported)';
+                cacheEl.innerHTML = cm.map(function(item) {
+                    var k = (item.k != null ? String(item.k) : '').replace(/"/g, '&quot;');
+                    var l = item.l != null ? String(item.l) : '';
+                    var n = item.n != null ? String(item.n) : '';
+                    var s = item.s != null ? Number(item.s) : 0;
+                    var mb = (s / (1024 * 1024)).toFixed(1);
+                    var label = (n || l || k).replace(/</g, '');
+                    var safeL = l.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    var safeK = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    var safeN = (n || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    var safeDev = deviceId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    return '<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">' +
+                        '<span style="word-break:break-all;color:var(--text);flex:1;min-width:100px;">' + label + ' <span style="color:var(--text-muted);">(' + mb + ' MB)</span></span>' +
+                        '<button type="button" class="btn btn-primary btn-small" onclick="window.playCachedOnDevice(\'' + safeDev + '\',\'' + safeK + '\',\'' + safeL + '\',\'' + safeN + '\')">Play (cache)</button>' +
+                        '<button type="button" class="btn btn-secondary btn-small" onclick="window.deleteCacheFromDevice(\'' + safeDev + '\',\'' + safeK + '\')">Delete</button></div>';
+                }).join('');
+            }
+        }
+
+        function openDeviceInfo(deviceId, evt) {
+            if (evt) {
+                evt.stopPropagation();
+                evt.preventDefault();
+            }
+            var d = allDevices.find(function(x) { return x.id === deviceId; });
+            if (!d) return;
+            document.getElementById('deviceDetailTitle').textContent = d.name || deviceId;
+            document.getElementById('deviceDetailId').textContent = d.id;
+            document.getElementById('deviceDetailStatus').textContent = d.online ? 'Online' : 'Offline';
+            document.getElementById('deviceDetailVideo').textContent = d.reported_current_video_name || d.reported_current_video || d.current_video || 'None';
+            document.getElementById('deviceDetailLastSeen').textContent = d.online ? (d.last_seen_ago != null ? d.last_seen_ago + 's ago' : '—') : 'Offline';
+            document.getElementById('deviceDetailScreenshotBtn').onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeModal('deviceDetailModal');
+                requestScreenshot(deviceId, e);
+            };
+            updateDeviceDetailCacheUI(deviceId, d);
+            openModal('deviceDetailModal');
+        }
+
+        function renderDeviceCard(device) {
+            return `
+                <div class="device-card device-tile ${device.online ? 'online' : ''} ${selectedDevices.includes(device.id) ? 'selected' : ''}" 
+                     data-device-id="${device.id}"
+                     onclick="toggleDevice('${device.id}', event)">
+                    <div class="device-tile-main">
                         <div class="device-status">
                             <div class="status-dot"></div>
                             <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
@@ -2184,23 +3659,48 @@
                              title="Click to rename">
                             ${device.name}
                         </div>
-                        <div class="device-id">${device.id}</div>
-                        <div class="device-info">
-                            <div class="info-row">
-                                <span class="info-label">Current Video:</span>
-                                <span class="info-value">${device.current_video || 'None'}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Last Seen:</span>
-                                <span class="info-value">${device.online ? device.last_seen_ago + 's ago' : 'Offline'}</span>
-                            </div>
-                            <button class="btn btn-secondary btn-small" style="margin-top: 8px; width: 100%;" 
-                                    onclick="requestScreenshot('${device.id}', event)">
-                                📸 Screenshot
-                            </button>
-                        </div>
                     </div>
-                `).join('');
+                    <button type="button" class="device-tile-info-btn" title="Details & actions" aria-label="Display details"
+                            onclick="openDeviceInfo('${device.id}', event)">ℹ</button>
+                </div>
+            `;
+        }
+        
+        // Load devices (online + offline; names stored per device)
+        async function loadDevices() {
+            try {
+                const response = await fetch('/api/devices');
+                const data = await response.json();
+                allDevices = data.devices || [];
+                
+                const grid = document.getElementById('deviceGrid');
+                const gridOffline = document.getElementById('deviceGridOffline');
+                const summaryEl = document.getElementById('devicesSummary');
+                const onlineSection = document.getElementById('devicesOnlineSection');
+                const offlineSection = document.getElementById('devicesOfflineSection');
+                
+                if (allDevices.length === 0) {
+                    summaryEl.textContent = '';
+                    onlineSection.style.display = 'block';
+                    offlineSection.style.display = 'none';
+                    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No displays yet. Connect a device to see it here.</p></div>';
+                    gridOffline.innerHTML = '';
+                    return;
+                }
+                
+                if (editingDeviceId) return;
+                
+                const online = allDevices.filter(d => d.online);
+                const offline = allDevices.filter(d => !d.online);
+                
+                summaryEl.textContent = `${online.length} online, ${offline.length} offline`;
+                onlineSection.style.display = 'block';
+                offlineSection.style.display = offline.length ? 'block' : 'none';
+                
+                grid.innerHTML = online.length
+                    ? online.map(device => renderDeviceCard(device)).join('')
+                    : '<div class="empty-state" style="padding: 24px;"><p style="color: var(--text-muted);">No devices online</p></div>';
+                gridOffline.innerHTML = offline.map(device => renderDeviceCard(device)).join('');
                 
                 updateSelectionBar();
             } catch (error) {
@@ -2209,6 +3709,9 @@
         }
         
         function toggleDevice(deviceId, event) {
+            if (event.target.closest && event.target.closest('.device-tile-info-btn')) {
+                return;
+            }
             // Don't toggle if clicking on the name to edit
             if (event.target.classList.contains('device-name') || 
                 event.target.classList.contains('device-name-input')) {
@@ -2304,12 +3807,19 @@
         function updateSelectionBar() {
             const bar = document.getElementById('selectionBar');
             const text = document.getElementById('selectionText');
+            const formatBtn = document.getElementById('formatCacheBtn');
             
             if (selectedDevices.length > 0) {
                 text.textContent = `${selectedDevices.length} display(s) selected`;
                 bar.classList.add('active');
+                const selectedOnline = selectedDevices.every(id => allDevices.find(d => d.id === id)?.online);
+                if (formatBtn) {
+                    formatBtn.disabled = !selectedOnline;
+                    formatBtn.title = selectedOnline ? 'Clear cache and stop playback on selected displays' : 'Format Cache is only available for online displays';
+                }
             } else {
                 bar.classList.remove('active');
+                if (formatBtn) formatBtn.disabled = true;
             }
         }
         
@@ -2355,33 +3865,76 @@
             }
         }
         
+        function playbackPlayAllChecked() {
+            var el = document.getElementById('playbackPlayAllDisplays');
+            return !!(el && el.checked);
+        }
+        function getPlaybackTargetNames() {
+            if (playbackPlayAllChecked()) return 'All displays (explicit)';
+            if (selectedDevices.length === 0) return 'None selected — pick displays or tick Play on all';
+            return selectedDevices.map(function(id) {
+                var d = allDevices.find(function(dev) { return dev.id === id; });
+                return d ? (d.name || id) : id;
+            }).join(', ');
+        }
+        
+        function setPlaybackProgress(pct, status) {
+            var bar = document.getElementById('playbackProgressBar');
+            var statusEl = document.getElementById('playbackProgressStatus');
+            if (bar) bar.style.width = (pct || 0) + '%';
+            if (statusEl) statusEl.textContent = status || '';
+        }
+        
+        async function playVideoFromPlaylist(videoEntry) {
+            var playAll = playbackPlayAllChecked();
+            if (!playAll && selectedDevices.length === 0) {
+                showToast('Select one or more displays, or tick Play on all displays.', 'error');
+                return;
+            }
+            var targetsEl = document.getElementById('playbackProgressTargets');
+            if (targetsEl) targetsEl.textContent = 'Target: ' + getPlaybackTargetNames();
+            setPlaybackProgress(0, 'Sending to devices...');
+            openModal('playbackProgressModal');
+            const isDrive = videoEntry && (videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.startsWith('drive:')));
+            const payload = {};
+            if (playAll) {
+                payload.target_all = true;
+            } else if (selectedDevices.length > 0) {
+                payload.device_ids = selectedDevices;
+            }
+            if (isDrive) {
+                payload.drive_file_id = videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.replace(/^drive:/, ''));
+                payload.name = videoEntry.name || payload.drive_file_id;
+            } else {
+                payload.filename = typeof videoEntry === 'string' ? videoEntry : (videoEntry && videoEntry.filename);
+            }
+            const displayName = videoEntry && videoEntry.name ? videoEntry.name : (payload.filename || payload.drive_file_id);
+            try {
+                setPlaybackProgress(20, 'Sending to devices...');
+                const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                setPlaybackProgress(80, 'Updating displays...');
+                const result = await response.json();
+                if (result.success) {
+                    setPlaybackProgress(100, 'Done — playing on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)');
+                    showToast('Playing "' + displayName + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
+                    await loadDevices();
+                    setTimeout(function() { closeModal('playbackProgressModal'); }, 2000);
+                } else {
+                    setPlaybackProgress(100, 'Failed: ' + (result.error || 'Unknown error'));
+                    showToast('Playback failed: ' + (result.error || 'Unknown'), 'error');
+                }
+            } catch (error) {
+                setPlaybackProgress(100, 'Failed: network error');
+                showToast('Failed to play video', 'error');
+            }
+        }
+        
         async function playVideo(filename, fromPlaylist = false) {
-            // Block direct video playback - only allow from playlists
             if (!fromPlaylist) {
                 showToast('❌ Videos can only be played from playlists. Go to Playlists tab.', 'error');
                 return;
             }
-            
-            try {
-                const payload = {filename: filename};
-                if (selectedDevices.length > 0) {
-                    payload.device_ids = selectedDevices;
-                }
-                
-                const response = await fetch('/api/playback/play', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    showToast(`Playing "${filename}" on ${result.target === 'all' ? 'all' : result.devices_updated} display(s)`, 'success');
-                    await loadDevices();
-                }
-            } catch (error) {
-                showToast('Failed to play video', 'error');
-            }
+            await playVideoFromPlaylist({ filename: filename, name: filename });
         }
         
         async function deleteVideo(filename) {
@@ -2396,6 +3949,121 @@
             } catch (error) {
                 showToast('Failed to delete video', 'error');
             }
+        }
+        
+        function connectGoogleDrive() { window.location = '/api/auth/google/drive'; }
+        var driveFolderStack = [];
+        var currentDriveFolderId = 'root';
+        function driveBack() {
+            if (driveFolderStack.length) loadDriveFiles(driveFolderStack.pop(), true);
+        }
+        function setDriveLayout(mode) {
+            try { localStorage.setItem('driveLayout', mode); } catch (e) {}
+            var list = document.getElementById('driveFileList');
+            if (list) list.classList.toggle('drive-layout-grid', mode === 'grid');
+            var listBtn = document.getElementById('driveLayoutList');
+            var gridBtn = document.getElementById('driveLayoutGrid');
+            if (listBtn) listBtn.classList.toggle('active', mode === 'list');
+            if (gridBtn) gridBtn.classList.toggle('active', mode === 'grid');
+        }
+        function applyDriveLayout() {
+            var mode = 'list';
+            try { mode = localStorage.getItem('driveLayout') || 'list'; } catch (e) {}
+            setDriveLayout(mode);
+        }
+        async function loadDriveStatus() {
+            try {
+                const r = await fetch('/api/drive/status');
+                const data = await r.json();
+                const connectBtn = document.getElementById('driveConnectBtn');
+                const disconnectBtn = document.getElementById('driveDisconnectBtn');
+                const listEl = document.getElementById('driveFileList');
+                if (data.connected) {
+                    if (connectBtn) connectBtn.style.display = 'none';
+                    if (disconnectBtn) disconnectBtn.style.display = 'inline-block';
+                    var atRoot = (driveFolderStack.length === 0 && currentDriveFolderId === 'root');
+                    if (atRoot) {
+                        driveFolderStack = [];
+                        currentDriveFolderId = 'root';
+                        await loadDriveFiles(data.folder_id || 'root');
+                    }
+                    if (typeof applyDriveLayout === 'function') applyDriveLayout();
+                } else {
+                    if (connectBtn) connectBtn.style.display = 'inline-block';
+                    if (disconnectBtn) disconnectBtn.style.display = 'none';
+                    driveFolderStack = [];
+                    currentDriveFolderId = 'root';
+                    if (listEl) listEl.innerHTML = '<div class="empty-state"><p>Connect your Google account to list videos from Drive.</p></div>';
+                }
+            } catch (e) {
+                const listEl = document.getElementById('driveFileList');
+                if (listEl) listEl.innerHTML = '<div class="empty-state"><p>Google Drive not configured or unavailable.</p></div>';
+            }
+        }
+        async function loadDriveFiles(folderId, fromBack) {
+            const listEl = document.getElementById('driveFileList');
+            if (!listEl) return;
+            if (!fromBack && currentDriveFolderId !== undefined && currentDriveFolderId !== 'root') driveFolderStack.push(currentDriveFolderId);
+            currentDriveFolderId = folderId || 'root';
+            const backBar = document.getElementById('driveBackBar');
+            if (backBar) backBar.style.display = driveFolderStack.length ? 'block' : 'none';
+            try {
+                const r = await fetch('/api/drive/files?folder_id=' + encodeURIComponent(currentDriveFolderId));
+                const data = await r.json();
+                if (data.error && !data.files) {
+                    listEl.innerHTML = '<div class="empty-state"><p>' + (data.error || 'Failed to load') + '</p></div>';
+                    return;
+                }
+                const files = data.files || [];
+                const folders = data.folders || [];
+                let html = '';
+                const esc = function(s) { return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+                folders.forEach(f => {
+                    const parentId = esc(currentDriveFolderId);
+                    const subId = esc(f.id);
+                    const name = (f.name || f.id).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    html += '<div class="video-item"><div class="video-thumb">📁</div><div class="video-info"><div class="video-name">' + name + '</div></div><button class="btn btn-secondary btn-small" onclick="driveFolderStack.push(\'' + parentId + '\'); loadDriveFiles(\'' + subId + '\')">Open</button></div>';
+                });
+                files.forEach(v => {
+                    const sizeMb = v.size ? (v.size / (1024*1024)).toFixed(1) + ' MB' : '';
+                    const safeName = (v.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    html += '<div class="video-item"><div class="video-thumb">🎬</div><div class="video-info"><div class="video-name">' + (v.name || v.id) + '</div><div class="video-meta">' + sizeMb + ' (Drive)</div></div><div class="video-actions"><button class="btn btn-primary btn-small" onclick="playDriveVideo(\'' + v.id + '\', \'' + safeName + '\')">▶ Play</button></div></div>';
+                });
+                if (files.length === 0 && folders.length === 0) html += '<div class="empty-state"><p>No video files in this folder.</p></div>';
+                listEl.innerHTML = html || '<div class="empty-state"><p>No files</p></div>';
+                if (typeof applyDriveLayout === 'function') applyDriveLayout();
+            } catch (e) {
+                listEl.innerHTML = '<div class="empty-state"><p>Failed to load Drive files.</p></div>';
+            }
+        }
+        async function playDriveVideo(driveFileId, name) {
+            try {
+                var playAll = playbackPlayAllChecked();
+                if (!playAll && selectedDevices.length === 0) {
+                    showToast('Select one or more displays, or tick Play on all displays.', 'error');
+                    return;
+                }
+                const payload = { drive_file_id: driveFileId, name: name || '' };
+                if (playAll) {
+                    payload.target_all = true;
+                } else if (selectedDevices.length > 0) {
+                    payload.device_ids = selectedDevices;
+                }
+                const response = await fetch('/api/playback/play', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Playing "' + (name || 'Drive video') + '" on ' + (result.target === 'all' ? 'all' : result.devices_updated) + ' display(s)', 'success');
+                    await loadDevices();
+                } else showToast(result.error || 'Failed to play', 'error');
+            } catch (e) { showToast('Failed to play Drive video', 'error'); }
+        }
+        async function disconnectGoogleDrive() {
+            if (!confirm('Disconnect Google Drive? You can reconnect anytime.')) return;
+            try {
+                await fetch('/api/drive/disconnect', { method: 'POST' });
+                showToast('Drive disconnected', 'success');
+                loadDriveStatus();
+            } catch (e) { showToast('Failed to disconnect', 'error'); }
         }
         
         // File upload
@@ -2428,24 +4096,57 @@
             await loadVideos();
         }
         
-        async function uploadFile(file) {
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            try {
-                showToast(`Uploading ${file.name}...`, 'success');
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    showToast(`✓ ${file.name} uploaded`, 'success');
-                }
-            } catch (error) {
-                showToast(`Failed to upload ${file.name}`, 'error');
-            }
+        function uploadFile(file) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                const container = document.getElementById('uploadProgressContainer');
+                const label = document.getElementById('uploadProgressLabel');
+                const bar = document.getElementById('uploadProgressBar');
+                container.style.display = 'block';
+                label.textContent = file.name;
+                bar.style.width = '0%';
+                const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const pct = Math.round((e.loaded / e.total) * 100);
+                        bar.style.width = pct + '%';
+                        var pctEl = label.querySelector('.upload-progress-pct');
+                        if (!pctEl) {
+                            label.textContent = file.name + ' — ';
+                            pctEl = document.createElement('span');
+                            pctEl.className = 'upload-progress-pct';
+                            label.appendChild(pctEl);
+                        }
+                        pctEl.textContent = pct + '%';
+                    }
+                };
+                xhr.onload = () => {
+                    container.style.display = 'none';
+                    bar.style.width = '0%';
+                    try {
+                        const result = JSON.parse(xhr.responseText);
+                        if (result.success) {
+                            showToast('✓ ' + file.name + ' uploaded', 'success');
+                            resolve();
+                        } else {
+                            showToast('Upload failed: ' + (result.error || 'Unknown'), 'error');
+                            reject(new Error(result.error));
+                        }
+                    } catch (_) {
+                        showToast('Failed to upload ' + file.name, 'error');
+                        reject(new Error('Invalid response'));
+                    }
+                };
+                xhr.onerror = () => {
+                    container.style.display = 'none';
+                    bar.style.width = '0%';
+                    showToast('Failed to upload ' + file.name, 'error');
+                    reject(new Error('Network error'));
+                };
+                xhr.open('POST', '/api/upload');
+                xhr.send(formData);
+            });
         }
         
         // Playlists
@@ -2489,32 +4190,42 @@
         function openCreatePlaylistModal() {
             const select = document.getElementById('playlistVideos');
             select.innerHTML = allVideos.map(v => 
-                `<option value="${v.filename}">${v.name}</option>`
+                `<option value="${(v.filename || '').replace(/"/g, '&quot;')}">${(v.name || v.filename || '').replace(/</g, '&lt;')}</option>`
             ).join('');
+            const driveSelect = document.getElementById('playlistDriveVideos');
+            const folderSelect = document.getElementById('playlistDriveFolder');
+            if (driveSelect) driveSelect.innerHTML = '';
+            if (folderSelect) { folderSelect.innerHTML = '<option value="root">Root</option>'; folderSelect.value = 'root'; }
             openModal('createPlaylistModal');
         }
         
         async function savePlaylist() {
             const name = document.getElementById('playlistName').value;
             const select = document.getElementById('playlistVideos');
-            const videos = Array.from(select.selectedOptions).map(o => o.value);
-            
+            const driveSelect = document.getElementById('playlistDriveVideos');
+            const serverVideos = Array.from(select.selectedOptions).map(o => ({ filename: o.value, name: o.textContent }));
+            const driveVideos = Array.from(driveSelect ? driveSelect.selectedOptions : []).map(o => ({
+                drive_file_id: o.value,
+                name: o.getAttribute('data-name') || o.textContent.replace(/\s*\(Drive\)\s*$/, '')
+            }));
+            const videos = serverVideos.concat(driveVideos);
             if (!name || videos.length === 0) {
-                showToast('Please enter a name and select videos', 'error');
+                showToast('Please enter a name and select at least one video (Library or Drive)', 'error');
                 return;
             }
-            
             try {
                 const response = await fetch('/api/playlists', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({name, videos})
+                    body: JSON.stringify({ name, videos })
                 });
-                
                 if (response.ok) {
                     showToast('Playlist created', 'success');
                     closeModal('createPlaylistModal');
                     await loadPlaylists();
+                } else {
+                    const err = await response.json();
+                    showToast(err.error || 'Failed to create playlist', 'error');
                 }
             } catch (error) {
                 showToast('Failed to create playlist', 'error');
@@ -2523,24 +4234,17 @@
         
         async function playPlaylist(playlistId) {
             const playlist = allPlaylists.find(p => p.id === playlistId);
-            if (!playlist || playlist.videos.length === 0) {
+            if (!playlist || !playlist.videos || playlist.videos.length === 0) {
                 showToast('Playlist is empty', 'error');
                 return;
             }
-            
             try {
-                // Activate this playlist first (copies to playlist.json for Android)
-                const response = await fetch(`/api/playlists/${playlistId}/activate`, {
-                    method: 'POST'
-                });
-                
+                const response = await fetch(`/api/playlists/${playlistId}/activate`, { method: 'POST' });
                 const result = await response.json();
                 if (result.success) {
                     showToast(`✅ Activated: ${result.playlist_name} (${result.video_count} videos)`, 'success');
-                    // Pass TRUE to allow playback from playlist
-                    const firstVideo = result.videos && result.videos[0] ? result.videos[0].filename : playlist.videos[0];
-                    console.log("Playing first video:", firstVideo);
-                    await playVideo(firstVideo, true);
+                    const firstEntry = result.videos && result.videos[0] ? result.videos[0] : playlist.videos[0];
+                    if (firstEntry) await playVideoFromPlaylist(firstEntry);
                 } else {
                     showToast('Failed to activate playlist', 'error');
                 }
@@ -2554,14 +4258,16 @@
             const playlist = allPlaylists.find(p => p.id === playlistId);
             if (playlist) {
                 const preview = document.getElementById('playlistPreview');
+                const videos = playlist.videos || [];
+                const names = videos.map(v => typeof v === 'object' && v && v.name ? v.name : (v || ''));
                 preview.innerHTML = `
                     <h3 style="margin-bottom: 16px;">${playlist.name}</h3>
                     <div class="video-list">
-                        ${playlist.videos.map((v, i) => `
+                        ${names.map((name, i) => `
                             <div class="video-item">
                                 <div style="font-weight: 600; color: var(--primary); width: 30px;">${i + 1}</div>
                                 <div class="video-info">
-                                    <div class="video-name">${v}</div>
+                                    <div class="video-name">${(name || '').replace(/</g, '&lt;')}</div>
                                 </div>
                             </div>
                         `).join('')}
@@ -2708,6 +4414,166 @@
             }
         }
         
+        // Programs
+        async function loadPrograms() {
+            try {
+                var r = await fetch('/api/programs');
+                var data = await r.json();
+                allPrograms = data.programs || [];
+                var list = document.getElementById('programList');
+                if (!list) return;
+                if (allPrograms.length === 0) {
+                    list.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🎨</div><p>No programs yet. Click <b>+ New Program</b> to get started.</p></div>';
+                    return;
+                }
+                list.innerHTML = allPrograms.map(function(p) {
+                    var elCount = p.elements ? p.elements.length : 0;
+                    var orient = p.width >= p.height ? 'Horizontal' : 'Vertical';
+                    return '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--dark-2);transition:border-color .15s" onmouseenter="this.style.borderColor=\'var(--primary)\'" onmouseleave="this.style.borderColor=\'var(--border)\'">'
+                        + '<div style="position:relative;height:120px;background:#0a0a0a;overflow:hidden;display:flex;align-items:center;justify-content:center">'
+                        + '<canvas id="progCanvas_'+p.id+'" style="max-width:90%;max-height:100px"></canvas>'
+                        + '</div>'
+                        + '<div style="padding:12px 14px">'
+                        + '<div style="font-weight:600;font-size:14px;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.name||'Untitled') + '</div>'
+                        + '<div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--text-muted);margin-bottom:10px">'
+                        + '<span style="background:var(--dark-3);padding:2px 8px;border-radius:6px;font-family:monospace">' + p.width + '×' + p.height + '</span>'
+                        + '<span style="background:var(--dark-3);padding:2px 8px;border-radius:6px">' + orient + '</span>'
+                        + '<span style="background:var(--dark-3);padding:2px 8px;border-radius:6px">' + elCount + ' zone' + (elCount!==1?'s':'') + '</span>'
+                        + '</div>'
+                        + '<div style="display:flex;gap:6px">'
+                        + '<button type="button" class="btn btn-small" style="background:var(--success);color:#fff;border-color:var(--success);padding:6px 12px" onclick="playProgram(\'' + p.id + '\',\'' + (p.name||'').replace(/'/g,'') + '\')" title="Play on devices">▶ Play</button>'
+                        + '<a href="/program-editor/' + p.id + '" class="btn btn-primary btn-small" style="flex:1;text-align:center;text-decoration:none">Edit</a>'
+                        + '<button type="button" class="btn btn-danger btn-small" onclick="deleteProgram(\'' + p.id + '\')" style="padding:6px 10px" title="Delete">🗑️</button>'
+                        + '</div></div></div>';
+                }).join('');
+                allPrograms.forEach(function(p){ renderProgramMiniCanvas(p); });
+                renderPlaylistProgramList();
+            } catch(e) { console.error('loadPrograms', e); }
+        }
+
+        function renderPlaylistProgramList() {
+            var el = document.getElementById('playlistProgramList');
+            if (!el) return;
+            if (!allPrograms || allPrograms.length === 0) {
+                el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px 0">No programs created yet. Go to the Programs tab to create one.</div>';
+                return;
+            }
+            el.innerHTML = allPrograms.map(function(p) {
+                var elCount = p.elements ? p.elements.length : 0;
+                var safeName = (p.name || 'Untitled').replace(/'/g, '');
+                return '<div class="group-card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px">'
+                    + '<div style="width:48px;height:32px;background:#0a0a0a;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">🎨</div>'
+                    + '<div style="flex:1;min-width:0">'
+                    + '<div class="group-name">' + (p.name || 'Untitled') + '</div>'
+                    + '<div style="font-size:11px;color:var(--text-muted)">' + p.width + '×' + p.height + ' · ' + elCount + ' zone' + (elCount !== 1 ? 's' : '') + '</div>'
+                    + '</div>'
+                    + '<button class="btn btn-success btn-small" onclick="playProgram(\'' + p.id + '\',\'' + safeName + '\')">▶ Play</button>'
+                    + '</div>';
+            }).join('');
+        }
+
+        function renderProgramMiniCanvas(p) {
+            var c = document.getElementById('progCanvas_' + p.id);
+            if (!c) return;
+            var maxW = 200, maxH = 90;
+            var ratio = Math.min(maxW / p.width, maxH / p.height);
+            c.width = Math.round(p.width * ratio);
+            c.height = Math.round(p.height * ratio);
+            var ctx = c.getContext('2d');
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, c.width, c.height);
+            var colors = ['rgba(59,130,246,.4)','rgba(139,92,246,.4)','rgba(34,211,238,.4)','rgba(249,115,22,.4)','rgba(34,197,94,.4)'];
+            (p.elements || []).forEach(function(el, i) {
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fillRect(el.x * ratio, el.y * ratio, el.width * ratio, el.height * ratio);
+                ctx.strokeStyle = colors[i % colors.length].replace('.4','.8');
+                ctx.lineWidth = 1;
+                ctx.strokeRect(el.x * ratio + .5, el.y * ratio + .5, el.width * ratio - 1, el.height * ratio - 1);
+            });
+            if (!(p.elements && p.elements.length)) {
+                ctx.fillStyle = 'rgba(255,255,255,.15)';
+                ctx.font = '11px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Empty canvas', c.width / 2, c.height / 2 + 4);
+            }
+        }
+
+        function openCreateProgramModal() {
+            document.getElementById('programNewName').value = '';
+            document.getElementById('programNewSize').value = '1920x1080';
+            document.getElementById('programCustomSize').style.display = 'none';
+            document.querySelectorAll('.pgsize-btn').forEach(function(b){ b.classList.remove('active'); });
+            var def = document.querySelector('.pgsize-btn[data-size="1920x1080"]');
+            if(def) def.classList.add('active');
+            openModal('createProgramModal');
+        }
+
+        window.selectProgramSize = function(btn) {
+            document.querySelectorAll('.pgsize-btn').forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            var sz = btn.getAttribute('data-size');
+            document.getElementById('programNewSize').value = sz;
+            document.getElementById('programCustomSize').style.display = sz === 'custom' ? 'block' : 'none';
+        };
+
+        async function createProgram() {
+            var name = document.getElementById('programNewName').value.trim();
+            if (!name) { showToast('Enter a program name', 'error'); return; }
+            var sel = document.getElementById('programNewSize').value;
+            var w, h;
+            if (sel === 'custom') {
+                w = +document.getElementById('programCustomW').value || 1920;
+                h = +document.getElementById('programCustomH').value || 1080;
+            } else {
+                var parts = sel.split('x');
+                w = +parts[0]; h = +parts[1];
+            }
+            try {
+                var r = await fetch('/api/programs', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: name, width: w, height: h }) });
+                var res = await r.json();
+                if (res.success) {
+                    closeModal('createProgramModal');
+                    window.location.href = '/program-editor/' + res.program.id;
+                } else {
+                    showToast(res.error || 'Failed', 'error');
+                }
+            } catch(e) { showToast('Failed to create program', 'error'); }
+        }
+
+        async function deleteProgram(pid) {
+            if (!confirm('Delete this program?')) return;
+            try {
+                var r = await fetch('/api/programs/' + pid, { method: 'DELETE' });
+                if (r.ok) { showToast('Program deleted', 'success'); await loadPrograms(); }
+            } catch(e) { showToast('Failed to delete', 'error'); }
+        }
+
+        async function playProgram(programId, programName) {
+            var playAll = typeof playbackPlayAllChecked === 'function' && playbackPlayAllChecked();
+            var payload = { program_id: programId };
+            if (playAll) {
+                payload.target_all = true;
+            } else if (typeof selectedDevices !== 'undefined' && selectedDevices.length > 0) {
+                payload.device_ids = selectedDevices;
+            } else {
+                payload.target_all = true;
+            }
+            try {
+                var r = await fetch('/api/playback/play-program', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                var res = await r.json();
+                if (res.success) {
+                    var target = res.target === 'all' ? 'all displays' : res.devices_updated + ' display(s)';
+                    showToast('Program "' + (programName || res.program_name) + '" playing on ' + target, 'success');
+                } else {
+                    showToast(res.error || 'Failed to play program', 'error');
+                }
+            } catch(e) { showToast('Failed to play program', 'error'); }
+        }
+
         // Groups
         async function loadGroups() {
             try {
@@ -2735,10 +4601,10 @@
                             }).join('')}
                         </div>
                         <div style="display: flex; gap: 8px; margin-top: 12px;">
-                            <button class="btn btn-success btn-small" onclick="selectGroup('${group.id}')">
+                            <button type="button" class="btn btn-success btn-small" onclick="selectGroup('${group.id}')">
                                 ✓ Select Group
                             </button>
-                            <button class="btn btn-danger btn-small" onclick="deleteGroup('${group.id}')">
+                            <button type="button" class="btn btn-danger btn-small" onclick="deleteGroup('${group.id}')">
                                 🗑️
                             </button>
                         </div>
@@ -2784,16 +4650,35 @@
             }
         }
         
+        function applyDeviceSelectionToCards() {
+            document.querySelectorAll('.device-card[data-device-id]').forEach(function(card) {
+                var id = card.getAttribute('data-device-id');
+                if (selectedDevices.indexOf(id) !== -1) {
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+            });
+            updateSelectionBar();
+        }
+
         async function selectGroup(groupId) {
-            const response = await fetch('/api/groups');
-            const data = await response.json();
-            const group = data.groups.find(g => g.id === groupId);
-            
-            if (group) {
-                selectedDevices = group.device_ids;
-                switchTab('devices');
-                await loadDevices();
-                showToast(`Selected ${group.name}`, 'success');
+            try {
+                const response = await fetch('/api/groups');
+                const data = await response.json();
+                const group = (data.groups || []).find(g => g.id === groupId);
+                if (!group) return;
+                selectedDevices = group.device_ids.slice();
+                const devicesPanel = document.getElementById('devicesTab');
+                if (devicesPanel && !devicesPanel.classList.contains('active')) {
+                    const tabBtn = document.querySelector('.tab[data-tab="devices"]');
+                    switchTab('devices', tabBtn);
+                }
+                applyDeviceSelectionToCards();
+                showToast('Selected ' + group.name, 'success');
+            } catch (e) {
+                console.error(e);
+                showToast('Could not select group', 'error');
             }
         }
         
@@ -2954,26 +4839,43 @@
         async function loadAnalytics() {
             try {
                 const response = await fetch('/api/analytics');
+                if (!response.ok) throw new Error('Analytics failed');
                 const data = await response.json();
-                
-                document.getElementById('totalPlays').textContent = data.stats.total_plays || 0;
-                document.getElementById('activeDevices').textContent = data.stats.active_devices || 0;
-                document.getElementById('contentSize').textContent = `${data.stats.content_size_gb || 0} GB`;
-                
-                // Activity log
+                const stats = data.stats || {};
+                const events = data.events || [];
+
+                document.getElementById('totalPlays').textContent = stats.total_plays ?? 0;
+                document.getElementById('activeDevices').textContent = stats.active_devices ?? 0;
+                const contentGb = stats.content_size_gb ?? stats.storage_used_gb ?? 0;
+                document.getElementById('contentSize').textContent = contentGb.toFixed(2) + ' GB';
+
+                const uptime = stats.avg_uptime_percent ?? 98;
+                document.getElementById('avgUptime').textContent = uptime + '%';
+                const uptimeTrend = document.querySelector('#analyticsTab .metric-card:nth-child(2) .metric-trend');
+                if (uptimeTrend) uptimeTrend.textContent = uptime >= 95 ? '✅ Excellent' : (uptime >= 80 ? '⚠️ Good' : '❌ Low');
+
+                // Activity log (newest first, show up to 20)
                 const activityLog = document.getElementById('activityLog');
-                if (data.events.length === 0) {
+                if (events.length === 0) {
                     activityLog.innerHTML = '<div class="empty-state"><p>No recent activity</p></div>';
                 } else {
-                    activityLog.innerHTML = data.events.slice(-10).reverse().map(event => `
-                        <div class="info-row" style="padding: 12px; border-bottom: 1px solid var(--border);">
-                            <span class="info-label">${new Date(event.timestamp).toLocaleTimeString()}</span>
-                            <span class="info-value">${event.type}: ${JSON.stringify(event.data).substring(0, 50)}...</span>
-                        </div>
-                    `).join('');
+                    const slice = events.slice(0, 20);
+                    activityLog.innerHTML = slice.map(event => {
+                        const time = new Date(event.timestamp).toLocaleTimeString();
+                        const dataStr = JSON.stringify(event.data || {});
+                        const short = dataStr.length > 60 ? dataStr.substring(0, 60) + '…' : dataStr;
+                        return `<div class="info-row" style="padding: 12px; border-bottom: 1px solid var(--border);">
+                            <span class="info-label">${time}</span>
+                            <span class="info-value">${event.type}: ${short}</span>
+                        </div>`;
+                    }).join('');
                 }
             } catch (error) {
                 console.error('Error loading analytics:', error);
+                document.getElementById('totalPlays').textContent = '—';
+                document.getElementById('activeDevices').textContent = '—';
+                document.getElementById('contentSize').textContent = '— GB';
+                document.getElementById('activityLog').innerHTML = '<div class="empty-state"><p>Failed to load analytics</p></div>';
             }
         }
         
@@ -3034,7 +4936,11 @@
                 showToast('Please select displays to format', 'error');
                 return;
             }
-            
+            const hasOffline = selectedDevices.some(id => !allDevices.find(d => d.id === id)?.online);
+            if (hasOffline) {
+                showToast('Format Cache is only available for online displays. Select online displays only.', 'error');
+                return;
+            }
             const deviceNames = allDevices
                 .filter(d => selectedDevices.includes(d.id))
                 .map(d => d.name)
@@ -3062,6 +4968,79 @@
             }
         }
         
+        async function removeSelectedDisplays() {
+            if (selectedDevices.length === 0) {
+                showToast('Please select displays to remove', 'error');
+                return;
+            }
+            const deviceNames = allDevices
+                .filter(d => selectedDevices.includes(d.id))
+                .map(d => d.name)
+                .join(', ');
+            if (!confirm(`Remove ${selectedDevices.length} display(s) from the panel?\n\n${deviceNames}\n\nThe device(s) will return to the setup screen and must reconnect to appear again.`)) {
+                return;
+            }
+            try {
+                let ok = 0;
+                for (const id of selectedDevices) {
+                    const res = await fetch(`/api/devices/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                    if (res.ok) ok++;
+                }
+                showToast(ok ? `Removed ${ok} display(s) from panel` : 'Failed to remove displays', ok ? 'success' : 'error');
+                selectedDevices = [];
+                await loadDevices();
+            } catch (error) {
+                showToast('Failed to remove displays', 'error');
+            }
+        }
+        
+        window.playCachedOnDevice = async function(deviceId, cacheKey, logicalVideo, displayName) {
+            if (!deviceId || !cacheKey) return;
+            try {
+                var body = { device_ids: [deviceId], cache_key: cacheKey };
+                if (logicalVideo) body.logical_video = logicalVideo;
+                if (displayName) body.name = displayName;
+                var r = await fetch('/api/playback/play-cached', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                var j = await r.json();
+                if (j.success) {
+                    showToast('Play from device cache sent', 'success');
+                    closeModal('deviceDetailModal');
+                    await loadDevices();
+                } else {
+                    showToast(j.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                showToast('Failed to send play-cached', 'error');
+            }
+        };
+
+        window.deleteCacheFromDevice = async function(deviceId, cacheKey) {
+            if (!deviceId || !cacheKey) return;
+            if (!confirm('Remove this file from the display local storage?')) return;
+            try {
+                var r = await fetch('/api/devices/' + encodeURIComponent(deviceId) + '/cache-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys: [cacheKey] })
+                });
+                var j = await r.json();
+                if (j.success) {
+                    showToast('Delete queued — player removes it on next sync (~3s)', 'success');
+                    await loadDevices();
+                    var d = allDevices.find(function(x) { return x.id === deviceId; });
+                    if (d) openDeviceInfo(deviceId, null);
+                } else {
+                    showToast(j.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                showToast('Failed to queue delete', 'error');
+            }
+        };
+
         // Initialize on load
         init();
     

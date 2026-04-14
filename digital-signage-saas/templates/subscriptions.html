@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% block title %}Subscriptions{% endblock %}
+
+{% block extra_css %}
+<style>
+    .subs-page-wrap {
+        min-height: calc(100vh - 120px);
+        background: #0c0118;
+        padding: 3.5rem 1.5rem 2.5rem;
+    }
+    .subs-page {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: rgba(21, 2, 37, 0.9);
+        border: 1px solid rgba(46, 16, 101, 0.6);
+        border-radius: 20px;
+        box-shadow: 0 4px 40px rgba(12, 1, 24, 0.7);
+        padding: 2.5rem 2rem;
+    }
+    .subs-page h1 {
+        font-size: clamp(1.5rem, 4vw, 2rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: #f9fafb;
+        margin-bottom: 0.35rem;
+    }
+    .subs-page .subtitle {
+        color: #9ca3af;
+        font-size: 1rem;
+        margin-bottom: 2.25rem;
+    }
+    .current-plan-card {
+        background: rgba(22, 163, 74, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.35);
+        border-radius: 16px;
+        padding: 1.5rem 1.75rem;
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .current-plan-card.expired {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: rgba(239, 68, 68, 0.35);
+    }
+    .current-plan-card .plan-name {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #86efac;
+    }
+    .current-plan-card.expired .plan-name { color: #fca5a5; }
+    .current-plan-card .status {
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+    .current-plan-card .status.active { background: #059669; color: white; }
+    .current-plan-card .status.trial { background: #d97706; color: white; }
+    .current-plan-card .status.expired { background: #dc2626; color: white; }
+    .current-plan-card > div:last-child {
+        color: #9ca3af;
+        font-size: 0.95rem;
+    }
+    .subs-section-title {
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: #f9fafb;
+        margin-bottom: 1.25rem;
+    }
+    .plans-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem;
+    }
+    .plan-card {
+        background: rgba(12, 1, 24, 0.7);
+        border: 1px solid rgba(46, 16, 101, 0.6);
+        border-radius: 14px;
+        padding: 1.75rem;
+        text-align: center;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .plan-card:hover {
+        border-color: rgba(167, 139, 250, 0.6);
+        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.15);
+    }
+    .plan-card.current {
+        border-color: #7c3aed;
+        background: rgba(124, 58, 237, 0.1);
+        border-width: 2px;
+        box-shadow: 0 2px 12px rgba(124, 58, 237, 0.2);
+    }
+    .plan-card h3 {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #f9fafb;
+        margin-bottom: 0.5rem;
+    }
+    .plan-card .price {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #f97316;
+    }
+    .plan-card .price span {
+        font-size: 0.95rem;
+        color: #9ca3af;
+        font-weight: 500;
+    }
+    .plan-card .features-list {
+        list-style: none;
+        padding: 1rem 0;
+        text-align: left;
+        margin: 0;
+    }
+    .plan-card .features-list li {
+        padding: 0.35rem 0;
+        color: #9ca3af;
+        font-size: 0.9rem;
+    }
+    .plan-card .features-list li::before {
+        content: '✓ ';
+        color: var(--success);
+        font-weight: bold;
+        margin-right: 0.4rem;
+    }
+    .plan-card .btn {
+        margin-top: 0.75rem;
+        width: 100%;
+        padding: 0.6rem 1rem;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    .plan-card .btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+        background: rgba(46, 16, 101, 0.4);
+        border-color: rgba(46, 16, 101, 0.4);
+        color: #6b7280;
+    }
+    .plan-card .plan-default-note {
+        margin-top: 0.75rem;
+        color: #6b7280;
+        font-size: 0.875rem;
+    }
+    .payment-message {
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.35);
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 2rem;
+        font-size: 0.95rem;
+        color: #fcd34d;
+    }
+    .subs-notice-box {
+        background: rgba(56, 189, 248, 0.08);
+        border: 1px solid rgba(56, 189, 248, 0.25);
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+        color: #bae6fd;
+    }
+    .subs-notice-box-warn {
+        background: rgba(245, 158, 11, 0.08);
+        border-color: rgba(245, 158, 11, 0.3);
+        color: #fcd34d;
+    }
+    .subs-rules-link {
+        margin-bottom: 2rem;
+        font-size: 0.95rem;
+    }
+    .subs-rules-link a {
+        color: #c4b5fd;
+        text-decoration: none;
+    }
+    .subs-rules-link a:hover { text-decoration: underline; color: #f97316; }
+    .plans-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="subs-page-wrap">
+<div class="subs-page">
+    <h1>Subscriptions</h1>
+    <p class="subtitle">Manage your plan. Trial is 7 days free with unlimited displays; paid plan adds email support.</p>
+
+    <div class="current-plan-card {% if not user.is_subscription_active() %}expired{% endif %}">
+        <div>
+            <span class="plan-name">{{ plans.get(user.plan, {}).name|default(user.plan) }}</span>
+            <span class="status {% if user.subscription_status == 'active' %}active{% elif user.subscription_status == 'trial' %}trial{% else %}expired{% endif %}">
+                {{ user.subscription_status }}
+            </span>
+        </div>
+        <div>
+            {% if user.plan == 'paid' %}
+                <strong>{{ plans.get(user.plan, {}).name|default(user.plan) }}</strong> &middot; $10/month
+            {% else %}
+                Trial &middot; 7 days free, unlimited displays, no support
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not user.is_subscription_active() %}
+    <div class="payment-message">
+        Your trial has ended or your subscription is inactive. Choose a plan below and complete payment to continue using the dashboard and displays.
+    </div>
+    {% endif %}
+
+    <div class="subs-notice-box">
+        <strong>How playback works:</strong> Videos are stored in the device cache and will loop until you format the cache or send new content to the device.
+    </div>
+    <div class="subs-notice-box subs-notice-box-warn">
+        <strong>Server storage:</strong> All videos uploaded on this website may be deleted from the server from time to time. Keep your own backups if needed.
+    </div>
+    <p class="subs-rules-link"><a href="{{ BASE_PATH }}{{ url_for('main.rules') }}">Rules for free and paid users</a></p>
+
+    <h2 class="subs-section-title">Plans</h2>
+    <div class="plans-grid">
+        {% for plan_key, plan in plans.items() %}
+        <div class="plan-card {% if plan_key == user.plan %}current{% endif %}">
+            <h3>{{ plan.name }}</h3>
+            <div class="price">
+                {% if plan.price == 0 %}Free{% else %}${{ plan.price }}<span>/month</span>{% endif %}
+            </div>
+            <ul class="features-list">
+                {% for feature in plan.features %}
+                <li>{{ feature }}</li>
+                {% endfor %}
+            </ul>
+            {% if plan_key == user.plan and user.is_subscription_active() %}
+                <button class="btn btn-secondary" disabled>Current plan</button>
+            {% elif plan_key == 'free' %}
+                <span class="plan-default-note">Default for new accounts</span>
+            {% else %}
+                <button type="button" class="btn btn-primary plan-subscribe-btn" data-plan="{{ plan_key }}" data-name="{{ plan.name }}">
+                    Subscribe to {{ plan.name }}
+                </button>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+</div>
+
+<div class="modal subs-payoneer-modal" id="payoneerModal">
+    <div class="modal-backdrop" onclick="closePayoneerModal()"></div>
+    <div class="subs-payoneer-content">
+        <div class="subs-payoneer-header">
+            <h3>Pay via Payoneer</h3>
+            <button type="button" class="subs-payoneer-close" onclick="closePayoneerModal()">×</button>
+        </div>
+        <div class="subs-payoneer-body">
+            <p class="subs-payoneer-intro">To activate the <strong id="payoneerPlanName">$10 Plan</strong>, send your payment via Payoneer:</p>
+            {% if payoneer_email %}
+            <div class="subs-payoneer-email">
+                <label>Payoneer account</label>
+                <div class="subs-payoneer-email-value">{{ payoneer_email }}</div>
+            </div>
+            <div class="subs-payoneer-amount">Amount: <strong>$10/month</strong></div>
+            {% if payoneer_instructions %}
+            <div class="subs-payoneer-instructions">{{ payoneer_instructions }}</div>
+            {% endif %}
+            <p class="subs-payoneer-after">After payment, we will activate your plan. {% if support_email %}Contact us at <a href="mailto:{{ support_email }}">{{ support_email }}</a> if needed.{% endif %}</p>
+            {% else %}
+            <p class="subs-payoneer-not-set">Payoneer is not configured yet. Please contact the administrator.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.subs-payoneer-modal { display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
+.subs-payoneer-modal.open { display: flex; }
+.subs-payoneer-modal .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
+.subs-payoneer-content { position: relative; background: rgba(21, 2, 37, 0.98); border: 1px solid rgba(46, 16, 101, 0.7); border-radius: 16px; max-width: 440px; width: 100%; box-shadow: 0 20px 60px rgba(12, 1, 24, 0.8); padding: 0; overflow: hidden; }
+.subs-payoneer-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(46, 16, 101, 0.5); }
+.subs-payoneer-header h3 { margin: 0; font-size: 1.2rem; color: #f9fafb; }
+.subs-payoneer-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af; line-height: 1; padding: 0 0.25rem; }
+.subs-payoneer-body { padding: 1.5rem; }
+.subs-payoneer-intro { margin-bottom: 1rem; color: #d1d5db; }
+.subs-payoneer-email { margin-bottom: 0.75rem; }
+.subs-payoneer-email label { display: block; font-size: 0.85rem; color: #9ca3af; margin-bottom: 0.25rem; }
+.subs-payoneer-email-value { font-size: 1.1rem; font-weight: 600; color: #f97316; word-break: break-all; }
+.subs-payoneer-amount { margin-bottom: 1rem; color: #e5e7eb; }
+.subs-payoneer-instructions { background: rgba(12, 1, 24, 0.5); border: 1px solid rgba(46, 16, 101, 0.4); border-radius: 8px; padding: 1rem; font-size: 0.9rem; color: #9ca3af; white-space: pre-wrap; margin-bottom: 1rem; }
+.subs-payoneer-after { font-size: 0.9rem; color: #9ca3af; }
+.subs-payoneer-after a { color: #c4b5fd; }
+.subs-payoneer-not-set { color: #6b7280; }
+</style>
+
+<script>
+function openPayoneerModal(planName) {
+    document.getElementById('payoneerPlanName').textContent = planName || '$10 Plan';
+    document.getElementById('payoneerModal').classList.add('open');
+}
+function closePayoneerModal() {
+    document.getElementById('payoneerModal').classList.remove('open');
+}
+document.querySelectorAll('.plan-subscribe-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var name = this.getAttribute('data-name');
+        openPayoneerModal(name);
+    });
+});
+</script>
+{% endblock %}

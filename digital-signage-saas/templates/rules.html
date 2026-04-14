@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Rules – Free and Paid Users{% endblock %}
+{% block extra_css %}
+<style>
+    .rules-page-wrap {
+        min-height: calc(100vh - 120px);
+        background: #0c0118;
+        padding: 3.5rem 1.5rem 2.5rem;
+    }
+    .rules-wrap {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2rem;
+        color: #e5e7eb;
+    }
+    .rules-wrap h1 { color: #f9fafb; margin-bottom: 0.5rem; }
+    .rules-wrap h2 { font-size: 1.25rem; margin-bottom: 0.75rem; color: #f9fafb; }
+    .rules-wrap section {
+        margin-bottom: 2rem;
+        background: rgba(21, 2, 37, 0.7);
+        border: 1px solid rgba(46, 16, 101, 0.5);
+        border-radius: 12px;
+        padding: 1.5rem;
+    }
+    .rules-wrap ul { line-height: 1.8; color: #d1d5db; padding-left: 1.25rem; }
+    .rules-wrap li { margin-bottom: 0.25rem; }
+    .rules-wrap p { line-height: 1.8; color: #d1d5db; }
+    .rules-wrap a { color: #c4b5fd; text-decoration: none; }
+    .rules-wrap a:hover { text-decoration: underline; color: #f97316; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rules-page-wrap">
+<div class="rules-wrap">
+    <h1>Rules for free and paid users</h1>
+    <p style="color: #9ca3af; margin-bottom: 2rem;">These rules apply to all users of this Digital Signage service.</p>
+
+    <section>
+        <h2>Trial (free) users</h2>
+        <ul>
+            <li>7 days free with unlimited displays.</li>
+            <li>No support is provided during or after the trial.</li>
+            <li>Videos and content may be removed from the server from time to time; we do not guarantee long-term storage.</li>
+            <li>Content is played from the device cache; devices will loop cached content until you format the cache or send new content.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Paid ($10) users</h2>
+        <ul>
+            <li>Unlimited displays.</li>
+            <li>Support on email (as described on the Subscriptions page).</li>
+            <li>Videos and content may still be removed from the server from time to time; keep your own backups if needed.</li>
+            <li>Content is played from the device cache; devices will loop cached content until you format the cache or send new content.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Content and storage</h2>
+        <p>
+            All videos uploaded on this website may be deleted from the server from time to time. We do not guarantee permanent storage of your files. For important content, keep your own backups. Playback on devices uses a local cache; content will loop on each device until you format the cache or push new content.
+        </p>
+    </section>
+
+    <p style="margin-top: 2rem;"><a href="{{ url_for('main.subscriptions') }}">Back to Subscriptions</a></p>
+</div>
+</div>
+{% endblock %}

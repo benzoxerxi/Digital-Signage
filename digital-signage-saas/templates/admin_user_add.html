@@ -1,0 +1,47 @@
+{% extends "admin_base.html" %}
+{% block title %}Add New User{% endblock %}
+{% block content %}
+<a href="{{ url_for('admin.admin_users') }}" class="admin-back">← Back to Users</a>
+<div class="admin-header">
+    <h1>Add New User</h1>
+</div>
+<div class="admin-card">
+    <div class="admin-card-body">
+        <form method="post" style="max-width: 500px;">
+            <div class="form-group">
+                <label>Username *</label>
+                <input type="text" name="username" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Email *</label>
+                <input type="email" name="email" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Password *</label>
+                <input type="password" name="password" class="form-control" required minlength="6">
+            </div>
+            <div class="form-group">
+                <label>Company Name</label>
+                <input type="text" name="company_name" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Plan</label>
+                <select name="plan" class="form-control" style="max-width: 200px;">
+                    {% for plan_key, plan in plans.items() %}
+                    <option value="{{ plan_key }}">{{ plan.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" name="is_admin"> Administrator
+                </label>
+            </div>
+            <div style="margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary">Add User</button>
+                <a href="{{ url_for('admin.admin_users') }}" class="btn btn-secondary" style="margin-left: 0.5rem;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

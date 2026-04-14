@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin{% endblock %} | Digital Signage</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --wp-admin-bg: #f0f0f1;
+            --wp-sidebar: #1d2327;
+            --wp-sidebar-hover: #2c3338;
+            --wp-text: #1d2327;
+            --wp-text-light: #50575e;
+            --wp-border: #c3c4c7;
+            --wp-white: #fff;
+            --wp-success: #00a32a;
+            --wp-danger: #d63638;
+            --wp-warning: #dba617;
+        }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: var(--wp-admin-bg); color: var(--wp-text); min-height: 100vh; }
+        .admin-wrap { display: flex; min-height: 100vh; }
+        .admin-sidebar {
+            width: 220px; background: var(--wp-sidebar); color: #fff; flex-shrink: 0;
+            padding: 1.5rem 0; position: fixed; height: 100vh; overflow-y: auto;
+        }
+        .admin-sidebar .logo {
+            padding: 0 1.5rem 1.5rem; font-size: 1.1rem; font-weight: 700; color: #fff;
+            text-decoration: none; display: block; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 1rem;
+        }
+        .admin-sidebar .logo:hover { color: #72aee6; }
+        .admin-nav { list-style: none; }
+        .admin-nav li { margin: 2px 0; }
+        .admin-nav a {
+            display: block; padding: 10px 1.5rem; color: #a7aaad; text-decoration: none;
+            font-size: 0.9rem; transition: background 0.2s, color 0.2s;
+        }
+        .admin-nav a:hover { background: var(--wp-sidebar-hover); color: #fff; }
+        .admin-nav a.active { background: var(--wp-sidebar-hover); color: #fff; border-left: 4px solid #72aee6; padding-left: calc(1.5rem - 4px); }
+        .admin-nav .nav-section { padding: 1rem 1.5rem 0.3rem; font-size: 0.75rem; text-transform: uppercase; color: #8c8f94; }
+        .admin-main { flex: 1; margin-left: 220px; padding: 2rem; min-height: 100vh; }
+        .admin-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;
+            flex-wrap: wrap; gap: 1rem;
+        }
+        .admin-header h1 { font-size: 1.75rem; font-weight: 600; color: var(--wp-text); }
+        .admin-card {
+            background: var(--wp-white); border: 1px solid var(--wp-border); border-radius: 4px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.04); margin-bottom: 1.5rem;
+        }
+        .admin-card-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--wp-border); font-weight: 600; }
+        .admin-card-body { padding: 1.5rem; }
+        .btn { display: inline-block; padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.875rem; font-weight: 500; text-decoration: none; cursor: pointer; border: none; transition: all 0.2s; }
+        .btn-primary { background: #2271b1; color: #fff; }
+        .btn-primary:hover { background: #135e96; }
+        .btn-secondary { background: var(--wp-admin-bg); color: var(--wp-text); border: 1px solid var(--wp-border); }
+        .btn-secondary:hover { background: #f6f7f7; }
+        .btn-danger { background: var(--wp-danger); color: #fff; }
+        .btn-danger:hover { background: #b32d2e; }
+        .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.35rem; font-weight: 500; font-size: 0.9rem; }
+        .form-control { width: 100%; max-width: 400px; padding: 0.5rem 0.75rem; border: 1px solid var(--wp-border); border-radius: 4px; font-size: 0.9rem; }
+        .form-control:focus { outline: none; border-color: #2271b1; box-shadow: 0 0 0 1px #2271b1; }
+        .admin-table { width: 100%; border-collapse: collapse; }
+        .admin-table th, .admin-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--wp-border); }
+        .admin-table th { background: #f6f7f7; font-weight: 600; font-size: 0.85rem; }
+        .admin-table tr:hover { background: #f9f9f9; }
+        .badge { display: inline-block; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 3px; }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .badge-secondary { background: #e2e3e5; color: #383d41; }
+        .admin-back { color: var(--wp-text-light); text-decoration: none; font-size: 0.9rem; margin-bottom: 1rem; display: inline-block; }
+        .admin-back:hover { color: var(--wp-text); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+        .stat-box { background: var(--wp-white); border: 1px solid var(--wp-border); border-radius: 4px; padding: 1.25rem; }
+        .stat-box h3 { font-size: 0.85rem; font-weight: 500; color: var(--wp-text-light); margin-bottom: 0.5rem; }
+        .stat-box .value { font-size: 1.75rem; font-weight: 700; }
+        .stat-box .value.success { color: var(--wp-success); }
+        .stat-box .value.warning { color: var(--wp-warning); }
+        .stat-box .value.primary { color: #2271b1; }
+        .admin-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .search-box { padding: 0.5rem 0.75rem; border: 1px solid var(--wp-border); border-radius: 4px; font-size: 0.9rem; min-width: 250px; }
+        .flash-messages { position: fixed; top: 20px; right: 20px; z-index: 1000; }
+        .flash-message { padding: 1rem 1.5rem; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 280px; }
+        .flash-message.success { background: #d4edda; color: #155724; border-left: 4px solid var(--wp-success); }
+        .flash-message.error { background: #f8d7da; color: #721c24; border-left: 4px solid var(--wp-danger); }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="admin-wrap">
+        <aside class="admin-sidebar">
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="logo">🎬 Signage Admin</a>
+            <ul class="admin-nav">
+                <li class="nav-section">Main</li>
+                <li><a href="{{ url_for('admin.admin_dashboard') }}" class="{% if request.endpoint == 'admin.admin_dashboard' %}active{% endif %}">Dashboard</a></li>
+                <li class="nav-section">Users</li>
+                <li><a href="{{ url_for('admin.admin_users') }}" class="{% if request.endpoint == 'admin.admin_users' %}active{% endif %}">All Users</a></li>
+                <li><a href="{{ url_for('admin.admin_user_add') }}" class="{% if request.endpoint == 'admin.admin_user_add' %}active{% endif %}">Add New User</a></li>
+                <li class="nav-section">Content</li>
+                <li><a href="{{ url_for('admin.admin_payments') }}" class="{% if request.endpoint == 'admin.admin_payments' %}active{% endif %}">Payments</a></li>
+                <li><a href="{{ url_for('admin.admin_analytics') }}" class="{% if request.endpoint == 'admin.admin_analytics' %}active{% endif %}">Analytics</a></li>
+                <li><a href="{{ url_for('admin.admin_activity') }}" class="{% if request.endpoint == 'admin.admin_activity' %}active{% endif %}">Activity Log</a></li>
+                <li class="nav-section">System</li>
+                <li><a href="{{ url_for('admin.admin_settings') }}" class="{% if request.endpoint == 'admin.admin_settings' %}active{% endif %}">Settings</a></li>
+            </ul>
+            <div style="padding: 1.5rem; margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                <a href="{{ url_for('main.dashboard') }}" style="color: #a7aaad; font-size: 0.85rem; text-decoration: none;">← Back to site</a>
+            </div>
+        </aside>
+        <main class="admin-main">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -100,6 +100,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_CONNECTION_CODE = "connection_code"
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_DEVICE_NAME = "device_name"
+        private const val KEY_LAST_COMMAND_ID = "last_command_id"
         private const val KEY_CACHED_VIDEO_FILENAME = "cached_video_filename"
         private const val KEY_CACHED_VIDEO_DISPLAY_NAME = "cached_video_display_name"
         /** JSON object: cache storage key -> human-readable label (playlist/command name). */
@@ -156,6 +157,7 @@ class MainActivity : AppCompatActivity() {
         connectionCode = prefs.getString(KEY_CONNECTION_CODE, "") ?: ""
         deviceId = prefs.getString(KEY_DEVICE_ID, "") ?: ""
         deviceName = prefs.getString(KEY_DEVICE_NAME, "") ?: ""
+        lastCommandId = prefs.getInt(KEY_LAST_COMMAND_ID, -1)
 
         if (deviceId.isEmpty()) {
             deviceId = generateDeviceId()
@@ -234,6 +236,13 @@ class MainActivity : AppCompatActivity() {
             .apply()
         apiClient.setConnectionCode("")
         showSetupScreen()
+    }
+
+    private fun persistLastCommandId() {
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_LAST_COMMAND_ID, lastCommandId)
+            .apply()
     }
 
     private fun showSetupScreen() {
@@ -461,6 +470,8 @@ class MainActivity : AppCompatActivity() {
                     Log.d(TAG, "Device was removed from panel - returning to setup")
                     runOnUiThread { goBackToSetup() }
                     heartbeatFailureCount = 0
+                    lastCommandId = 0
+                    persistLastCommandId()
                     return@launch
                 }
 
@@ -520,6 +531,7 @@ class MainActivity : AppCompatActivity() {
                 if (playbackState.command_id != lastCommandId) {
                     Log.d(TAG, "New command: $lastCommandId → ${playbackState.command_id}")
                     lastCommandId = playbackState.command_id
+                    persistLastCommandId()
                     fastHeartbeatUntilMs = SystemClock.elapsedRealtime() + 60_000L
                     lastPlaylistRefreshAt = 0L
 
@@ -556,7 +568,6 @@ class MainActivity : AppCompatActivity() {
                         player?.stop()
                         currentPlayingCacheKey = null
                         showScreensaver(true)
-                        clearVideoCache()
                         currentPlaylist = emptyList()
                         currentVideoIndex = 0
                     } else {

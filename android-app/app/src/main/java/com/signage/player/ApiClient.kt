@@ -40,6 +40,7 @@ data class PlaybackState(
     val current_video_name: String? = null,  // Display name (e.g. Drive file name) for dashboard
     val playback_cache_only: Boolean = false,  // Do not download; play local file only
     val cache_delete_keys: List<String> = emptyList(),  // Server asks to remove these local files
+    val reboot_requested: Boolean = false,  // Server asks device to reboot/restart app
 )
 
 data class ServerStatus(
@@ -240,7 +241,8 @@ class ApiClient {
                         video_url = null,
                         current_video_name = null,
                         playback_cache_only = false,
-                        cache_delete_keys = emptyList()
+                    cache_delete_keys = emptyList(),
+                    reboot_requested = false
                     )
                 }
                 val videoUrl = json.optString("video_url", null).takeIf { !it.isNullOrEmpty() }
@@ -262,7 +264,8 @@ class ApiClient {
                     video_url = videoUrl,
                     current_video_name = currentVideoName,
                     playback_cache_only = json.optBoolean("playback_cache_only", false),
-                    cache_delete_keys = delKeys
+                    cache_delete_keys = delKeys,
+                    reboot_requested = json.optBoolean("reboot_requested", false)
                 )
             }
         }

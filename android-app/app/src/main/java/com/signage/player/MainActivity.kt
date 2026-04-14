@@ -1,13 +1,17 @@
 package com.signage.player
 
 import android.app.ActivityManager
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Base64
@@ -67,6 +71,10 @@ class MainActivity : AppCompatActivity() {
     private var inLayoutMode = false
     private val heartbeatBusy = AtomicBoolean(false)
     private var lastPlaylistRefreshAt = 0L
+    private var bufferingStartedAtMs = 0L
+    private var lastBufferRecoveryAtMs = 0L
+    private val bufferRecoveryRunnable = Runnable { recoverFromPlaybackStall() }
+    private var lastCachedResumeAttemptAtMs = 0L
     /** When true, do not resume from playlist (set by format/clear_cache; cleared when server sends explicit play). */
     private var doNotResumeFromPlaylist = false
 
@@ -84,6 +92,10 @@ class MainActivity : AppCompatActivity() {
         private const val UPDATE_INTERVAL = 3000L
         /** Avoid hammering /api/playlist every heartbeat; reduces network contention with video streaming. */
         private const val PLAYLIST_REFRESH_MS = 30_000L
+        private const val BUFFER_STALL_TIMEOUT_MS = 15_000L
+        private const val BUFFER_RECOVERY_COOLDOWN_MS = 10_000L
+        private const val CACHED_RESUME_MIN_INTERVAL_MS = 15_000L
+        private const val APP_RESTART_DELAY_MS = 1500L
         private const val SCREENSAVER_URL = "https://karchershop.ge/cdn/shop/files/logo_karcher_2015.svg?v=1683099671&width=600"
         private const val LOGO_URL = "https://images.seeklogo.com/logo-png/43/2/karcher-logo-png_seeklogo-437949.png"
         /** Default server URL – no server input needed; user only enters 9-digit code */
@@ -313,23 +325,39 @@ class MainActivity : AppCompatActivity() {
 
                 exoPlayer.addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(playbackState: Int) {
-                        if (playbackState == Player.STATE_IDLE) {
-                            showScreensaver(true)
-                        } else {
-                            showScreensaver(false)
-                        }
-
                         when (playbackState) {
+                            Player.STATE_BUFFERING -> {
+                                if (bufferingStartedAtMs == 0L) {
+                                    bufferingStartedAtMs = SystemClock.elapsedRealtime()
+                                }
+                                handler.removeCallbacks(bufferRecoveryRunnable)
+                                handler.postDelayed(bufferRecoveryRunnable, BUFFER_STALL_TIMEOUT_MS)
+                                showScreensaver(false)
+                            }
+                            Player.STATE_IDLE -> {
+                                clearBufferWatchdog()
+                                // Avoid flashing the screensaver between media transitions.
+                                val hasNoMediaQueued = exoPlayer.currentMediaItem == null && currentPlaylist.isEmpty()
+                                showScreensaver(hasNoMediaQueued)
+                            }
                             Player.STATE_ENDED -> {
+                                clearBufferWatchdog()
                                 handler.post { playNextVideo() }
                             }
                             Player.STATE_READY -> {
+                                clearBufferWatchdog()
                                 Log.d(TAG, "Video ready to play")
+                                showScreensaver(false)
+                            }
+                            else -> {
+                                clearBufferWatchdog()
+                                showScreensaver(false)
                             }
                         }
                     }
 
                     override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        clearBufferWatchdog()
                         Log.e(TAG, "Playback error", error)
                         Toast.makeText(this@MainActivity, "Playback error. Skipping.", Toast.LENGTH_SHORT).show()
                         handler.post { playNextVideo() }
@@ -419,6 +447,13 @@ class MainActivity : AppCompatActivity() {
                     currentPlaylist = emptyList()
                     currentVideoIndex = 0
                     lastCommandId = playbackState.command_id
+                    return@launch
+                }
+
+                if (playbackState.reboot_requested == true && playbackState.command_id != lastCommandId) {
+                    Log.w(TAG, "Remote reboot requested from dashboard")
+                    lastCommandId = playbackState.command_id
+                    performRemoteReboot()
                     return@launch
                 }
 
@@ -927,6 +962,74 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun clearBufferWatchdog() {
+        bufferingStartedAtMs = 0L
+        handler.removeCallbacks(bufferRecoveryRunnable)
+    }
+
+    private fun recoverFromPlaybackStall() {
+        val exo = player ?: return
+        if (exo.playbackState != Player.STATE_BUFFERING) return
+
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastBufferRecoveryAtMs < BUFFER_RECOVERY_COOLDOWN_MS) return
+        lastBufferRecoveryAtMs = now
+
+        val mediaItem = exo.currentMediaItem
+        if (mediaItem == null) return
+
+        val resumeAt = exo.currentPosition.coerceAtLeast(0L)
+        Log.w(TAG, "Detected long buffering; attempting recovery at ${resumeAt}ms")
+        try {
+            exo.setMediaItem(mediaItem, resumeAt)
+            exo.prepare()
+            exo.play()
+        } catch (e: Exception) {
+            Log.e(TAG, "Buffer recovery failed", e)
+            if (currentPlaylist.size > 1) {
+                handler.post { playNextVideo() }
+            } else {
+                showScreensaver(true)
+            }
+        }
+    }
+
+    private fun performRemoteReboot() {
+        Toast.makeText(this, "Remote reboot requested. Restarting player…", Toast.LENGTH_LONG).show()
+        scope.launch(Dispatchers.IO) {
+            // If the device is rooted, this can perform a full OS reboot.
+            val fullRebootTriggered = try {
+                Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot"))
+                true
+            } catch (_: Exception) {
+                false
+            }
+
+            if (!fullRebootTriggered) {
+                withContext(Dispatchers.Main) { restartApplicationProcess() }
+            }
+        }
+    }
+
+    private fun restartApplicationProcess() {
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        } ?: return
+
+        val flags = PendingIntent.FLAG_ONE_SHOT or
+            (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+        val pendingIntent = PendingIntent.getActivity(this, 9911, launchIntent, flags)
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        alarmManager.setExact(
+            AlarmManager.RTC_WAKEUP,
+            System.currentTimeMillis() + APP_RESTART_DELAY_MS,
+            pendingIntent
+        )
+
+        finishAffinity()
+        Process.killProcess(Process.myPid())
+    }
+
     private fun hideSystemUI() {
         try {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
@@ -989,14 +1092,22 @@ class MainActivity : AppCompatActivity() {
         if (show) {
             // If we have a cached video, prefer playing it instead of showing the static screensaver.
             // This gives offline resilience: keep casting cached content whenever possible.
-            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val filename = prefs.getString(KEY_CACHED_VIDEO_FILENAME, null)
-            val cachedFile = if (filename != null) videoCache.getCachedFile(filename) else null
-
-            if (cachedFile != null && cachedFile.exists()) {
-                // This will call showScreensaver(false) internally and start playback.
-                tryPlayCachedVideoLoop()
-                return
+            val now = SystemClock.elapsedRealtime()
+            val canAutoResumeFromCache = !doNotResumeFromPlaylist &&
+                !inLayoutMode &&
+                (player?.isPlaying != true) &&
+                (player?.playbackState != Player.STATE_BUFFERING) &&
+                now - lastCachedResumeAttemptAtMs >= CACHED_RESUME_MIN_INTERVAL_MS
+            if (canAutoResumeFromCache) {
+                val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val filename = prefs.getString(KEY_CACHED_VIDEO_FILENAME, null)
+                val cachedFile = if (filename != null) videoCache.getCachedFile(filename) else null
+                if (cachedFile != null && cachedFile.exists()) {
+                    lastCachedResumeAttemptAtMs = now
+                    // This will call showScreensaver(false) internally and start playback.
+                    tryPlayCachedVideoLoop()
+                    return
+                }
             }
         }
 
@@ -1328,6 +1439,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
+        handler.removeCallbacks(bufferRecoveryRunnable)
         scope.cancel()
         layoutVideoPlayers.forEach { it.release() }
         layoutVideoPlayers.clear()

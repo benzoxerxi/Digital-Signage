@@ -19,7 +19,7 @@
         android:layout_height="match_parent"
         android:background="#000000"
         app:resize_mode="fit"
-        app:show_buffering="when_playing"
+        app:show_buffering="never"
         app:surface_type="texture_view"
         app:use_controller="false" />
 

@@ -9,14 +9,16 @@ from config import Config
 from datetime import datetime
 import os
 import json
+import hashlib
 
 # Import helper functions from utils
 from utils import (
     load_json_file, save_json_file, get_content_folder, get_data_file_path,
-    allowed_file, get_file_hash, get_connected_devices, get_all_devices_with_status,
+    allowed_file, get_connected_devices, get_all_devices_with_status,
     get_device_count, update_device_heartbeat, add_removed_device, log_activity, get_storage_usage, device_lock,
     set_current_video_display_name, get_current_video_display_name,
     delete_tenant_display_registry, sync_device_registry_row, merge_registry_into_devices_dict,
+    sync_devices_hot_state,
 )
 
 api_bp = Blueprint('api', __name__)
@@ -62,6 +64,52 @@ def _cache_manifest_param_to_json_string(params):
     return None
 
 
+def _compute_file_md5(filepath):
+    md5 = hashlib.md5()
+    with open(filepath, 'rb') as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b''):
+            md5.update(chunk)
+    return md5.hexdigest()
+
+
+def _log_api_error(endpoint, error, user_id=None, device_id=None):
+    payload = {
+        'endpoint': endpoint,
+        'error': str(error),
+        'user_id': user_id,
+        'device_id': device_id,
+        'ip': request.remote_addr,
+    }
+    print(json.dumps(payload, ensure_ascii=True))
+
+
+def _ensure_video_metadata(video, content_folder):
+    """Populate hash/size once and persist in playlist instead of hashing every request."""
+    if video.get('drive_file_id'):
+        return False
+    filename = video.get('filename')
+    if not filename:
+        return False
+    filepath = os.path.join(content_folder, filename) if content_folder else None
+    if not filepath or not os.path.exists(filepath):
+        return False
+    changed = False
+    stat = os.stat(filepath)
+    size_bytes = int(stat.st_size)
+    size_text = f"{size_bytes / (1024 * 1024):.1f} MB"
+    if int(video.get('size_bytes', -1)) != size_bytes:
+        video['size_bytes'] = size_bytes
+        video['size'] = size_text
+        changed = True
+    elif not video.get('size'):
+        video['size'] = size_text
+        changed = True
+    if not video.get('hash'):
+        video['hash'] = _compute_file_md5(filepath)
+        changed = True
+    return changed
+
+
 # ============================================================================
 # PLAYLIST & VIDEO MANAGEMENT
 # ============================================================================
@@ -90,6 +138,7 @@ def get_playlist():
     base_url = request.url_root.rstrip('/')
     code_suffix = f'?code={code_param}' if code_param else ''
     content_folder = get_content_folder(user_id)
+    metadata_changed = False
     for video in playlist.get('videos', []):
         if video.get('drive_file_id'):
             # Google Drive item: APK uses "drive:ID" as stable id, url for download
@@ -99,14 +148,14 @@ def get_playlist():
                 video['name'] = video.get('title', video['drive_file_id'])
         else:
             # Server file
-            if content_folder:
-                filepath = os.path.join(content_folder, video.get('filename', ''))
-                if os.path.exists(filepath):
-                    stat = os.stat(filepath)
-                    video['size'] = f"{stat.st_size / (1024*1024):.1f} MB"
-                    video['hash'] = get_file_hash(filepath)
+            if content_folder and _ensure_video_metadata(video, content_folder):
+                metadata_changed = True
             if 'url' not in video or not str(video.get('url', '')).startswith('http'):
                 video['url'] = f"{base_url}/api/video/{video['filename']}{code_suffix}"
+                metadata_changed = True
+
+    if metadata_changed:
+        save_json_file('playlist.json', playlist, user_id)
 
     return jsonify(playlist)
 
@@ -223,23 +272,26 @@ def play_program():
         return jsonify({'success': False, 'error': 'Select at least one display or set target_all'}), 400
 
     from flask_login import current_user as _cu
-    devices = load_json_file('devices.json', {}, _cu.id)
-    if merge_registry_into_devices_dict(_cu.id, devices):
+    with device_lock:
+        devices = load_json_file('devices.json', {}, _cu.id)
+        if merge_registry_into_devices_dict(_cu.id, devices):
+            save_json_file('devices.json', devices, _cu.id)
+            sync_devices_hot_state(_cu.id, devices)
+
+        updated = 0
+        ids_to_update = list(devices.keys()) if target_all else device_ids
+        for did in ids_to_update:
+            if did not in devices:
+                continue
+            devices[did]['active_program_id'] = program_id
+            devices[did]['current_video'] = None
+            devices[did]['command_id'] = devices[did].get('command_id', 0) + 1
+            devices[did].pop('current_video_display_name', None)
+            devices[did].pop('playback_cache_only', None)
+            updated += 1
+
         save_json_file('devices.json', devices, _cu.id)
-
-    updated = 0
-    ids_to_update = list(devices.keys()) if target_all else device_ids
-    for did in ids_to_update:
-        if did not in devices:
-            continue
-        devices[did]['active_program_id'] = program_id
-        devices[did]['current_video'] = None
-        devices[did]['command_id'] = devices[did].get('command_id', 0) + 1
-        devices[did].pop('current_video_display_name', None)
-        devices[did].pop('playback_cache_only', None)
-        updated += 1
-
-    save_json_file('devices.json', devices, _cu.id)
+        sync_devices_hot_state(_cu.id, devices)
     log_activity('program_played', {'program_id': program_id, 'device_count': updated, 'target_all': target_all})
 
     return jsonify({
@@ -298,6 +350,10 @@ def upload_video():
         
         # Save file
         file.save(filepath)
+        stat = os.stat(filepath)
+        size_bytes = int(stat.st_size)
+        size_text = f"{size_bytes / (1024 * 1024):.1f} MB"
+        file_hash = _compute_file_md5(filepath)
         
         # Update playlist
         playlist = load_json_file('playlist.json', {'videos': [], 'settings': {'interval': 30, 'loop': True}})
@@ -307,7 +363,10 @@ def upload_video():
                 'filename': filename,
                 'name': filename,
                 'added': datetime.now().isoformat(),
-                'url': f'/api/video/{filename}'
+                'url': f'/api/video/{filename}',
+                'size': size_text,
+                'size_bytes': size_bytes,
+                'hash': file_hash,
             })
             save_json_file('playlist.json', playlist)
             log_activity('video_uploaded', {'filename': filename})
@@ -315,7 +374,7 @@ def upload_video():
         return jsonify({'success': True, 'filename': filename})
     
     except Exception as e:
-        print(f"Upload error: {e}")
+        _log_api_error('/api/upload', e, user_id=current_user.id if current_user.is_authenticated else None)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -521,6 +580,7 @@ def get_playback_state():
                 'message': f'Subscription is not active. Current status: {user.subscription_status}'
             }), 403
     except Exception as e:
+        _log_api_error('/api/playback/state.verify-user', e, user_id=user.id if user else None, device_id=device_id)
         return jsonify({
             'error': 'Database error',
             'message': str(e)
@@ -573,6 +633,7 @@ def get_playback_state():
                 if device_id in devs:
                     devs[device_id].pop('clear_cache', None)
                     save_json_file('devices.json', devs, user_id)
+                    sync_devices_hot_state(user_id, devs, [device_id])
 
         pending_deletes = list(device_data.get('cache_delete_keys') or [])
         if pending_deletes:
@@ -581,6 +642,7 @@ def get_playback_state():
                 if device_id in devs:
                     devs[device_id].pop('cache_delete_keys', None)
                     save_json_file('devices.json', devs, user_id)
+                    sync_devices_hot_state(user_id, devs, [device_id])
         if device_data.get('current_video'):
             # Only send the single commanded video; do not push playlist to device
             cv = device_data['current_video']
@@ -627,6 +689,7 @@ def get_playback_state():
                 idle_response['cache_delete_keys'] = pending_deletes
             return jsonify(idle_response)
     except Exception as e:
+        _log_api_error('/api/playback/state', e, user_id=user_id, device_id=device_id)
         return jsonify({
             'error': 'Server error',
             'message': str(e)
@@ -664,11 +727,6 @@ def play_video():
     
     # Use tenant-scoped devices file so commands only affect current user's displays
     from flask_login import current_user as _cu
-    devices = load_json_file('devices.json', {}, _cu.id)
-    if merge_registry_into_devices_dict(_cu.id, devices):
-        save_json_file('devices.json', devices, _cu.id)
-    print(f"Available devices: {list(devices.keys())}")
-    
     updated_count = 0
 
     if not target_all and not device_ids:
@@ -677,30 +735,38 @@ def play_video():
             'error': 'Select at least one display, or set target_all to true to play on all displays.'
         }), 400
 
-    def _apply_play(dev_id):
-        nonlocal updated_count
-        if dev_id not in devices:
-            print(f"❌ Device not found: {dev_id}")
-            return
-        devices[dev_id]['current_video'] = current_video_value
-        devices[dev_id]['command_id'] = devices[dev_id].get('command_id', 0) + 1
-        devices[dev_id].pop('active_program_id', None)
-        devices[dev_id].pop('playback_cache_only', None)
-        if display_name:
-            devices[dev_id]['current_video_display_name'] = display_name
-        else:
-            devices[dev_id].pop('current_video_display_name', None)
-        set_current_video_display_name(_cu.id, dev_id, display_name)
-        updated_count += 1
+    with device_lock:
+        devices = load_json_file('devices.json', {}, _cu.id)
+        if merge_registry_into_devices_dict(_cu.id, devices):
+            save_json_file('devices.json', devices, _cu.id)
+            sync_devices_hot_state(_cu.id, devices)
+        print(f"Available devices: {list(devices.keys())}")
 
-    if target_all:
-        for device_id in devices:
-            _apply_play(device_id)
-    else:
-        for device_id in device_ids:
-            _apply_play(device_id)
-    
-    save_json_file('devices.json', devices, _cu.id)
+        def _apply_play(dev_id):
+            nonlocal updated_count
+            if dev_id not in devices:
+                print(f"❌ Device not found: {dev_id}")
+                return
+            devices[dev_id]['current_video'] = current_video_value
+            devices[dev_id]['command_id'] = devices[dev_id].get('command_id', 0) + 1
+            devices[dev_id].pop('active_program_id', None)
+            devices[dev_id].pop('playback_cache_only', None)
+            if display_name:
+                devices[dev_id]['current_video_display_name'] = display_name
+            else:
+                devices[dev_id].pop('current_video_display_name', None)
+            set_current_video_display_name(_cu.id, dev_id, display_name)
+            updated_count += 1
+
+        if target_all:
+            for device_id in devices:
+                _apply_play(device_id)
+        else:
+            for device_id in device_ids:
+                _apply_play(device_id)
+
+        save_json_file('devices.json', devices, _cu.id)
+        sync_devices_hot_state(_cu.id, devices)
     log_activity('video_played', {'filename': current_video_value, 'device_count': updated_count, 'target_all': target_all})
     
     return jsonify({
@@ -743,10 +809,6 @@ def play_cached_video():
         logical_video = _logical_video_from_cache_key(cache_key)
 
     from flask_login import current_user as _cu
-    devices = load_json_file('devices.json', {}, _cu.id)
-    if merge_registry_into_devices_dict(_cu.id, devices):
-        save_json_file('devices.json', devices, _cu.id)
-
     if not target_all and not device_ids:
         return jsonify({
             'success': False,
@@ -755,29 +817,36 @@ def play_cached_video():
 
     updated_count = 0
 
-    def _apply(dev_id):
-        nonlocal updated_count
-        if dev_id not in devices:
-            return
-        devices[dev_id]['current_video'] = logical_video
-        devices[dev_id]['command_id'] = devices[dev_id].get('command_id', 0) + 1
-        devices[dev_id]['playback_cache_only'] = True
-        devices[dev_id].pop('active_program_id', None)
-        if display_name:
-            devices[dev_id]['current_video_display_name'] = display_name
+    with device_lock:
+        devices = load_json_file('devices.json', {}, _cu.id)
+        if merge_registry_into_devices_dict(_cu.id, devices):
+            save_json_file('devices.json', devices, _cu.id)
+            sync_devices_hot_state(_cu.id, devices)
+
+        def _apply(dev_id):
+            nonlocal updated_count
+            if dev_id not in devices:
+                return
+            devices[dev_id]['current_video'] = logical_video
+            devices[dev_id]['command_id'] = devices[dev_id].get('command_id', 0) + 1
+            devices[dev_id]['playback_cache_only'] = True
+            devices[dev_id].pop('active_program_id', None)
+            if display_name:
+                devices[dev_id]['current_video_display_name'] = display_name
+            else:
+                devices[dev_id].pop('current_video_display_name', None)
+            set_current_video_display_name(_cu.id, dev_id, display_name)
+            updated_count += 1
+
+        if target_all:
+            for did in devices:
+                _apply(did)
         else:
-            devices[dev_id].pop('current_video_display_name', None)
-        set_current_video_display_name(_cu.id, dev_id, display_name)
-        updated_count += 1
+            for did in device_ids:
+                _apply(did)
 
-    if target_all:
-        for did in devices:
-            _apply(did)
-    else:
-        for did in device_ids:
-            _apply(did)
-
-    save_json_file('devices.json', devices, _cu.id)
+        save_json_file('devices.json', devices, _cu.id)
+        sync_devices_hot_state(_cu.id, devices)
     log_activity('video_played_cache_only', {'cache_key': cache_key, 'logical': logical_video, 'device_count': updated_count})
 
     return jsonify({
@@ -797,14 +866,27 @@ def stop_playback():
     device_ids = data.get('device_ids', [])
     
     from flask_login import current_user as _cu
-    devices = load_json_file('devices.json', {}, _cu.id)
-    if merge_registry_into_devices_dict(_cu.id, devices):
-        save_json_file('devices.json', devices, _cu.id)
     updated_count = 0
-    
-    if device_ids:
-        for device_id in device_ids:
-            if device_id in devices:
+
+    with device_lock:
+        devices = load_json_file('devices.json', {}, _cu.id)
+        if merge_registry_into_devices_dict(_cu.id, devices):
+            save_json_file('devices.json', devices, _cu.id)
+            sync_devices_hot_state(_cu.id, devices)
+
+        if device_ids:
+            for device_id in device_ids:
+                if device_id in devices:
+                    devices[device_id]['current_video'] = None
+                    devices[device_id]['status'] = 'idle'
+                    devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
+                    devices[device_id].pop('current_video_display_name', None)
+                    devices[device_id].pop('active_program_id', None)
+                    devices[device_id].pop('playback_cache_only', None)
+                    set_current_video_display_name(_cu.id, device_id, None)
+                    updated_count += 1
+        else:
+            for device_id in devices:
                 devices[device_id]['current_video'] = None
                 devices[device_id]['status'] = 'idle'
                 devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
@@ -812,19 +894,10 @@ def stop_playback():
                 devices[device_id].pop('active_program_id', None)
                 devices[device_id].pop('playback_cache_only', None)
                 set_current_video_display_name(_cu.id, device_id, None)
-                updated_count += 1
-    else:
-        for device_id in devices:
-            devices[device_id]['current_video'] = None
-            devices[device_id]['status'] = 'idle'
-            devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
-            devices[device_id].pop('current_video_display_name', None)
-            devices[device_id].pop('active_program_id', None)
-            devices[device_id].pop('playback_cache_only', None)
-            set_current_video_display_name(_cu.id, device_id, None)
-        updated_count = len(devices)
-    
-    save_json_file('devices.json', devices, _cu.id)
+            updated_count = len(devices)
+
+        save_json_file('devices.json', devices, _cu.id)
+        sync_devices_hot_state(_cu.id, devices, [device_id])
     log_activity('playback_stopped', {'device_count': updated_count})
     
     return jsonify({
@@ -892,15 +965,17 @@ def update_device(device_id):
     """Update device information"""
     data = request.json
     from flask_login import current_user as _cu
-    devices = load_json_file('devices.json', {}, _cu.id)
-    
-    if device_id not in devices:
-        return jsonify({'success': False, 'error': 'Device not found'}), 404
-    
-    if 'name' in data:
-        devices[device_id]['name'] = data['name']
-    
-    save_json_file('devices.json', devices, _cu.id)
+    with device_lock:
+        devices = load_json_file('devices.json', {}, _cu.id)
+
+        if device_id not in devices:
+            return jsonify({'success': False, 'error': 'Device not found'}), 404
+
+        if 'name' in data:
+            devices[device_id]['name'] = data['name']
+
+        save_json_file('devices.json', devices, _cu.id)
+        sync_devices_hot_state(_cu.id, devices, [device_id])
     sync_device_registry_row(_cu.id, device_id, devices.get(device_id))
     return jsonify({'success': True, 'device': devices[device_id]})
 
@@ -917,27 +992,28 @@ def queue_device_cache_delete(device_id):
         return jsonify({'success': False, 'error': 'keys (non-empty list) required'}), 400
 
     from flask_login import current_user as _cu
-    devices = load_json_file('devices.json', {}, _cu.id)
-    if device_id not in devices:
-        return jsonify({'success': False, 'error': 'Device not found'}), 404
+    with device_lock:
+        devices = load_json_file('devices.json', {}, _cu.id)
+        if device_id not in devices:
+            return jsonify({'success': False, 'error': 'Device not found'}), 404
 
-    safe = []
-    for k in keys:
-        if not isinstance(k, str):
-            continue
-        k = k.strip()
-        if not k or len(k) > 240:
-            continue
-        if any(bad in k for bad in ('..', '/', '\\')):
-            continue
-        safe.append(k)
-    if not safe:
-        return jsonify({'success': False, 'error': 'No valid keys'}), 400
+        safe = []
+        for k in keys:
+            if not isinstance(k, str):
+                continue
+            k = k.strip()
+            if not k or len(k) > 240:
+                continue
+            if any(bad in k for bad in ('..', '/', '\\')):
+                continue
+            safe.append(k)
+        if not safe:
+            return jsonify({'success': False, 'error': 'No valid keys'}), 400
 
-    existing = devices[device_id].get('cache_delete_keys') or []
-    merged = list(dict.fromkeys(existing + safe))[:80]
-    devices[device_id]['cache_delete_keys'] = merged
-    save_json_file('devices.json', devices, _cu.id)
+        existing = devices[device_id].get('cache_delete_keys') or []
+        merged = list(dict.fromkeys(existing + safe))[:80]
+        devices[device_id]['cache_delete_keys'] = merged
+        save_json_file('devices.json', devices, _cu.id)
     return jsonify({'success': True, 'queued': len(safe), 'pending_total': len(merged)})
 
 
@@ -946,12 +1022,13 @@ def queue_device_cache_delete(device_id):
 def delete_device(device_id):
     """Remove a device from the panel. The APK will be told to return to setup on next heartbeat."""
     from flask_login import current_user as _cu
-    devices = load_json_file('devices.json', {}, _cu.id)
-    
-    if device_id in devices:
-        del devices[device_id]
-        save_json_file('devices.json', devices, _cu.id)
-        log_activity('device_deleted', {'device_id': device_id})
+    with device_lock:
+        devices = load_json_file('devices.json', {}, _cu.id)
+        if device_id in devices:
+            del devices[device_id]
+            save_json_file('devices.json', devices, _cu.id)
+            sync_devices_hot_state(_cu.id, devices, [device_id])
+            log_activity('device_deleted', {'device_id': device_id})
     add_removed_device(_cu.id, device_id)
     delete_tenant_display_registry(_cu.id, device_id)
     
@@ -963,11 +1040,13 @@ def delete_device(device_id):
 def request_device_screenshot(device_id):
     """Set flag so the display will capture and upload a screenshot on next poll"""
     from flask_login import current_user as _cu
-    devices = load_json_file('devices.json', {}, _cu.id)
-    if device_id not in devices:
-        return jsonify({'success': False, 'error': 'Device not found'}), 404
-    devices[device_id]['screenshot_requested'] = True
-    save_json_file('devices.json', devices, _cu.id)
+    with device_lock:
+        devices = load_json_file('devices.json', {}, _cu.id)
+        if device_id not in devices:
+            return jsonify({'success': False, 'error': 'Device not found'}), 404
+        devices[device_id]['screenshot_requested'] = True
+        save_json_file('devices.json', devices, _cu.id)
+        sync_devices_hot_state(_cu.id, devices, [device_id])
     return jsonify({'success': True, 'message': 'Screenshot request sent to display'})
 
 
@@ -1007,15 +1086,20 @@ def upload_device_screenshot(device_id):
     if not screenshot_b64:
         return jsonify({'success': False, 'error': 'No screenshot data'}), 400
 
-    with device_lock:
-        devices = load_json_file('devices.json', {}, user_id)
-        if device_id not in devices:
-            return jsonify({'success': False, 'error': 'Device not found'}), 404
-        devices[device_id]['screenshot_data'] = screenshot_b64
-        devices[device_id]['screenshot_timestamp'] = datetime.now().isoformat()
-        devices[device_id]['screenshot_requested'] = False
-        save_json_file('devices.json', devices, user_id)
-    return jsonify({'success': True, 'message': 'Screenshot received'})
+    try:
+        with device_lock:
+            devices = load_json_file('devices.json', {}, user_id)
+            if device_id not in devices:
+                return jsonify({'success': False, 'error': 'Device not found'}), 404
+            devices[device_id]['screenshot_data'] = screenshot_b64
+            devices[device_id]['screenshot_timestamp'] = datetime.now().isoformat()
+            devices[device_id]['screenshot_requested'] = False
+            save_json_file('devices.json', devices, user_id)
+            sync_devices_hot_state(user_id, devices, [device_id])
+        return jsonify({'success': True, 'message': 'Screenshot received'})
+    except Exception as e:
+        _log_api_error('/api/devices/screenshot/upload', e, user_id=user_id, device_id=device_id)
+        return jsonify({'success': False, 'error': 'Screenshot processing failed'}), 500
 
 
 @api_bp.route('/devices/format', methods=['POST'])
@@ -1029,29 +1113,31 @@ def format_devices():
         return jsonify({'success': False, 'error': 'No devices specified'}), 400
     
     from flask_login import current_user as _cu
-    devices = load_json_file('devices.json', {}, _cu.id)
     formatted_count = 0
-    
-    for device_id in device_ids:
-        if device_id in devices:
-            # Keep existing name (user may have renamed the display)
-            existing_name = devices[device_id].get('name') or f'Display {device_id[-4:]}'
-            devices[device_id] = {
-                'id': device_id,
-                'name': existing_name,
-                'first_seen': devices[device_id].get('first_seen', datetime.now().isoformat()),
-                'last_seen': datetime.now().isoformat(),
-                'current_video': None,
-                'command_id': devices[device_id].get('command_id', 0) + 1,
-                'status': 'idle',
-                'info': devices[device_id].get('info', {}),
-                'online': devices[device_id].get('online', False),
-                'clear_cache': True,  # APK will clear cache and stop; we clear this flag after sending once
-            }
-            formatted_count += 1
-            log_activity('device_formatted', {'device_id': device_id})
-    
-    save_json_file('devices.json', devices, _cu.id)
+    with device_lock:
+        devices = load_json_file('devices.json', {}, _cu.id)
+
+        for device_id in device_ids:
+            if device_id in devices:
+                # Keep existing name (user may have renamed the display)
+                existing_name = devices[device_id].get('name') or f'Display {device_id[-4:]}'
+                devices[device_id] = {
+                    'id': device_id,
+                    'name': existing_name,
+                    'first_seen': devices[device_id].get('first_seen', datetime.now().isoformat()),
+                    'last_seen': datetime.now().isoformat(),
+                    'current_video': None,
+                    'command_id': devices[device_id].get('command_id', 0) + 1,
+                    'status': 'idle',
+                    'info': devices[device_id].get('info', {}),
+                    'online': devices[device_id].get('online', False),
+                    'clear_cache': True,  # APK will clear cache and stop; we clear this flag after sending once
+                }
+                formatted_count += 1
+                log_activity('device_formatted', {'device_id': device_id})
+
+        save_json_file('devices.json', devices, _cu.id)
+        sync_devices_hot_state(_cu.id, devices)
     
     return jsonify({
         'success': True,

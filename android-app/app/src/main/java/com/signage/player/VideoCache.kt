@@ -112,6 +112,24 @@ class VideoCache(private val context: Context) {
         }
     }
 
+    fun createTempFile(filename: String): File {
+        return File(cacheDir, "$filename.part")
+    }
+
+    fun commitTempFile(filename: String, tempFile: File) {
+        val finalFile = File(cacheDir, filename)
+        val incoming = tempFile.length()
+        evictUntilSpaceAvailable(incoming, exclude = filename)
+        if (finalFile.exists()) {
+            finalFile.delete()
+        }
+        if (!tempFile.renameTo(finalFile)) {
+            tempFile.copyTo(finalFile, overwrite = true)
+            tempFile.delete()
+        }
+        touchFile(filename)
+    }
+
     private fun evictUntilSpaceAvailable(incomingBytes: Long, exclude: String) {
         val files = cacheDir.listFiles()?.filter { it.isFile && it.name != exclude } ?: return
         var total = files.sumOf { it.length() }

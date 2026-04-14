@@ -40,6 +40,7 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
 
@@ -67,9 +68,16 @@ class MainActivity : AppCompatActivity() {
     private var inLayoutMode = false
     private val heartbeatBusy = AtomicBoolean(false)
     private var lastPlaylistRefreshAt = 0L
+    private var heartbeatFailureCount = 0
+    private var fastHeartbeatUntilMs = 0L
+    private var lastManifestPayload: String? = null
+    private var lastManifestSentAtMs = 0L
+    private val inFlightDownloads = mutableMapOf<String, Deferred<Boolean>>()
+    private val downloadLock = Any()
     private var bufferingStartedAtMs = 0L
     private var lastBufferRecoveryAtMs = 0L
     private val bufferRecoveryRunnable = Runnable { recoverFromPlaybackStall() }
+    private val heartbeatTickRunnable = Runnable { sendHeartbeatAndCheckCommands() }
     private var lastCachedResumeAttemptAtMs = 0L
     /** When true, do not resume from playlist (set by format/clear_cache; cleared when server sends explicit play). */
     private var doNotResumeFromPlaylist = false
@@ -85,7 +93,12 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_CACHED_VIDEO_DISPLAY_NAME = "cached_video_display_name"
         /** JSON object: cache storage key -> human-readable label (playlist/command name). */
         private const val KEY_CACHE_FILE_LABELS = "cache_file_labels_json"
-        private const val UPDATE_INTERVAL = 3000L
+        private const val HEARTBEAT_ACTIVE_INTERVAL_MS = 4_000L
+        private const val HEARTBEAT_IDLE_INTERVAL_MS = 12_000L
+        private const val HEARTBEAT_FAILURE_BASE_MS = 3_000L
+        private const val HEARTBEAT_FAILURE_MAX_MS = 60_000L
+        private const val HEARTBEAT_JITTER_MS = 700L
+        private const val MANIFEST_RESEND_INTERVAL_MS = 180_000L
         /** Avoid hammering /api/playlist every heartbeat; reduces network contention with video streaming. */
         private const val PLAYLIST_REFRESH_MS = 30_000L
         private const val BUFFER_STALL_TIMEOUT_MS = 15_000L
@@ -369,12 +382,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startDeviceHeartbeat() {
-        handler.post(object : Runnable {
-            override fun run() {
-                sendHeartbeatAndCheckCommands()
-                handler.postDelayed(this, UPDATE_INTERVAL)
+        handler.removeCallbacks(heartbeatTickRunnable)
+        handler.post(heartbeatTickRunnable)
+    }
+
+    private fun scheduleNextHeartbeat() {
+        val now = SystemClock.elapsedRealtime()
+        val base = when {
+            heartbeatFailureCount > 0 -> {
+                (HEARTBEAT_FAILURE_BASE_MS * (1L shl (heartbeatFailureCount - 1).coerceAtMost(5)))
+                    .coerceAtMost(HEARTBEAT_FAILURE_MAX_MS)
             }
-        })
+            now < fastHeartbeatUntilMs || inLayoutMode || player?.isPlaying == true -> HEARTBEAT_ACTIVE_INTERVAL_MS
+            else -> HEARTBEAT_IDLE_INTERVAL_MS
+        }
+        val jitter = Random.nextLong(-HEARTBEAT_JITTER_MS, HEARTBEAT_JITTER_MS + 1)
+        val delay = (base + jitter).coerceAtLeast(2_000L)
+        handler.removeCallbacks(heartbeatTickRunnable)
+        handler.postDelayed(heartbeatTickRunnable, delay)
     }
 
     /**
@@ -383,7 +408,10 @@ class MainActivity : AppCompatActivity() {
      */
     private fun sendHeartbeatAndCheckCommands() {
         if (connectionCode.isEmpty()) return
-        if (!heartbeatBusy.compareAndSet(false, true)) return
+        if (!heartbeatBusy.compareAndSet(false, true)) {
+            scheduleNextHeartbeat()
+            return
+        }
         scope.launch {
             try {
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -412,8 +440,11 @@ class MainActivity : AppCompatActivity() {
                 if (playbackState.removed == true) {
                     Log.d(TAG, "Device was removed from panel - returning to setup")
                     runOnUiThread { goBackToSetup() }
+                    heartbeatFailureCount = 0
                     return@launch
                 }
+
+                heartbeatFailureCount = 0
 
                 Log.d(TAG, "Heartbeat. Command ID: ${playbackState.command_id}, video: ${playbackState.current_video}")
 
@@ -465,6 +496,7 @@ class MainActivity : AppCompatActivity() {
                 if (playbackState.command_id != lastCommandId) {
                     Log.d(TAG, "New command: $lastCommandId → ${playbackState.command_id}")
                     lastCommandId = playbackState.command_id
+                    fastHeartbeatUntilMs = SystemClock.elapsedRealtime() + 60_000L
                     lastPlaylistRefreshAt = 0L
 
                     if (playbackState.current_video != null) {
@@ -495,6 +527,7 @@ class MainActivity : AppCompatActivity() {
                     if (!doNotResumeFromPlaylist &&
                         (currentPlaylist.isNotEmpty() || playbackState.current_video != null)
                     ) {
+                        fastHeartbeatUntilMs = SystemClock.elapsedRealtime() + 20_000L
                         val now = SystemClock.elapsedRealtime()
                         if (now - lastPlaylistRefreshAt >= PLAYLIST_REFRESH_MS) {
                             lastPlaylistRefreshAt = now
@@ -504,8 +537,10 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Heartbeat failed (server may be restarting); keeping playback", e)
+                heartbeatFailureCount = (heartbeatFailureCount + 1).coerceAtMost(10)
             } finally {
                 heartbeatBusy.set(false)
+                scheduleNextHeartbeat()
             }
         }
     }
@@ -608,7 +643,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Compact list of cached files for server (dashboard “play from cache”). */
-    private fun buildCacheManifestForHeartbeat(): String {
+    private fun buildCacheManifestForHeartbeat(): String? {
         return try {
             val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val labelsJson = try {
@@ -637,10 +672,15 @@ class MainActivity : AppCompatActivity() {
                 }
                 s = small.toString()
             }
+            val now = SystemClock.elapsedRealtime()
+            val shouldSend = s != lastManifestPayload || (now - lastManifestSentAtMs) >= MANIFEST_RESEND_INTERVAL_MS
+            if (!shouldSend) return null
+            lastManifestPayload = s
+            lastManifestSentAtMs = now
             s
         } catch (e: Exception) {
             Log.w(TAG, "buildCacheManifest failed", e)
-            "[]"
+            null
         }
     }
 
@@ -682,6 +722,63 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private suspend fun ensureVideoCached(
+        key: String,
+        logicalFilename: String,
+        downloadUrl: String?,
+        labelForCache: String?,
+        showOverlay: Boolean,
+    ): Boolean {
+        if (videoCache.isCached(key)) {
+            videoCache.touchFile(key)
+            if (!labelForCache.isNullOrBlank()) rememberCacheLabel(key, labelForCache)
+            return true
+        }
+
+        val existing = synchronized(downloadLock) { inFlightDownloads[key] }
+        if (existing != null) return existing.await()
+
+        val newTask = scope.async(Dispatchers.IO) {
+            val tempFile = videoCache.createTempFile(key)
+            if (tempFile.exists()) tempFile.delete()
+            if (showOverlay) {
+                showDownloadOverlay(labelForCache ?: logicalFilename)
+            }
+            try {
+                if (!downloadUrl.isNullOrEmpty()) {
+                    apiClient.downloadFromUrlToFileWithProgress(downloadUrl, tempFile) { r, t ->
+                        if (showOverlay) updateDownloadProgressUi(r, t)
+                    }
+                } else {
+                    apiClient.downloadVideoToFileWithProgress(logicalFilename, tempFile) { r, t ->
+                        if (showOverlay) updateDownloadProgressUi(r, t)
+                    }
+                }
+                videoCache.commitTempFile(key, tempFile)
+                rememberCacheLabel(key, labelForCache ?: logicalFilename)
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Download failed for $logicalFilename", e)
+                if (tempFile.exists()) tempFile.delete()
+                false
+            } finally {
+                if (showOverlay) {
+                    hideDownloadOverlay()
+                }
+            }
+        }
+        synchronized(downloadLock) { inFlightDownloads[key] = newTask }
+        return try {
+            newTask.await()
+        } finally {
+            synchronized(downloadLock) {
+                if (inFlightDownloads[key] === newTask) {
+                    inFlightDownloads.remove(key)
+                }
+            }
+        }
+    }
+
     private fun playSpecificVideo(
         filename: String,
         videoUrl: String? = null,
@@ -704,23 +801,15 @@ class MainActivity : AppCompatActivity() {
                         return@launch
                     }
                     Log.d(TAG, "Video not cached, downloading: $filename")
-                    showDownloadOverlay(labelForCache ?: filename)
-                    try {
-                        val videoData = withContext(Dispatchers.IO) {
-                            if (!videoUrl.isNullOrEmpty()) {
-                                apiClient.downloadFromUrlWithProgress(videoUrl) { r, t ->
-                                    updateDownloadProgressUi(r, t)
-                                }
-                            } else {
-                                apiClient.downloadVideoWithProgress(filename) { r, t ->
-                                    updateDownloadProgressUi(r, t)
-                                }
-                            }
-                        }
-                        videoCache.saveVideo(key, videoData)
-                        rememberCacheLabel(key, labelForCache ?: filename)
-                    } finally {
-                        hideDownloadOverlay()
+                    val ok = ensureVideoCached(
+                        key = key,
+                        logicalFilename = filename,
+                        downloadUrl = videoUrl,
+                        labelForCache = labelForCache,
+                        showOverlay = true
+                    )
+                    if (!ok) {
+                        return@launch
                     }
                 } else {
                     videoCache.touchFile(key)
@@ -831,14 +920,16 @@ class MainActivity : AppCompatActivity() {
                     val key = cacheKey(video.filename)
                     if (!videoCache.isCached(key)) {
                         Log.d(TAG, "Downloading: ${video.filename}")
-                        val videoData = if (!video.url.isNullOrEmpty()) {
-                            apiClient.downloadFromUrl(video.url)
-                        } else {
-                            apiClient.downloadVideo(video.filename)
+                        val ok = ensureVideoCached(
+                            key = key,
+                            logicalFilename = video.filename,
+                            downloadUrl = video.url,
+                            labelForCache = video.name,
+                            showOverlay = false
+                        )
+                        if (ok) {
+                            Log.d(TAG, "Downloaded: ${video.filename}")
                         }
-                        videoCache.saveVideo(key, videoData)
-                        rememberCacheLabel(key, video.name)
-                        Log.d(TAG, "Downloaded: ${video.filename}")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to download ${video.filename}", e)
@@ -857,13 +948,13 @@ class MainActivity : AppCompatActivity() {
                 val key = cacheKey(video.filename)
                 if (videoCache.isCached(key)) return@launch
                 Log.d(TAG, "Prefetch next playlist item: ${video.filename}")
-                val videoData = if (!video.url.isNullOrEmpty()) {
-                    apiClient.downloadFromUrl(video.url)
-                } else {
-                    apiClient.downloadVideo(video.filename)
-                }
-                videoCache.saveVideo(key, videoData)
-                rememberCacheLabel(key, video.name)
+                ensureVideoCached(
+                    key = key,
+                    logicalFilename = video.filename,
+                    downloadUrl = video.url,
+                    labelForCache = video.name,
+                    showOverlay = false
+                )
             } catch (e: Exception) {
                 Log.w(TAG, "Prefetch failed: ${video.filename}", e)
             }
@@ -903,27 +994,22 @@ class MainActivity : AppCompatActivity() {
             Log.w(TAG, "Video not cached, downloading with progress: ${video.filename}")
             scope.launch {
                 try {
-                    showDownloadOverlay(video.name)
-                    val videoData = withContext(Dispatchers.IO) {
-                        if (!video.url.isNullOrEmpty()) {
-                            apiClient.downloadFromUrlWithProgress(video.url) { r, t ->
-                                updateDownloadProgressUi(r, t)
-                            }
-                        } else {
-                            apiClient.downloadVideoWithProgress(video.filename) { r, t ->
-                                updateDownloadProgressUi(r, t)
-                            }
-                        }
+                    val ok = ensureVideoCached(
+                        key = key,
+                        logicalFilename = video.filename,
+                        downloadUrl = video.url,
+                        labelForCache = video.name,
+                        showOverlay = true
+                    )
+                    if (!ok) {
+                        handler.postDelayed({ playNextVideo() }, 1500)
+                        return@launch
                     }
-                    videoCache.saveVideo(key, videoData)
-                    rememberCacheLabel(key, video.name)
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to download ${video.filename}", e)
-                    hideDownloadOverlay()
                     handler.postDelayed({ playNextVideo() }, 1500)
                     return@launch
                 }
-                hideDownloadOverlay()
                 playCurrentVideo()
             }
         }

@@ -133,6 +133,20 @@ class TenantDisplay(db.Model):
     display_name = db.Column(db.String(200), nullable=False)
     first_seen_iso = db.Column(db.String(40), nullable=False)
     last_seen_iso = db.Column(db.String(40), nullable=False)
+    # Hot operational state (migrated from devices.json)
+    current_video = db.Column(db.String(500), nullable=True)
+    command_id = db.Column(db.Integer, nullable=False, default=0)
+    status = db.Column(db.String(32), nullable=False, default='idle')
+    device_info_json = db.Column(db.Text, nullable=True)
+    screenshot_requested = db.Column(db.Boolean, nullable=False, default=False)
+    clear_cache = db.Column(db.Boolean, nullable=False, default=False)
+    playback_cache_only = db.Column(db.Boolean, nullable=False, default=False)
+    cache_manifest_json = db.Column(db.Text, nullable=True)
+    cache_manifest_file_count = db.Column(db.Integer, nullable=True)
+    cache_manifest_total_bytes = db.Column(db.BigInteger, nullable=True)
+    cache_manifest_updated_at = db.Column(db.String(40), nullable=True)
+    cache_delete_keys_json = db.Column(db.Text, nullable=True)
+    current_video_display_name = db.Column(db.String(250), nullable=True)
 
 
 class PaymentHistory(db.Model):

@@ -18,6 +18,7 @@ DEPLOY_HOST="${DEPLOY_HOST:-94.250.201.69}"
 DEPLOY_USER="${DEPLOY_USER:-root}"
 REMOTE_DIR="${REMOTE_DIR:-/var/www/digital-signage-saas}"
 SERVICE_NAME="${SERVICE_NAME:-signage}"
+HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://127.0.0.1:8000/api/status}"
 INIT_REMOTE=false
 
 for arg in "$@"; do
@@ -67,6 +68,9 @@ set -e
 cd "$REMOTE_DIR"
 ./venv/bin/pip install -q --upgrade pip
 ./venv/bin/pip install -q -r requirements.txt
+if [[ -f "manage.py" ]]; then
+  ./venv/bin/flask db upgrade || true
+fi
 chown -R www-data:www-data "$REMOTE_DIR" 2>/dev/null || true
 if systemctl list-units --type=service --all | grep -q "$SERVICE_NAME.service"; then
   sudo systemctl restart "$SERVICE_NAME"
@@ -74,6 +78,9 @@ if systemctl list-units --type=service --all | grep -q "$SERVICE_NAME.service"; 
 else
   echo "No systemd unit '$SERVICE_NAME'. Install deploy/gunicorn.service.example → /etc/systemd/system/${SERVICE_NAME}.service"
   echo "Quick test: cd $REMOTE_DIR && ./venv/bin/gunicorn -w 2 -b 127.0.0.1:8000 app:app"
+fi
+if command -v curl >/dev/null 2>&1; then
+  curl -fsS --max-time 10 "$HEALTHCHECK_URL" >/dev/null
 fi
 REMOTE_CMD
 

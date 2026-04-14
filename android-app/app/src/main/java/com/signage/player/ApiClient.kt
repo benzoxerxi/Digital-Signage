@@ -9,6 +9,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -215,7 +216,9 @@ class ApiClient {
                 put("from_setup", fromSetup)
                 put("current_video", currentVideoFromCache ?: "")
                 put("current_video_name", currentVideoNameFromCache ?: "")
-                put("cache_manifest", manifestArray)
+                if (cacheManifestJson != null) {
+                    put("cache_manifest", manifestArray)
+                }
             }
             val mediaType = "application/json; charset=utf-8".toMediaType()
             val requestBody = bodyJson.toString().toRequestBody(mediaType)
@@ -373,6 +376,54 @@ class ApiClient {
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("Unexpected code $response")
             readBodyWithProgress(response.body!!, onProgress)
+        }
+    }
+
+    suspend fun downloadVideoToFileWithProgress(
+        filename: String,
+        outputFile: File,
+        onProgress: (bytesRead: Long, totalBytes: Long?) -> Unit,
+    ) = withContext(Dispatchers.IO) {
+        val url = if (connectionCode.isNotEmpty()) {
+            "$baseUrl/api/video/$filename?code=$connectionCode"
+        } else {
+            "$baseUrl/api/video/$filename"
+        }
+        downloadFromUrlToFileWithProgress(url, outputFile, onProgress)
+    }
+
+    suspend fun downloadFromUrlToFileWithProgress(
+        urlOrPath: String,
+        outputFile: File,
+        onProgress: (bytesRead: Long, totalBytes: Long?) -> Unit,
+    ) = withContext(Dispatchers.IO) {
+        val fullUrl = if (urlOrPath.startsWith("http://") || urlOrPath.startsWith("https://")) {
+            urlOrPath
+        } else {
+            val path = if (urlOrPath.startsWith("/")) urlOrPath else "/$urlOrPath"
+            "$baseUrl$path"
+        }
+        val request = Request.Builder().url(fullUrl).get().build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Unexpected code $response")
+            val body = response.body ?: throw IOException("Empty response body")
+            val len = body.contentLength()
+            val total = if (len > 0) len else null
+            body.byteStream().use { input ->
+                outputFile.outputStream().use { out ->
+                    val buf = ByteArray(65536)
+                    var totalRead = 0L
+                    onProgress(0L, total)
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n <= 0) break
+                        out.write(buf, 0, n)
+                        totalRead += n
+                        onProgress(totalRead, total)
+                    }
+                    out.flush()
+                }
+            }
         }
     }
 

@@ -70,4 +70,5 @@ jobs:
             systemctl restart signage
             systemctl reload nginx
             systemctl is-active --quiet signage
+            curl -fsS --max-time 15 http://127.0.0.1:8000/api/status >/dev/null
             echo "==> Deploy completed successfully."

@@ -2,9 +2,10 @@
 Digital Signage SaaS Platform
 Main Application File
 """
-from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, g
 from flask_cors import CORS
 from flask_login import LoginManager, login_required, current_user
+from flask_migrate import Migrate
 from sqlalchemy import text
 from models import db, User, ActivityLog, PaymentHistory, TenantDisplay
 from config import Config
@@ -13,6 +14,8 @@ import json
 import hashlib
 import threading
 import time
+import logging
+from collections import defaultdict
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 import mimetypes
@@ -21,18 +24,85 @@ import mimetypes
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Use absolute path for SQLite when DATABASE_URL not set (e.g. local dev)
-if not os.environ.get('DATABASE_URL'):
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'signage.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
-    # On Render/Heroku the filesystem is ephemeral: SQLite would be wiped every deploy
-    if os.environ.get('RENDER') or os.environ.get('DYNO'):
-        print('WARNING: DATABASE_URL is not set. Users and data will be LOST on each deploy. Add a persistent database (e.g. Render PostgreSQL) and set DATABASE_URL.')
+def _enforce_database_runtime_policy():
+    """Fail fast in production when DB config is unsafe."""
+    db_url = (os.environ.get('DATABASE_URL') or '').strip()
+    is_prod = bool(getattr(Config, 'IS_PRODUCTION', False))
+    if is_prod and not db_url:
+        raise RuntimeError(
+            "DATABASE_URL is required in production. Refusing to start with ephemeral SQLite."
+        )
+    if is_prod and db_url.startswith('sqlite'):
+        raise RuntimeError(
+            "SQLite is not allowed in production. Configure PostgreSQL via DATABASE_URL."
+        )
+    if not db_url:
+        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'signage.db')
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
+
+
+_enforce_database_runtime_policy()
 
 CORS(app)
 
 # Initialize extensions
 db.init_app(app)
+migrate = Migrate(app, db)
+
+_METRIC_LOCK = threading.Lock()
+_METRIC_COUNTS = defaultdict(int)
+_METRIC_STATUS = defaultdict(int)
+_METRIC_LATENCY_MS = defaultdict(list)
+_CRITICAL_ENDPOINTS = {'/api/playback/state', '/api/device_layout', '/api/playlist'}
+logger = logging.getLogger(__name__)
+
+
+@app.before_request
+def _metrics_before_request():
+    g.request_started_at = time.perf_counter()
+
+
+@app.after_request
+def _metrics_after_request(response):
+    started = getattr(g, 'request_started_at', None)
+    if started is None:
+        return response
+    path = request.path
+    if path in _CRITICAL_ENDPOINTS:
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
+        with _METRIC_LOCK:
+            _METRIC_COUNTS[path] += 1
+            _METRIC_STATUS[f"{path}:{response.status_code}"] += 1
+            bucket = _METRIC_LATENCY_MS[path]
+            bucket.append(elapsed_ms)
+            if len(bucket) > 500:
+                del bucket[:-500]
+    return response
+
+
+@app.route('/api/metrics')
+@login_required
+def get_metrics():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Forbidden'}), 403
+    snapshot = {}
+    with _METRIC_LOCK:
+        for path in sorted(_CRITICAL_ENDPOINTS):
+            vals = sorted(_METRIC_LATENCY_MS.get(path, []))
+            count = len(vals)
+            p95 = vals[min(count - 1, int(count * 0.95))] if count else 0.0
+            avg = (sum(vals) / count) if count else 0.0
+            snapshot[path] = {
+                'requests': _METRIC_COUNTS.get(path, 0),
+                'avg_ms': round(avg, 2),
+                'p95_ms': round(p95, 2),
+                'status': {
+                    k.split(':')[-1]: v
+                    for k, v in _METRIC_STATUS.items()
+                    if k.startswith(f'{path}:')
+                },
+            }
+    return jsonify({'generated_at': datetime.utcnow().isoformat(), 'critical_endpoints': snapshot})
 
 
 @app.context_processor

@@ -6,6 +6,8 @@ import os
 import json
 import hashlib
 import threading
+import tempfile
+import shutil
 from datetime import datetime
 from flask_login import current_user
 from config import Config
@@ -69,11 +71,16 @@ def load_json_file(filename, default, user_id=None):
     filepath = get_data_file_path(filename, user_id)
     if not filepath or not os.path.exists(filepath):
         return default
+    backup_path = filepath + '.bak'
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except:
-        return default
+    except Exception:
+        try:
+            with open(backup_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return default
 
 
 def save_json_file(filename, data, user_id=None):
@@ -84,10 +91,38 @@ def save_json_file(filename, data, user_id=None):
     
     # Ensure directory exists
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    
-    with open(filepath, 'w') as f:
-        json.dump(data, f, indent=2)
-    return True
+    tmp_fd = None
+    tmp_path = None
+    backup_path = filepath + '.bak'
+    try:
+        tmp_fd, tmp_path = tempfile.mkstemp(
+            prefix=os.path.basename(filepath) + '.',
+            suffix='.tmp',
+            dir=os.path.dirname(filepath),
+            text=True,
+        )
+        with os.fdopen(tmp_fd, 'w', encoding='utf-8') as f:
+            tmp_fd = None
+            json.dump(data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        if os.path.exists(filepath):
+            shutil.copy2(filepath, backup_path)
+        os.replace(tmp_path, filepath)
+        return True
+    except Exception:
+        return False
+    finally:
+        if tmp_fd is not None:
+            try:
+                os.close(tmp_fd)
+            except Exception:
+                pass
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
 
 def get_storage_usage(user_id=None):
@@ -182,6 +217,71 @@ def _upsert_tenant_display_registry(user_id, device_id, display_name, first_seen
     db.session.commit()
 
 
+def _sync_hot_state_to_registry_row(user_id, device_id, device_data):
+    """Persist frequently-changing device state to DB (source for migration away from devices.json)."""
+    from models import TenantDisplay, db
+    row = TenantDisplay.query.filter_by(user_id=user_id, device_id=device_id).first()
+    if not row:
+        _upsert_tenant_display_registry(
+            user_id,
+            device_id,
+            device_data.get('name'),
+            device_data.get('first_seen'),
+            device_data.get('last_seen'),
+        )
+        row = TenantDisplay.query.filter_by(user_id=user_id, device_id=device_id).first()
+        if not row:
+            return
+    row.current_video = device_data.get('current_video')
+    row.command_id = int(device_data.get('command_id', 0) or 0)
+    row.status = (device_data.get('status') or 'idle')[:32]
+    row.device_info_json = json.dumps(device_data.get('info') or {})
+    row.screenshot_requested = bool(device_data.get('screenshot_requested', False))
+    row.clear_cache = bool(device_data.get('clear_cache', False))
+    row.playback_cache_only = bool(device_data.get('playback_cache_only', False))
+    row.current_video_display_name = device_data.get('current_video_display_name')
+    cache_manifest = device_data.get('cache_manifest')
+    row.cache_manifest_json = json.dumps(cache_manifest if isinstance(cache_manifest, list) else [])
+    row.cache_manifest_file_count = device_data.get('cache_manifest_file_count')
+    row.cache_manifest_total_bytes = device_data.get('cache_manifest_total_bytes')
+    row.cache_manifest_updated_at = device_data.get('cache_manifest_updated_at')
+    row.cache_delete_keys_json = json.dumps(device_data.get('cache_delete_keys') or [])
+    db.session.commit()
+
+
+def _overlay_hot_state_from_registry(row, device_data):
+    """Merge DB runtime state over JSON fallback state."""
+    if not row:
+        return device_data
+    merged = dict(device_data)
+    merged['current_video'] = row.current_video
+    merged['command_id'] = int(row.command_id or merged.get('command_id', 0) or 0)
+    merged['status'] = row.status or merged.get('status', 'idle')
+    try:
+        merged['info'] = json.loads(row.device_info_json) if row.device_info_json else (merged.get('info') or {})
+    except Exception:
+        merged['info'] = merged.get('info') or {}
+    merged['screenshot_requested'] = bool(row.screenshot_requested)
+    merged['clear_cache'] = bool(row.clear_cache)
+    merged['playback_cache_only'] = bool(row.playback_cache_only)
+    if row.current_video_display_name:
+        merged['current_video_display_name'] = row.current_video_display_name
+    if row.cache_manifest_json:
+        try:
+            merged['cache_manifest'] = json.loads(row.cache_manifest_json)
+        except Exception:
+            merged['cache_manifest'] = []
+    merged['cache_manifest_file_count'] = row.cache_manifest_file_count
+    merged['cache_manifest_total_bytes'] = row.cache_manifest_total_bytes
+    merged['cache_manifest_updated_at'] = row.cache_manifest_updated_at
+    if row.cache_delete_keys_json:
+        try:
+            merged['cache_delete_keys'] = json.loads(row.cache_delete_keys_json)
+        except Exception:
+            merged['cache_delete_keys'] = []
+    return merged
+
+
 def delete_tenant_display_registry(user_id, device_id):
     from models import TenantDisplay, db
     try:
@@ -235,6 +335,23 @@ def sync_device_registry_row(user_id, device_id, device_row):
             db.session.rollback()
         except Exception:
             pass
+
+
+def sync_devices_hot_state(user_id, devices, only_device_ids=None):
+    """Persist one/all device rows to DB hot-state columns."""
+    target_ids = only_device_ids or list(devices.keys())
+    for did in target_ids:
+        row = devices.get(did)
+        if not isinstance(row, dict):
+            continue
+        try:
+            _sync_hot_state_to_registry_row(user_id, did, row)
+        except Exception:
+            try:
+                from models import db
+                db.session.rollback()
+            except Exception:
+                pass
 
 
 def _append_device_status_row(result, user_id, device_id, device_data, now):
@@ -339,6 +456,15 @@ def update_device_heartbeat(device_id, device_name=None, device_info=None, user_
                 'status': 'idle',
                 'info': device_info or {}
             }
+        else:
+            # During migration, DB has freshest command/hot-state values.
+            try:
+                from models import TenantDisplay
+                reg_row = TenantDisplay.query.filter_by(user_id=user_id, device_id=device_id).first()
+                if reg_row:
+                    devices[device_id] = _overlay_hot_state_from_registry(reg_row, devices[device_id])
+            except Exception:
+                pass
 
         devices[device_id]['last_seen'] = datetime.now().isoformat()
 
@@ -390,6 +516,7 @@ def update_device_heartbeat(device_id, device_name=None, device_info=None, user_
             result.get('first_seen'),
             result.get('last_seen'),
         )
+        _sync_hot_state_to_registry_row(user_id, device_id, result)
     except Exception:
         try:
             from models import db
@@ -453,18 +580,24 @@ def get_all_devices_with_status(user_id=None):
         device_data = devices.get(device_id)
         reg = registry_by_id.get(device_id)
         if device_data is None and reg is not None:
+            try:
+                reg_info = json.loads(reg.device_info_json) if reg.device_info_json else {}
+            except Exception:
+                reg_info = {}
             device_data = {
                 'id': device_id,
                 'name': reg.display_name,
                 'first_seen': reg.first_seen_iso,
                 'last_seen': reg.last_seen_iso,
-                'current_video': None,
-                'command_id': 0,
-                'status': 'idle',
-                'info': {},
+                'current_video': reg.current_video,
+                'command_id': int(reg.command_id or 0),
+                'status': reg.status or 'idle',
+                'info': reg_info,
             }
         elif device_data is None:
             continue
+        if reg is not None:
+            device_data = _overlay_hot_state_from_registry(reg, device_data)
         _append_device_status_row(result, user_id, device_id, device_data, now)
 
     return result
@@ -524,8 +657,27 @@ def save_admin_settings(settings):
     data_dir = os.path.normpath(data_dir)
     os.makedirs(data_dir, exist_ok=True)
     path = os.path.join(data_dir, 'admin_settings.json')
-    with open(path, 'w') as f:
-        json.dump(settings, f, indent=2)
+    tmp_fd = None
+    tmp_path = None
+    try:
+        tmp_fd, tmp_path = tempfile.mkstemp(prefix='admin_settings.', suffix='.tmp', dir=data_dir, text=True)
+        with os.fdopen(tmp_fd, 'w', encoding='utf-8') as f:
+            tmp_fd = None
+            json.dump(settings, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+    finally:
+        if tmp_fd is not None:
+            try:
+                os.close(tmp_fd)
+            except Exception:
+                pass
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
 
 def play_video_to_devices(filename, device_ids, user_id):

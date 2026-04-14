@@ -10,7 +10,11 @@ class Config:
     # Optional URL prefix when app is served under a subpath (e.g. /signage)
     BASE_PATH = os.environ.get('BASE_PATH', '').rstrip('/')
     
-    # Database: use DATABASE_URL in production so users/data persist across deploys (e.g. Render Postgres)
+    # Runtime environment
+    ENV = (os.environ.get('FLASK_ENV') or os.environ.get('ENVIRONMENT') or 'development').strip().lower()
+    IS_PRODUCTION = ENV == 'production' or bool(os.environ.get('RENDER') or os.environ.get('DYNO'))
+
+    # Database: enforce external DB in production so users/data persist across deploys.
     _database_url = os.environ.get('DATABASE_URL')
     if _database_url:
         # Some hosts (e.g. Render) give postgres://; SQLAlchemy expects postgresql://
@@ -22,8 +26,12 @@ class Config:
             'pool_pre_ping': True,   # test connection before use; discard if dead
             'pool_recycle': 300,    # recycle connections every 5 min (under typical server idle timeout)
         }
-    else:
+    elif not IS_PRODUCTION:
         SQLALCHEMY_DATABASE_URI = 'sqlite:///signage.db'
+        SQLALCHEMY_ENGINE_OPTIONS = {}
+    else:
+        # Fail-fast configuration in production. app.py raises with actionable message.
+        SQLALCHEMY_DATABASE_URI = ''
         SQLALCHEMY_ENGINE_OPTIONS = {}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     

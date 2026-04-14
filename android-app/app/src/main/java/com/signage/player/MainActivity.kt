@@ -518,6 +518,9 @@ class MainActivity : AppCompatActivity() {
                     if (playbackState.current_video != null) {
                         Log.d(TAG, "Server commanded to play: ${playbackState.current_video} cacheOnly=${playbackState.playback_cache_only}")
                         doNotResumeFromPlaylist = false
+                        // Explicit per-device play command should not be interrupted by background playlist refresh.
+                        currentPlaylist = emptyList()
+                        currentVideoIndex = 0
                         playSpecificVideo(
                             playbackState.current_video,
                             playbackState.video_url,
@@ -541,9 +544,11 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "Server state reset; keeping cached playback")
                     }
                 } else {
-                    if (!doNotResumeFromPlaylist &&
-                        (currentPlaylist.isNotEmpty() || playbackState.current_video != null)
-                    ) {
+                    val shouldRefreshPlaylist =
+                        !doNotResumeFromPlaylist &&
+                            !inLayoutMode &&
+                            playbackState.current_video == null
+                    if (shouldRefreshPlaylist) {
                         fastHeartbeatUntilMs = SystemClock.elapsedRealtime() + 20_000L
                         val now = SystemClock.elapsedRealtime()
                         if (now - lastPlaylistRefreshAt >= PLAYLIST_REFRESH_MS) {

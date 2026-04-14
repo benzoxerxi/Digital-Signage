@@ -100,12 +100,12 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_CACHE_FILE_LABELS = "cache_file_labels_json"
         private const val HEARTBEAT_ACTIVE_INTERVAL_MS = 4_000L
         private const val HEARTBEAT_IDLE_INTERVAL_MS = 12_000L
-        private const val HEARTBEAT_DOWNLOAD_INTERVAL_MS = 1_500L
+        private const val HEARTBEAT_DOWNLOAD_INTERVAL_MS = 3_000L
         private const val HEARTBEAT_FAILURE_BASE_MS = 3_000L
         private const val HEARTBEAT_FAILURE_MAX_MS = 60_000L
         private const val HEARTBEAT_JITTER_MS = 700L
-        private const val DOWNLOAD_HEARTBEAT_NUDGE_MS = 700L
-        private const val DOWNLOAD_HEARTBEAT_NUDGE_THROTTLE_MS = 1_000L
+        private const val DOWNLOAD_HEARTBEAT_NUDGE_MS = 1_000L
+        private const val DOWNLOAD_HEARTBEAT_NUDGE_THROTTLE_MS = 2_500L
         private const val MANIFEST_RESEND_INTERVAL_MS = 180_000L
         private const val OFFLINE_MODE_AFTER_MS = 120_000L
         /** Avoid hammering /api/playlist every heartbeat; reduces network contention with video streaming. */
@@ -775,6 +775,7 @@ class MainActivity : AppCompatActivity() {
         bytesRead: Long,
         totalBytes: Long?,
         status: String,
+        nudge: Boolean = true,
     ) {
         try {
             val obj = JSONObject()
@@ -791,7 +792,7 @@ class MainActivity : AppCompatActivity() {
             obj.put("status", status)
             obj.put("updated_at_ms", System.currentTimeMillis())
             downloadProgressHeartbeatJson = obj.toString()
-            nudgeHeartbeatForDownloadProgress()
+            if (nudge) nudgeHeartbeatForDownloadProgress()
         } catch (_: Exception) {
         }
     }
@@ -818,7 +819,7 @@ class MainActivity : AppCompatActivity() {
         if (videoCache.isCached(key)) {
             videoCache.touchFile(key)
             if (!labelForCache.isNullOrBlank()) rememberCacheLabel(key, labelForCache)
-            clearDownloadProgressHeartbeat()
+            if (showOverlay) clearDownloadProgressHeartbeat()
             return true
         }
 
@@ -830,29 +831,40 @@ class MainActivity : AppCompatActivity() {
             if (tempFile.exists()) tempFile.delete()
             if (showOverlay) {
                 showDownloadOverlay(labelForCache ?: logicalFilename)
+                updateDownloadProgressHeartbeat(logicalFilename, labelForCache, 0L, null, "starting")
             }
-            updateDownloadProgressHeartbeat(logicalFilename, labelForCache, 0L, null, "starting")
             try {
                 if (!downloadUrl.isNullOrEmpty()) {
                     apiClient.downloadFromUrlToFileWithProgress(downloadUrl, tempFile) { r, t ->
-                        updateDownloadProgressHeartbeat(logicalFilename, labelForCache, r, t, "downloading")
+                        if (showOverlay) {
+                            updateDownloadProgressHeartbeat(logicalFilename, labelForCache, r, t, "downloading")
+                        }
                         if (showOverlay) updateDownloadProgressUi(r, t)
                     }
                 } else {
                     apiClient.downloadVideoToFileWithProgress(logicalFilename, tempFile) { r, t ->
-                        updateDownloadProgressHeartbeat(logicalFilename, labelForCache, r, t, "downloading")
+                        if (showOverlay) {
+                            updateDownloadProgressHeartbeat(logicalFilename, labelForCache, r, t, "downloading")
+                        }
                         if (showOverlay) updateDownloadProgressUi(r, t)
                     }
                 }
                 videoCache.commitTempFile(key, tempFile)
                 rememberCacheLabel(key, labelForCache ?: logicalFilename)
-                val total = tempFile.length().coerceAtLeast(0L)
-                updateDownloadProgressHeartbeat(logicalFilename, labelForCache, total, total, "completed")
+                if (showOverlay) {
+                    val total = tempFile.length().coerceAtLeast(0L)
+                    updateDownloadProgressHeartbeat(logicalFilename, labelForCache, total, total, "completed")
+                    // Keep completion visible briefly, then drop back to normal heartbeat cadence.
+                    handler.postDelayed({ clearDownloadProgressHeartbeat() }, 5_000L)
+                }
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Download failed for $logicalFilename", e)
                 if (tempFile.exists()) tempFile.delete()
-                updateDownloadProgressHeartbeat(logicalFilename, labelForCache, 0L, null, "failed")
+                if (showOverlay) {
+                    updateDownloadProgressHeartbeat(logicalFilename, labelForCache, 0L, null, "failed")
+                    handler.postDelayed({ clearDownloadProgressHeartbeat() }, 5_000L)
+                }
                 false
             } finally {
                 if (showOverlay) {

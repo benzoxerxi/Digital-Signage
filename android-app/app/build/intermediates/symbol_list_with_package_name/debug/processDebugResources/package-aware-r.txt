@@ -3332,6 +3332,7 @@ id animateToEnd
 id animateToStart
 id antiClockwise
 id anticipate
+id app_version_text
 id arc
 id asConfigured
 id async
@@ -3413,6 +3414,10 @@ id disableIntraAutoTransition
 id disablePostScroll
 id disableScroll
 id disjoint
+id download_overlay
+id download_progress_bar
+id download_status
+id download_title
 id dragAnticlockwise
 id dragClockwise
 id dragDown
@@ -4099,6 +4104,7 @@ string connecting
 string connection_code_hint
 string connection_code_label
 string connection_failed
+string download_overlay_title
 string enter_server_and_code
 string error_a11y_label
 string error_icon_content_description

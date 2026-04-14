@@ -6,7 +6,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.media3.ui.PlayerView;
@@ -22,6 +24,18 @@ public final class ActivityMainBinding implements ViewBinding {
   private final RelativeLayout rootView;
 
   @NonNull
+  public final FrameLayout downloadOverlay;
+
+  @NonNull
+  public final ProgressBar downloadProgressBar;
+
+  @NonNull
+  public final TextView downloadStatus;
+
+  @NonNull
+  public final TextView downloadTitle;
+
+  @NonNull
   public final FrameLayout layoutRoot;
 
   @NonNull
@@ -33,10 +47,16 @@ public final class ActivityMainBinding implements ViewBinding {
   @NonNull
   public final ImageView screensaverView;
 
-  private ActivityMainBinding(@NonNull RelativeLayout rootView, @NonNull FrameLayout layoutRoot,
-      @NonNull RelativeLayout mainRoot, @NonNull PlayerView playerView,
-      @NonNull ImageView screensaverView) {
+  private ActivityMainBinding(@NonNull RelativeLayout rootView,
+      @NonNull FrameLayout downloadOverlay, @NonNull ProgressBar downloadProgressBar,
+      @NonNull TextView downloadStatus, @NonNull TextView downloadTitle,
+      @NonNull FrameLayout layoutRoot, @NonNull RelativeLayout mainRoot,
+      @NonNull PlayerView playerView, @NonNull ImageView screensaverView) {
     this.rootView = rootView;
+    this.downloadOverlay = downloadOverlay;
+    this.downloadProgressBar = downloadProgressBar;
+    this.downloadStatus = downloadStatus;
+    this.downloadTitle = downloadTitle;
     this.layoutRoot = layoutRoot;
     this.mainRoot = mainRoot;
     this.playerView = playerView;
@@ -70,6 +90,30 @@ public final class ActivityMainBinding implements ViewBinding {
     // This is done to optimize the compiled bytecode for size and performance.
     int id;
     missingId: {
+      id = R.id.download_overlay;
+      FrameLayout downloadOverlay = ViewBindings.findChildViewById(rootView, id);
+      if (downloadOverlay == null) {
+        break missingId;
+      }
+
+      id = R.id.download_progress_bar;
+      ProgressBar downloadProgressBar = ViewBindings.findChildViewById(rootView, id);
+      if (downloadProgressBar == null) {
+        break missingId;
+      }
+
+      id = R.id.download_status;
+      TextView downloadStatus = ViewBindings.findChildViewById(rootView, id);
+      if (downloadStatus == null) {
+        break missingId;
+      }
+
+      id = R.id.download_title;
+      TextView downloadTitle = ViewBindings.findChildViewById(rootView, id);
+      if (downloadTitle == null) {
+        break missingId;
+      }
+
       id = R.id.layout_root;
       FrameLayout layoutRoot = ViewBindings.findChildViewById(rootView, id);
       if (layoutRoot == null) {
@@ -90,7 +134,8 @@ public final class ActivityMainBinding implements ViewBinding {
         break missingId;
       }
 
-      return new ActivityMainBinding((RelativeLayout) rootView, layoutRoot, mainRoot, playerView,
+      return new ActivityMainBinding((RelativeLayout) rootView, downloadOverlay,
+          downloadProgressBar, downloadStatus, downloadTitle, layoutRoot, mainRoot, playerView,
           screensaverView);
     }
     String missingId = rootView.getResources().getResourceName(id);

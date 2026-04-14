@@ -11,8 +11,13 @@ color teal_700
 color white
 drawable ic_launcher_foreground
 drawable input_background
+id app_version_text
 id connect_button
 id connection_code_input
+id download_overlay
+id download_progress_bar
+id download_status
+id download_title
 id layout_root
 id logo_view
 id main_root
@@ -32,6 +37,7 @@ string connecting
 string connection_code_hint
 string connection_code_label
 string connection_failed
+string download_overlay_title
 string enter_server_and_code
 string server_hint
 style Theme.DigitalSignagePlayer

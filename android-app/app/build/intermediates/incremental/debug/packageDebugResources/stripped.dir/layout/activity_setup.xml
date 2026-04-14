@@ -193,5 +193,15 @@
         android:layout_marginTop="16dp"
         android:gravity="center" />
 
+    <TextView
+        android:id="@+id/app_version_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:textSize="11sp"
+        android:textColor="#666666"
+        android:text="" />
+
     </LinearLayout>
 </ScrollView>

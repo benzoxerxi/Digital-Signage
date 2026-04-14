@@ -9,6 +9,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
@@ -21,6 +22,9 @@ import java.lang.String;
 public final class ActivitySetupBinding implements ViewBinding {
   @NonNull
   private final ScrollView rootView;
+
+  @NonNull
+  public final TextView appVersionText;
 
   @NonNull
   public final Button connectButton;
@@ -40,11 +44,12 @@ public final class ActivitySetupBinding implements ViewBinding {
   @NonNull
   public final LinearLayout serverSection;
 
-  private ActivitySetupBinding(@NonNull ScrollView rootView, @NonNull Button connectButton,
-      @NonNull EditText connectionCodeInput, @NonNull ImageView logoView,
-      @NonNull EditText screenNameInput, @NonNull EditText serverInput,
+  private ActivitySetupBinding(@NonNull ScrollView rootView, @NonNull TextView appVersionText,
+      @NonNull Button connectButton, @NonNull EditText connectionCodeInput,
+      @NonNull ImageView logoView, @NonNull EditText screenNameInput, @NonNull EditText serverInput,
       @NonNull LinearLayout serverSection) {
     this.rootView = rootView;
+    this.appVersionText = appVersionText;
     this.connectButton = connectButton;
     this.connectionCodeInput = connectionCodeInput;
     this.logoView = logoView;
@@ -80,6 +85,12 @@ public final class ActivitySetupBinding implements ViewBinding {
     // This is done to optimize the compiled bytecode for size and performance.
     int id;
     missingId: {
+      id = R.id.app_version_text;
+      TextView appVersionText = ViewBindings.findChildViewById(rootView, id);
+      if (appVersionText == null) {
+        break missingId;
+      }
+
       id = R.id.connect_button;
       Button connectButton = ViewBindings.findChildViewById(rootView, id);
       if (connectButton == null) {
@@ -116,8 +127,8 @@ public final class ActivitySetupBinding implements ViewBinding {
         break missingId;
       }
 
-      return new ActivitySetupBinding((ScrollView) rootView, connectButton, connectionCodeInput,
-          logoView, screenNameInput, serverInput, serverSection);
+      return new ActivitySetupBinding((ScrollView) rootView, appVersionText, connectButton,
+          connectionCodeInput, logoView, screenNameInput, serverInput, serverSection);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

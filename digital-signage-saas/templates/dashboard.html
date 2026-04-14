@@ -2811,25 +2811,42 @@
                 showToast('Playlist is empty', 'error');
                 return;
             }
-            
-            try {
-                const response = await fetch(`/api/playlists/${playlistId}/activate`, {
-                    method: 'POST'
-                });
-                const result = await response.json();
-                if (!result.success) {
+            const playAll = playbackPlayAllChecked();
+            if (playAll) {
+                try {
+                    const response = await fetch(`/api/playlists/${playlistId}/activate`, {
+                        method: 'POST'
+                    });
+                    const result = await response.json();
+                    if (!result.success) {
+                        showToast('Failed to activate playlist', 'error');
+                        return;
+                    }
+                    showToast(`✅ Activated globally: ${playlist.name} (${result.video_count || videoCount} videos)`, 'success');
+                    const firstEntry = result.videos && result.videos[0] ? result.videos[0] : (playlist.videos[0] || null);
+                    if (firstEntry) {
+                        await playVideoFromPlaylist(firstEntry);
+                    }
+                    return;
+                } catch (error) {
+                    console.error('Activation error:', error);
                     showToast('Failed to activate playlist', 'error');
                     return;
                 }
-                showToast(`✅ Activated: ${playlist.name} (${result.video_count || videoCount} videos)`, 'success');
-                const firstEntry = result.videos && result.videos[0] ? result.videos[0] : (playlist.videos[0] || null);
-                if (firstEntry) {
-                    await playVideoFromPlaylist(firstEntry);
-                }
-            } catch (error) {
-                console.error('Activation error:', error);
-                showToast('Failed to activate playlist', 'error');
             }
+
+            if (selectedDevices.length === 0) {
+                showToast('Select one or more displays, or tick Play on all displays.', 'error');
+                return;
+            }
+
+            const firstEntry = playlist.videos[0] || null;
+            if (!firstEntry) {
+                showToast('Playlist has no playable video', 'error');
+                return;
+            }
+            showToast(`Playing first video from "${playlist.name}" on selected displays only`, 'success');
+            await playVideoFromPlaylist(firstEntry);
         }
         
         function previewPlaylist(playlistId) {
@@ -4464,20 +4481,38 @@
                 showToast('Playlist is empty', 'error');
                 return;
             }
-            try {
-                const response = await fetch(`/api/playlists/${playlistId}/activate`, { method: 'POST' });
-                const result = await response.json();
-                if (result.success) {
-                    showToast(`✅ Activated: ${result.playlist_name} (${result.video_count} videos)`, 'success');
-                    const firstEntry = result.videos && result.videos[0] ? result.videos[0] : playlist.videos[0];
-                    if (firstEntry) await playVideoFromPlaylist(firstEntry);
-                } else {
+            const playAll = playbackPlayAllChecked();
+            if (playAll) {
+                try {
+                    const response = await fetch(`/api/playlists/${playlistId}/activate`, { method: 'POST' });
+                    const result = await response.json();
+                    if (result.success) {
+                        showToast(`✅ Activated globally: ${result.playlist_name} (${result.video_count} videos)`, 'success');
+                        const firstEntry = result.videos && result.videos[0] ? result.videos[0] : playlist.videos[0];
+                        if (firstEntry) await playVideoFromPlaylist(firstEntry);
+                    } else {
+                        showToast('Failed to activate playlist', 'error');
+                    }
+                    return;
+                } catch (error) {
+                    console.error('Activation error:', error);
                     showToast('Failed to activate playlist', 'error');
+                    return;
                 }
-            } catch (error) {
-                console.error('Activation error:', error);
-                showToast('Failed to activate playlist', 'error');
             }
+
+            if (selectedDevices.length === 0) {
+                showToast('Select one or more displays, or tick Play on all displays.', 'error');
+                return;
+            }
+
+            const firstEntry = playlist.videos[0];
+            if (!firstEntry) {
+                showToast('Playlist has no playable video', 'error');
+                return;
+            }
+            showToast(`Playing first video from "${playlist.name}" on selected displays only`, 'success');
+            await playVideoFromPlaylist(firstEntry);
         }
         
         function previewPlaylist(playlistId) {

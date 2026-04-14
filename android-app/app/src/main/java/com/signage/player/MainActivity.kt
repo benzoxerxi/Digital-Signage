@@ -79,11 +79,18 @@ class MainActivity : AppCompatActivity() {
     private var lastDownloadHeartbeatNudgeAtMs = 0L
     private val inFlightDownloads = mutableMapOf<String, Deferred<Boolean>>()
     private val downloadLock = Any()
+    private var downloadOverlayShowPending = false
+    private val downloadOverlayShowRunnable = Runnable {
+        downloadOverlayShowPending = false
+        findViewById<View>(R.id.download_overlay).visibility = View.VISIBLE
+    }
     private var bufferingStartedAtMs = 0L
     private var lastBufferRecoveryAtMs = 0L
     private val bufferRecoveryRunnable = Runnable { recoverFromPlaybackStall() }
     private val heartbeatTickRunnable = Runnable { sendHeartbeatAndCheckCommands() }
     private var lastCachedResumeAttemptAtMs = 0L
+    private var lastExplicitVideoKey: String? = null
+    private var lastExplicitVideoAtMs = 0L
     /** When true, do not resume from playlist (set by format/clear_cache; cleared when server sends explicit play). */
     private var doNotResumeFromPlaylist = false
 
@@ -106,6 +113,8 @@ class MainActivity : AppCompatActivity() {
         private const val HEARTBEAT_JITTER_MS = 700L
         private const val DOWNLOAD_HEARTBEAT_NUDGE_MS = 1_000L
         private const val DOWNLOAD_HEARTBEAT_NUDGE_THROTTLE_MS = 2_500L
+        private const val DOWNLOAD_OVERLAY_SHOW_DELAY_MS = 900L
+        private const val DUPLICATE_EXPLICIT_COMMAND_WINDOW_MS = 8_000L
         private const val MANIFEST_RESEND_INTERVAL_MS = 180_000L
         private const val OFFLINE_MODE_AFTER_MS = 120_000L
         /** Avoid hammering /api/playlist every heartbeat; reduces network contention with video streaming. */
@@ -521,12 +530,25 @@ class MainActivity : AppCompatActivity() {
                         // Explicit per-device play command should not be interrupted by background playlist refresh.
                         currentPlaylist = emptyList()
                         currentVideoIndex = 0
-                        playSpecificVideo(
-                            playbackState.current_video,
-                            playbackState.video_url,
-                            cacheOnly = playbackState.playback_cache_only,
-                            labelForCache = playbackState.current_video_name
-                        )
+                        val explicitKey = cacheKey(playbackState.current_video)
+                        val nowMs = SystemClock.elapsedRealtime()
+                        val sameRecentVideo =
+                            lastExplicitVideoKey == explicitKey &&
+                                nowMs - lastExplicitVideoAtMs < DUPLICATE_EXPLICIT_COMMAND_WINDOW_MS
+                        val inFlightSameVideo = synchronized(downloadLock) { inFlightDownloads.containsKey(explicitKey) }
+                        val playingSameVideo = prefs.getString(KEY_CACHED_VIDEO_FILENAME, null) == explicitKey && player?.isPlaying == true
+                        if (sameRecentVideo && (inFlightSameVideo || playingSameVideo)) {
+                            Log.d(TAG, "Ignoring duplicate explicit play command for $explicitKey")
+                        } else {
+                            lastExplicitVideoKey = explicitKey
+                            lastExplicitVideoAtMs = nowMs
+                            playSpecificVideo(
+                                playbackState.current_video,
+                                playbackState.video_url,
+                                cacheOnly = playbackState.playback_cache_only,
+                                labelForCache = playbackState.current_video_name
+                            )
+                        }
                         if (!playbackState.current_video_name.isNullOrEmpty()) {
                             prefs.edit()
                                 .putString(KEY_CACHED_VIDEO_DISPLAY_NAME, playbackState.current_video_name).apply()
@@ -535,6 +557,7 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "Stop/format command – stopping playback")
                         doNotResumeFromPlaylist = true
                         clearDownloadProgressHeartbeat()
+                        lastExplicitVideoKey = null
                         player?.stop()
                         showScreensaver(true)
                         clearVideoCache()
@@ -716,7 +739,11 @@ class MainActivity : AppCompatActivity() {
                 isIndeterminate = true
                 progress = 0
             }
-            findViewById<View>(R.id.download_overlay).visibility = View.VISIBLE
+            val overlay = findViewById<View>(R.id.download_overlay)
+            if (overlay.visibility == View.VISIBLE || downloadOverlayShowPending) return@runOnUiThread
+            downloadOverlayShowPending = true
+            handler.removeCallbacks(downloadOverlayShowRunnable)
+            handler.postDelayed(downloadOverlayShowRunnable, DOWNLOAD_OVERLAY_SHOW_DELAY_MS)
         }
     }
 
@@ -742,6 +769,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun hideDownloadOverlay() {
         runOnUiThread {
+            if (downloadOverlayShowPending) {
+                handler.removeCallbacks(downloadOverlayShowRunnable)
+                downloadOverlayShowPending = false
+            }
             findViewById<View>(R.id.download_overlay).visibility = View.GONE
         }
     }

@@ -497,6 +497,10 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (playbackState.clear_cache == true) {
+                    if (playbackState.command_id == lastCommandId) {
+                        Log.d(TAG, "clear_cache already handled for command_id=${playbackState.command_id}; ignoring duplicate")
+                        return@launch
+                    }
                     Log.d(TAG, "clear_cache requested – stopping and clearing")
                     doNotResumeFromPlaylist = true
                     clearDownloadProgressHeartbeat()
@@ -508,6 +512,7 @@ class MainActivity : AppCompatActivity() {
                     currentPlaylist = emptyList()
                     currentVideoIndex = 0
                     lastCommandId = playbackState.command_id
+                    persistLastCommandId()
                     return@launch
                 }
 

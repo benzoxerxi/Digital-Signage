@@ -32,7 +32,7 @@ data class Playlist(
 data class PlaybackState(
     val current_video: String?,
     val mode: String,
-    val command_id: Int,
+    val command_id: String,
     val screenshot_requested: Boolean? = false,
     val clear_cache: Boolean? = false,
     val device_name: String? = null,  // Server's name for this device
@@ -298,7 +298,7 @@ class ApiClient {
                     return@withContext PlaybackState(
                         current_video = null,
                         mode = "manual",
-                        command_id = 0,
+                        command_id = "",
                         screenshot_requested = false,
                         clear_cache = false,
                         device_name = null,
@@ -323,7 +323,7 @@ class ApiClient {
                 PlaybackState(
                     current_video = if (json.isNull("current_video")) null else json.getString("current_video"),
                     mode = json.optString("mode", "manual"),
-                    command_id = json.optInt("command_id", 0),
+                    command_id = json.optString("command_id", ""),
                     screenshot_requested = json.optBoolean("screenshot_requested", false),
                     clear_cache = json.optBoolean("clear_cache", false),
                     device_name = json.optString("device_name").takeIf { it.isNotBlank() },

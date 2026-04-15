@@ -63,7 +63,7 @@ class MainActivity : AppCompatActivity() {
     private var connectionCode = ""
     private var deviceId = ""
     private var deviceName = ""
-    private var lastCommandId = -1
+    private var lastCommandId = ""
     private var currentProgramId: String? = null
     private var inLayoutMode = false
     private val heartbeatBusy = AtomicBoolean(false)
@@ -101,6 +101,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_DEVICE_NAME = "device_name"
         private const val KEY_LAST_COMMAND_ID = "last_command_id"
+        private const val KEY_LAST_COMMAND_ID_V2 = "last_command_id_v2"
         private const val KEY_CACHED_VIDEO_FILENAME = "cached_video_filename"
         private const val KEY_CACHED_VIDEO_DISPLAY_NAME = "cached_video_display_name"
         /** JSON object: cache storage key -> human-readable label (playlist/command name). */
@@ -157,7 +158,19 @@ class MainActivity : AppCompatActivity() {
         connectionCode = prefs.getString(KEY_CONNECTION_CODE, "") ?: ""
         deviceId = prefs.getString(KEY_DEVICE_ID, "") ?: ""
         deviceName = prefs.getString(KEY_DEVICE_NAME, "") ?: ""
-        lastCommandId = prefs.getInt(KEY_LAST_COMMAND_ID, -1)
+        lastCommandId = try {
+            prefs.getString(KEY_LAST_COMMAND_ID_V2, null)
+                ?: prefs.getString(KEY_LAST_COMMAND_ID, null)
+                ?: run {
+                    if (prefs.contains(KEY_LAST_COMMAND_ID)) {
+                        prefs.getInt(KEY_LAST_COMMAND_ID, -1).takeIf { it >= 0 }?.toString() ?: ""
+                    } else {
+                        ""
+                    }
+                }
+        } catch (_: ClassCastException) {
+            prefs.getInt(KEY_LAST_COMMAND_ID, -1).takeIf { it >= 0 }?.toString() ?: ""
+        }
 
         if (deviceId.isEmpty()) {
             deviceId = generateDeviceId()
@@ -241,7 +254,8 @@ class MainActivity : AppCompatActivity() {
     private fun persistLastCommandId() {
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putInt(KEY_LAST_COMMAND_ID, lastCommandId)
+            .putString(KEY_LAST_COMMAND_ID_V2, lastCommandId)
+            .putString(KEY_LAST_COMMAND_ID, lastCommandId)
             .apply()
     }
 
@@ -466,7 +480,7 @@ class MainActivity : AppCompatActivity() {
                     Log.d(TAG, "Device was removed from panel - returning to setup")
                     runOnUiThread { goBackToSetup() }
                     heartbeatFailureCount = 0
-                    lastCommandId = 0
+                    lastCommandId = ""
                     persistLastCommandId()
                     return@launch
                 }
@@ -565,7 +579,7 @@ class MainActivity : AppCompatActivity() {
                             prefs.edit()
                                 .putString(KEY_CACHED_VIDEO_DISPLAY_NAME, playbackState.current_video_name).apply()
                         }
-                    } else if (playbackState.command_id > 0) {
+                    } else if (playbackState.command_id.isNotBlank()) {
                         Log.d(TAG, "Stop/format command – stopping playback")
                         doNotResumeFromPlaylist = true
                         clearDownloadProgressHeartbeat()

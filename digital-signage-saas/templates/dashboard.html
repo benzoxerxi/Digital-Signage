@@ -2289,6 +2289,15 @@
                 return d ? (d.name || id) : id;
             }).join(', ');
         }
+        function confirmTargetAllAction(actionLabel) {
+            var total = Array.isArray(allDevices) ? allDevices.length : 0;
+            var noun = total === 1 ? 'display' : 'displays';
+            return confirm(
+                `⚠️ ${actionLabel} ALL displays?\n\n` +
+                `This will target ${total} ${noun} in your account.\n\n` +
+                `Continue?`
+            );
+        }
         var playbackProgressTracking = { active: false, targetIds: [], targetVideo: null, closeTimer: null };
 
         function getPlaybackTrackedDevices() {
@@ -2429,6 +2438,7 @@
             const isDrive = videoEntry && (videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.startsWith('drive:')));
             const payload = {};
             if (playAll) {
+                if (!confirmTargetAllAction('Send playback command to')) return;
                 payload.target_all = true;
             } else if (targetIds.length > 0) {
                 payload.device_ids = targetIds.slice();
@@ -3147,6 +3157,7 @@
             var playAll = typeof playbackPlayAllChecked === 'function' && playbackPlayAllChecked();
             var payload = { program_id: programId };
             if (playAll) {
+                if (!confirmTargetAllAction('Start program on')) return;
                 payload.target_all = true;
             } else if (typeof selectedDevices !== 'undefined' && selectedDevices.length > 0) {
                 payload.device_ids = selectedDevices.slice();
@@ -4013,6 +4024,15 @@
                 return d ? (d.name || id) : id;
             }).join(', ');
         }
+        function confirmTargetAllAction(actionLabel) {
+            var total = Array.isArray(allDevices) ? allDevices.length : 0;
+            var noun = total === 1 ? 'display' : 'displays';
+            return confirm(
+                `⚠️ ${actionLabel} ALL displays?\n\n` +
+                `This will target ${total} ${noun} in your account.\n\n` +
+                `Continue?`
+            );
+        }
         var playbackProgressTracking = { active: false, targetIds: [], targetVideo: null, closeTimer: null };
 
         function getPlaybackTrackedDevices() {
@@ -4153,6 +4173,7 @@
             const isDrive = videoEntry && (videoEntry.drive_file_id || (videoEntry.filename && videoEntry.filename.startsWith('drive:')));
             const payload = {};
             if (playAll) {
+                if (!confirmTargetAllAction('Send playback command to')) return;
                 payload.target_all = true;
             } else if (targetIds.length > 0) {
                 payload.device_ids = targetIds.slice();
@@ -4813,6 +4834,7 @@
             var playAll = typeof playbackPlayAllChecked === 'function' && playbackPlayAllChecked();
             var payload = { program_id: programId };
             if (playAll) {
+                if (!confirmTargetAllAction('Start program on')) return;
                 payload.target_all = true;
             } else if (typeof selectedDevices !== 'undefined' && selectedDevices.length > 0) {
                 payload.device_ids = selectedDevices.slice();

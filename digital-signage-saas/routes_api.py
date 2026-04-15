@@ -128,6 +128,19 @@ def _rate_limit_connection_code(ip_key, max_per_minute=48):
     return True
 
 
+def _audit_target_all_action(user_id, action, details=None):
+    """Audit whenever a command is broadcast via target_all."""
+    payload = {
+        'action': action,
+        'user_id': int(user_id),
+        'target_all': True,
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+    }
+    if isinstance(details, dict):
+        payload.update(details)
+    log_activity('target_all_audit', payload, user_id)
+
+
 @api_bp.route('/auth/device-token', methods=['POST'])
 def issue_device_token():
     """Exchange 9-digit connection code for a short-lived JWT (use Authorization: Bearer on playback APIs)."""
@@ -447,6 +460,11 @@ def play_program():
         updated += 1
     db.session.commit()
     log_activity('program_played', {'program_id': program_id, 'device_count': updated, 'target_all': target_all})
+    if target_all:
+        _audit_target_all_action(_cu.id, 'play_program', {
+            'program_id': program_id,
+            'device_count': updated,
+        })
 
     return jsonify({
         'success': True,
@@ -989,6 +1007,12 @@ def play_video():
         updated_count += 1
     db.session.commit()
     log_activity('video_played', {'filename': current_video_value, 'device_count': updated_count, 'target_all': target_all})
+    if target_all:
+        _audit_target_all_action(_cu.id, 'play_video', {
+            'video': current_video_value,
+            'device_count': updated_count,
+            'force_broadcast': bool(force_broadcast),
+        })
     
     return jsonify({
         'success': True,
@@ -1054,6 +1078,13 @@ def play_cached_video():
         updated_count += 1
     db.session.commit()
     log_activity('video_played_cache_only', {'cache_key': cache_key, 'logical': logical_video, 'device_count': updated_count})
+    if target_all:
+        _audit_target_all_action(_cu.id, 'play_cached_video', {
+            'cache_key': cache_key,
+            'logical_video': logical_video,
+            'device_count': updated_count,
+            'force_broadcast': bool(force_broadcast),
+        })
 
     return jsonify({
         'success': True,

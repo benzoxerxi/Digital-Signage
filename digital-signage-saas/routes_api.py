@@ -141,6 +141,20 @@ def _audit_target_all_action(user_id, action, details=None):
     log_activity('target_all_audit', payload, user_id)
 
 
+def _command_id_for_legacy_clients(raw_command_id):
+    """Return int-compatible command id for old APKs that parse optInt('command_id')."""
+    cmd = normalize_command_id_for_api(raw_command_id)
+    if not cmd:
+        return 0
+    if cmd.isdigit():
+        try:
+            return int(cmd)
+        except Exception:
+            return 0
+    # Deterministic stable int for UUID/string command IDs.
+    return int(hashlib.sha1(cmd.encode('utf-8')).hexdigest()[:8], 16)
+
+
 @api_bp.route('/auth/device-token', methods=['POST'])
 def issue_device_token():
     """Exchange 9-digit connection code for a short-lived JWT (use Authorization: Bearer on playback APIs)."""
@@ -691,7 +705,7 @@ def get_playback_state():
         if device_data.get('current_video'):
             response = {
                 'current_video': device_data['current_video'],
-                'command_id': normalize_command_id_for_api(device_data.get('command_id')),
+                'command_id': _command_id_for_legacy_clients(device_data.get('command_id')),
                 'mode': 'auto' if len(playlist.get('videos', [])) > 1 else 'manual',
                 'last_update': device_data.get('last_seen'),
                 'loop': playlist.get('settings', {}).get('loop', True),
@@ -710,7 +724,7 @@ def get_playback_state():
         else:
             return jsonify({
                 'current_video': None,
-                'command_id': '',
+                'command_id': 0,
                 'mode': 'manual',
                 'last_update': datetime.now().isoformat(),
                 'loop': True
@@ -849,7 +863,7 @@ def get_playback_state():
             current_video_name = get_current_video_display_name(user_id, device_id)
             response = {
                 'current_video': cv,
-                'command_id': normalize_command_id_for_api(device_data.get('command_id')),
+                'command_id': _command_id_for_legacy_clients(device_data.get('command_id')),
                 'mode': 'manual',
                 'last_update': device_data.get('last_seen'),
                 'video_url': video_url,
@@ -871,7 +885,7 @@ def get_playback_state():
         else:
             idle_response = {
                 'current_video': None,
-                'command_id': normalize_command_id_for_api(device_data.get('command_id')),
+                'command_id': _command_id_for_legacy_clients(device_data.get('command_id')),
                 'mode': 'manual',
                 'last_update': device_data.get('last_seen', datetime.now().isoformat()),
                 'device_id': device_id,
@@ -920,7 +934,7 @@ def playback_events_stream():
                         break
                     sig = (
                         row.state_version,
-                        normalize_command_id_for_api(row.command_id),
+                        _command_id_for_legacy_clients(row.command_id),
                         row.current_video,
                         bool(row.clear_cache),
                         bool(row.screenshot_requested),
@@ -930,7 +944,7 @@ def playback_events_stream():
                         last_sig = sig
                         payload = {
                             'state_version': int(row.state_version or 0),
-                            'command_id': normalize_command_id_for_api(row.command_id),
+                            'command_id': _command_id_for_legacy_clients(row.command_id),
                             'current_video': row.current_video,
                             'clear_cache': bool(row.clear_cache),
                             'screenshot_requested': bool(row.screenshot_requested),

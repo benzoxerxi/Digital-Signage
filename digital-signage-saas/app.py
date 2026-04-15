@@ -11,6 +11,7 @@ except Exception:
     Migrate = None
 from sqlalchemy import text
 from models import db, User, ActivityLog, PaymentHistory, TenantDisplay
+from schema_migrations import migrate_tenant_displays_after_create_all
 from config import Config
 import os
 import json
@@ -58,7 +59,7 @@ _METRIC_LOCK = threading.Lock()
 _METRIC_COUNTS = defaultdict(int)
 _METRIC_STATUS = defaultdict(int)
 _METRIC_LATENCY_MS = defaultdict(list)
-_CRITICAL_ENDPOINTS = {'/api/playback/state', '/api/device_layout', '/api/playlist'}
+_CRITICAL_ENDPOINTS = {'/api/playback/state', '/api/playback/events', '/api/device_layout', '/api/playlist'}
 _PROCESS_STARTED_AT = datetime.utcnow()
 _LAST_ALERT_AT = {}
 logger = logging.getLogger(__name__)
@@ -270,30 +271,23 @@ def cleanup_runtime_state():
         screenshot_cutoff = now - timedelta(hours=app.config.get('CLEANUP_SCREENSHOT_RETENTION_HOURS', 48))
         activity_cutoff = now - timedelta(days=app.config.get('CLEANUP_ACTIVITY_RETENTION_DAYS', 45))
         try:
-            users = User.query.all()
-            for user in users:
-                with device_lock:
-                    devices = load_json_file('devices.json', {}, user.id)
-                    changed = False
-                    for did, row in list(devices.items()):
-                        if not isinstance(row, dict):
-                            continue
-                        ts = row.get('screenshot_timestamp')
-                        if not ts:
-                            continue
-                        try:
-                            stamp = datetime.fromisoformat(ts)
-                        except Exception:
-                            stamp = None
-                        if stamp is None or stamp < screenshot_cutoff:
-                            if 'screenshot_data' in row or 'screenshot_timestamp' in row:
-                                row.pop('screenshot_data', None)
-                                row.pop('screenshot_timestamp', None)
-                                changed = True
-                    if changed:
-                        save_json_file('devices.json', devices, user.id)
+            for row in TenantDisplay.query.all():
+                ts = row.screenshot_timestamp
+                if not ts:
+                    continue
+                try:
+                    stamp = datetime.fromisoformat(ts)
+                except Exception:
+                    stamp = None
+                if stamp is None or stamp < screenshot_cutoff:
+                    if row.screenshot_data or row.screenshot_timestamp:
+                        row.screenshot_data = None
+                        row.screenshot_timestamp = None
+                        row.state_version = int(row.state_version or 0) + 1
+            db.session.commit()
         except Exception as e:
-            _emit_ops_alert('cleanup_error', {'scope': 'devices_json', 'error': str(e)})
+            db.session.rollback()
+            _emit_ops_alert('cleanup_error', {'scope': 'tenant_displays_screenshot', 'error': str(e)})
 
         try:
             deleted = ActivityLog.query.filter(ActivityLog.created_at < activity_cutoff).delete()
@@ -401,6 +395,8 @@ def init_db():
             user.ensure_connection_code()
             db.session.add(user)
         db.session.commit()
+
+        migrate_tenant_displays_after_create_all(db, app)
 
 
 # ============================================================================

@@ -11,6 +11,7 @@ import os
 from app import app
 from config import Config
 from models import TenantDisplay, User, db
+from utils import normalize_command_id_for_api
 
 
 def _tenant_devices_path(user_id: int) -> str:
@@ -53,18 +54,23 @@ def migrate():
                     db.session.add(reg)
                     created += 1
                 reg.current_video = row.get("current_video")
-                reg.command_id = int(row.get("command_id", 0) or 0)
+                reg.command_id = normalize_command_id_for_api(row.get("command_id"))
                 reg.status = (row.get("status") or "idle")[:32]
                 reg.device_info_json = json.dumps(row.get("info") or {})
                 reg.screenshot_requested = bool(row.get("screenshot_requested", False))
                 reg.clear_cache = bool(row.get("clear_cache", False))
                 reg.playback_cache_only = bool(row.get("playback_cache_only", False))
+                reg.active_program_id = row.get("active_program_id")
                 reg.current_video_display_name = row.get("current_video_display_name")
                 reg.cache_manifest_json = json.dumps(row.get("cache_manifest") or [])
                 reg.cache_manifest_file_count = row.get("cache_manifest_file_count")
                 reg.cache_manifest_total_bytes = row.get("cache_manifest_total_bytes")
                 reg.cache_manifest_updated_at = row.get("cache_manifest_updated_at")
                 reg.cache_delete_keys_json = json.dumps(row.get("cache_delete_keys") or [])
+                reg.screenshot_data = row.get("screenshot_data")
+                reg.screenshot_timestamp = row.get("screenshot_timestamp")
+                if isinstance(row.get("download_progress"), dict):
+                    reg.download_progress_json = json.dumps(row["download_progress"])
                 updated += 1
         db.session.commit()
     print(f"Migration complete. rows_updated={updated} rows_created={created} rows_skipped={skipped}")

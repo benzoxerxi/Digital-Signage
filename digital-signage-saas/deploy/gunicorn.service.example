@@ -18,12 +18,13 @@ User=www-data
 Group=www-data
 WorkingDirectory=/var/www/digital-signage-saas
 EnvironmentFile=/etc/signage.env
+# See deploy/RUNBOOK_GUNICORN_SSE.md for workers vs DB and SSE timeouts.
 ExecStart=/var/www/digital-signage-saas/venv/bin/gunicorn \
-  --workers 4 \
+  --workers 2 \
   --worker-class gthread \
-  --threads 2 \
+  --threads 4 \
   --bind 127.0.0.1:8000 \
-  --timeout 90 \
+  --timeout 0 \
   --graceful-timeout 30 \
   --keep-alive 5 \
   --max-requests 2000 \

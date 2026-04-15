@@ -66,7 +66,8 @@ class MainActivity : AppCompatActivity() {
     private var connectionCode = ""
     private var deviceId = ""
     private var deviceName = ""
-    private var lastCommandId = -1
+    private var lastCommandId = ""
+    private var sseJob: Job? = null
     private var currentProgramId: String? = null
     private var inLayoutMode = false
 
@@ -77,6 +78,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_CONNECTION_CODE = "connection_code"
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_DEVICE_NAME = "device_name"
+        private const val KEY_ACCESS_TOKEN = "access_token"
         private const val UPDATE_INTERVAL = 3000L
         private const val SCREENSAVER_URL = "https://karchershop.ge/cdn/shop/files/logo_karcher_2015.svg?v=1683099671&width=600"
         private const val LOGO_URL = "https://images.seeklogo.com/logo-png/43/2/karcher-logo-png_seeklogo-437949.png"
@@ -129,6 +131,10 @@ class MainActivity : AppCompatActivity() {
         deviceId = prefs.getString(KEY_DEVICE_ID, "") ?: ""
         deviceName = prefs.getString(KEY_DEVICE_NAME, "") ?: ""
 
+        apiClient.setBaseUrl(serverUrl)
+        apiClient.setConnectionCode(connectionCode)
+        apiClient.setAccessToken(prefs.getString(KEY_ACCESS_TOKEN, "") ?: "")
+
         if (deviceId.isEmpty()) {
             deviceId = generateDeviceId()
             prefs.edit().putString(KEY_DEVICE_ID, deviceId).apply()
@@ -144,6 +150,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             initializePlayer()
             startDeviceHeartbeat()
+            startPlaybackSseLoop()
         }
 
         requestKioskPermissions()
@@ -274,9 +281,11 @@ class MainActivity : AppCompatActivity() {
                 getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
                     .putString(KEY_SERVER_URL, serverUrl)
                     .putString(KEY_CONNECTION_CODE, connectionCode)
+                    .remove(KEY_ACCESS_TOKEN)
                     .apply()
                 apiClient.setBaseUrl(serverUrl)
                 apiClient.setConnectionCode(connectionCode)
+                apiClient.setAccessToken("")
                 testConnection()
             }
         }
@@ -295,6 +304,12 @@ class MainActivity : AppCompatActivity() {
                 }
                 withContext(Dispatchers.IO) {
                     apiClient.getPlaybackState(connectionCode, deviceId, deviceName)
+                }
+                val tokOk = withContext(Dispatchers.IO) { apiClient.fetchDeviceToken(connectionCode) }
+                if (tokOk) {
+                    getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                        .putString(KEY_ACCESS_TOKEN, apiClient.peekAccessToken())
+                        .apply()
                 }
 
                 Toast.makeText(this@MainActivity, "Connected!", Toast.LENGTH_SHORT).show()
@@ -315,6 +330,7 @@ class MainActivity : AppCompatActivity() {
                 loadScreensaver()
                 initializePlayer()
                 startDeviceHeartbeat()
+                startPlaybackSseLoop()
                 showNotificationHeader()
             } catch (e: Exception) {
                 connectionStatus.text = "Connection failed"
@@ -349,6 +365,39 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    private fun startPlaybackSseLoop() {
+        sseJob?.cancel()
+        if (apiClient.peekAccessToken().isEmpty()) return
+        sseJob = scope.launch(Dispatchers.IO) {
+            while (isActive) {
+                try {
+                    apiClient.consumePlaybackEvents(deviceId) { json ->
+                        val cmd = json.optString("command_id", "")
+                        if (cmd.isEmpty()) return@consumePlaybackEvents
+                        val cv = if (json.isNull("current_video")) null else json.optString("current_video", null)
+                        scope.launch(Dispatchers.Main) {
+                            handleRemotePlaybackCommand(cmd, cv)
+                        }
+                    }
+                } catch (_: Exception) { }
+                delay(3000)
+            }
+        }
+    }
+
+    private fun handleRemotePlaybackCommand(cmd: String, cv: String?) {
+        if (inLayoutMode) return
+        if (cmd == lastCommandId) return
+        if (cv != null) {
+            playSpecificVideo(cv, cmd)
+        } else {
+            lastCommandId = cmd
+            player?.stop()
+            showScreensaver(true)
+            currentPlaylist = emptyList()
+        }
+    }
+
     private fun sendHeartbeatAndCheckCommands() {
         scope.launch {
             try {
@@ -379,10 +428,10 @@ class MainActivity : AppCompatActivity() {
                     connectionStatus.text = "Connected"
                     if (playbackState.screenshot_requested == true) captureAndUploadScreenshot()
                     if (playbackState.command_id != lastCommandId) {
-                        lastCommandId = playbackState.command_id
                         if (playbackState.current_video != null) {
-                            playSpecificVideo(playbackState.current_video)
+                            playSpecificVideo(playbackState.current_video!!, playbackState.command_id)
                         } else {
+                            lastCommandId = playbackState.command_id
                             player?.stop()
                             showScreensaver(true)
                             currentPlaylist = emptyList()
@@ -408,10 +457,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun playSpecificVideo(filename: String) {
+    private fun playSpecificVideo(filename: String, commandId: String) {
         scope.launch {
             try {
                 if (!videoCache.isCached(filename)) {
+                    showScreensaver(true)
                     val videoData = withContext(Dispatchers.IO) { apiClient.downloadVideo(filename) }
                     videoCache.saveVideo(filename, videoData)
                 }
@@ -421,6 +471,7 @@ class MainActivity : AppCompatActivity() {
                     player?.setMediaItem(MediaItem.fromUri(Uri.fromFile(cachedFile)))
                     player?.prepare()
                     player?.play()
+                    lastCommandId = commandId
                 }
             } catch (_: Exception) {}
         }
@@ -442,7 +493,7 @@ class MainActivity : AppCompatActivity() {
                 if (playlist.videos != currentPlaylist) {
                     currentPlaylist = playlist.videos
                     downloadVideos(playlist.videos)
-                    if (player?.isPlaying != true && lastCommandId == -1) {
+                    if (player?.isPlaying != true && lastCommandId.isEmpty()) {
                         currentVideoIndex = 0
                         playCurrentVideo()
                     }
@@ -565,6 +616,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        sseJob?.cancel()
         handler.removeCallbacksAndMessages(null)
         scope.cancel()
         layoutVideoPlayers.forEach { it.release() }

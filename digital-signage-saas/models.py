@@ -122,8 +122,7 @@ class User(UserMixin, db.Model):
 
 
 class TenantDisplay(db.Model):
-    """Persistent registry of displays per account. Survives loss of tenant devices.json (e.g. ephemeral disk);
-    merged with devices.json for commands and live state. Removed only when user deletes the display."""
+    """Per-display registry and hot operational state (source of truth for playback commands)."""
     __tablename__ = 'tenant_displays'
     __table_args__ = (db.UniqueConstraint('user_id', 'device_id', name='uq_tenant_display_device'),)
 
@@ -133,20 +132,25 @@ class TenantDisplay(db.Model):
     display_name = db.Column(db.String(200), nullable=False)
     first_seen_iso = db.Column(db.String(40), nullable=False)
     last_seen_iso = db.Column(db.String(40), nullable=False)
-    # Hot operational state (migrated from devices.json)
+    # Hot operational state (DB is authoritative; devices.json is legacy / import only)
     current_video = db.Column(db.String(500), nullable=True)
-    command_id = db.Column(db.Integer, nullable=False, default=0)
+    command_id = db.Column(db.String(40), nullable=False, default='')
+    state_version = db.Column(db.Integer, nullable=False, default=0)
     status = db.Column(db.String(32), nullable=False, default='idle')
     device_info_json = db.Column(db.Text, nullable=True)
     screenshot_requested = db.Column(db.Boolean, nullable=False, default=False)
     clear_cache = db.Column(db.Boolean, nullable=False, default=False)
     playback_cache_only = db.Column(db.Boolean, nullable=False, default=False)
+    active_program_id = db.Column(db.String(64), nullable=True)
     cache_manifest_json = db.Column(db.Text, nullable=True)
     cache_manifest_file_count = db.Column(db.Integer, nullable=True)
     cache_manifest_total_bytes = db.Column(db.BigInteger, nullable=True)
     cache_manifest_updated_at = db.Column(db.String(40), nullable=True)
     cache_delete_keys_json = db.Column(db.Text, nullable=True)
     current_video_display_name = db.Column(db.String(250), nullable=True)
+    screenshot_data = db.Column(db.Text, nullable=True)
+    screenshot_timestamp = db.Column(db.String(40), nullable=True)
+    download_progress_json = db.Column(db.Text, nullable=True)
 
 
 class PaymentHistory(db.Model):

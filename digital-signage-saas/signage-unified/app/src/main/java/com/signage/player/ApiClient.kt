@@ -8,6 +8,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 data class Video(
@@ -29,7 +30,7 @@ data class Playlist(
 data class PlaybackState(
     val current_video: String?,
     val mode: String,
-    val command_id: Int,
+    val command_id: String,
     val screenshot_requested: Boolean? = false,
     val clear_cache: Boolean? = false,
     val device_name: String? = null  // Server's name for this device
@@ -94,9 +95,16 @@ data class LayoutResponse(
 class ApiClient {
     private var baseUrl = ""
     private var connectionCode = ""
+    /** JWT from POST /api/auth/device-token; sent as Bearer on playback APIs. */
+    private var accessToken = ""
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
+    private val sseClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(0, TimeUnit.MILLISECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
@@ -114,6 +122,82 @@ class ApiClient {
         Log.d(TAG, "Connection code set: ${if (connectionCode.isEmpty()) "none" else "***${connectionCode.takeLast(3)}"}")
     }
 
+    fun setAccessToken(token: String) {
+        accessToken = token.trim()
+    }
+
+    fun peekAccessToken(): String = accessToken
+
+    suspend fun fetchDeviceToken(connectionCode: String): Boolean = withContext(Dispatchers.IO) {
+        if (baseUrl.isEmpty() || connectionCode.length != 9) return@withContext false
+        val url = "$baseUrl/api/auth/device-token"
+        val jsonBody = JSONObject().put("code", connectionCode).toString()
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val request = Request.Builder()
+            .url(url)
+            .post(jsonBody.toRequestBody(mediaType))
+            .build()
+        try {
+            client.newCall(request).execute().use { response ->
+                val bodyStr = response.body?.string() ?: return@withContext false
+                if (!response.isSuccessful) return@withContext false
+                val json = JSONObject(bodyStr)
+                if (!json.optBoolean("success", false)) return@withContext false
+                val tok = json.optString("access_token", "")
+                if (tok.isEmpty()) return@withContext false
+                accessToken = tok
+                Log.d(TAG, "Device access token obtained")
+                true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "fetchDeviceToken failed", e)
+            false
+        }
+    }
+
+    private fun authHeaders(): Headers.Builder {
+        val b = Headers.Builder()
+        if (accessToken.isNotEmpty()) {
+            b.add("Authorization", "Bearer $accessToken")
+        }
+        return b
+    }
+
+    /**
+     * Long-lived SSE stream; invoke [onEvent] for each data frame. Returns on disconnect/error.
+     */
+    suspend fun consumePlaybackEvents(deviceId: String, onEvent: (JSONObject) -> Unit) = withContext(Dispatchers.IO) {
+        if (baseUrl.isEmpty() || accessToken.isEmpty()) return@withContext
+        val q = "device_id=" + URLEncoder.encode(deviceId, "UTF-8")
+        val url = "$baseUrl/api/playback/events?$q"
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .headers(authHeaders().add("Accept", "text/event-stream").build())
+            .build()
+        try {
+            sseClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "SSE open failed: ${response.code}")
+                    return@withContext
+                }
+                response.body?.charStream()?.buffered()?.useLines { lines ->
+                    lines.forEach { line ->
+                        if (line.startsWith("data: ")) {
+                            try {
+                                onEvent(JSONObject(line.substring(6).trim()))
+                            } catch (e: Exception) {
+                                Log.w(TAG, "SSE parse: $e")
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "SSE ended: ${e.message}")
+        }
+    }
+
     suspend fun getDeviceLayout(deviceId: String): LayoutResponse? = withContext(Dispatchers.IO) {
         if (baseUrl.isEmpty()) return@withContext null
 
@@ -125,6 +209,7 @@ class ApiClient {
         val request = Request.Builder()
             .url(url)
             .get()
+            .headers(authHeaders().build())
             .build()
 
         try {
@@ -221,6 +306,7 @@ class ApiClient {
             val request = Request.Builder()
                 .url(url)
                 .get()
+                .headers(authHeaders().build())
                 .build()
 
             client.newCall(request).execute().use { response ->
@@ -230,7 +316,7 @@ class ApiClient {
                 PlaybackState(
                     current_video = if (json.isNull("current_video")) null else json.getString("current_video"),
                     mode = json.optString("mode", "manual"),
-                    command_id = json.optInt("command_id", 0),
+                    command_id = json.optString("command_id", ""),
                     screenshot_requested = json.optBoolean("screenshot_requested", false),
                     clear_cache = json.optBoolean("clear_cache", false),
                     device_name = json.optString("device_name", null)

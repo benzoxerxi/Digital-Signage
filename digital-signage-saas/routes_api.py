@@ -2,7 +2,7 @@
 API Routes for Digital Signage Control
 Multi-tenant API endpoints
 """
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, Response, stream_with_context, current_app
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from config import Config
@@ -20,8 +20,16 @@ from utils import (
     get_device_count, update_device_heartbeat, add_removed_device, log_activity, get_storage_usage, device_lock,
     set_current_video_display_name, get_current_video_display_name,
     delete_tenant_display_registry, sync_device_registry_row, merge_registry_into_devices_dict,
-    sync_devices_hot_state,
+    new_playback_command_id, bump_playback_state_version, tenant_displays_play_targets,
+    device_row_to_dict, normalize_command_id_for_api,
 )
+from models import TenantDisplay, db, User
+from device_auth import issue_device_access_token, get_bearer_token, resolve_playback_user_id
+import time
+import threading
+
+_CODE_ATTEMPT_LOCK = threading.Lock()
+_CODE_ATTEMPTS_BY_IP = {}
 
 api_bp = Blueprint('api', __name__)
 
@@ -107,6 +115,41 @@ def _log_api_error(endpoint, error, user_id=None, device_id=None):
         'ip': request.remote_addr,
     }
     print(json.dumps(payload, ensure_ascii=True))
+
+
+def _rate_limit_connection_code(ip_key, max_per_minute=48):
+    now = time.time()
+    with _CODE_ATTEMPT_LOCK:
+        bucket = _CODE_ATTEMPTS_BY_IP.setdefault(ip_key, [])
+        bucket[:] = [t for t in bucket if now - t < 60]
+        if len(bucket) >= max_per_minute:
+            return False
+        bucket.append(now)
+    return True
+
+
+@api_bp.route('/auth/device-token', methods=['POST'])
+def issue_device_token():
+    """Exchange 9-digit connection code for a short-lived JWT (use Authorization: Bearer on playback APIs)."""
+    data = request.get_json(silent=True) or {}
+    code = (data.get('code') or data.get('connection_code') or '').strip()
+    if not code or len(code) != 9 or not code.isdigit():
+        return jsonify({'success': False, 'error': 'Valid 9-digit code is required'}), 400
+    if not _rate_limit_connection_code('token:' + (request.remote_addr or 'x')):
+        return jsonify({'success': False, 'error': 'Too many requests'}), 429
+    user = User.get_by_connection_code(code)
+    if not user or not user.is_active:
+        return jsonify({'success': False, 'error': 'Invalid code'}), 403
+    if not user.is_subscription_active():
+        return jsonify({'success': False, 'error': 'Subscription inactive'}), 403
+    ttl = int(current_app.config.get('DEVICE_JWT_TTL_SECONDS', 86400))
+    token = issue_device_access_token(user.id, ttl_seconds=ttl)
+    return jsonify({
+        'success': True,
+        'access_token': token,
+        'token_type': 'Bearer',
+        'expires_in': ttl,
+    })
 
 
 def _ensure_video_metadata(video, content_folder):
@@ -195,9 +238,15 @@ def get_playlist():
 @api_bp.route('/device_layout')
 def get_device_layout():
     """Return active program layout for a device (polled by APK)."""
-    from models import User
+    user = None
+    uid, err = resolve_playback_user_id()
+    if err:
+        return err
+    if uid is not None:
+        user = User.query.get(uid)
     code_param = request.args.get('code')
-    user = User.get_by_connection_code(code_param) if code_param else None
+    if not user and code_param:
+        user = User.get_by_connection_code(code_param)
     if not user:
         user_id_param = request.args.get('user_id')
         if user_id_param:
@@ -211,9 +260,8 @@ def get_device_layout():
         return jsonify({'error': 'Account inactive or subscription expired'}), 403
     device_id = request.args.get('device_id') or request.remote_addr.replace('.', '_')
 
-    devices = load_json_file('devices.json', {}, user.id)
-    dev = devices.get(device_id, {})
-    active_prog_id = dev.get('active_program_id')
+    row = TenantDisplay.query.filter_by(user_id=user.id, device_id=device_id).first()
+    active_prog_id = row.active_program_id if row else None
 
     if not active_prog_id:
         return jsonify({'deviceId': device_id, 'userId': user.id, 'program': None})
@@ -298,26 +346,23 @@ def play_program():
         return jsonify({'success': False, 'error': 'Select at least one display or set target_all'}), 400
 
     from flask_login import current_user as _cu
-    with device_lock:
-        devices = load_json_file('devices.json', {}, _cu.id)
-        if merge_registry_into_devices_dict(_cu.id, devices):
-            save_json_file('devices.json', devices, _cu.id)
-            sync_devices_hot_state(_cu.id, devices)
-
-        updated = 0
-        ids_to_update = list(devices.keys()) if target_all else device_ids
-        for did in ids_to_update:
-            if did not in devices:
-                continue
-            devices[did]['active_program_id'] = program_id
-            devices[did]['current_video'] = None
-            devices[did]['command_id'] = devices[did].get('command_id', 0) + 1
-            devices[did].pop('current_video_display_name', None)
-            devices[did].pop('playback_cache_only', None)
-            updated += 1
-
-        save_json_file('devices.json', devices, _cu.id)
-        sync_devices_hot_state(_cu.id, devices)
+    merge_registry_into_devices_dict(_cu.id, {})
+    updated = 0
+    if target_all:
+        rows = TenantDisplay.query.filter_by(user_id=_cu.id).all()
+    else:
+        rows = TenantDisplay.query.filter_by(user_id=_cu.id).filter(
+            TenantDisplay.device_id.in_(list(device_ids))
+        ).all()
+    for row in rows:
+        row.active_program_id = program_id
+        row.current_video = None
+        row.command_id = new_playback_command_id()
+        row.current_video_display_name = None
+        row.playback_cache_only = False
+        bump_playback_state_version(row)
+        updated += 1
+    db.session.commit()
     log_activity('program_played', {'program_id': program_id, 'device_count': updated, 'target_all': target_all})
 
     return jsonify({
@@ -545,7 +590,7 @@ def get_playback_state():
         if device_data.get('current_video'):
             response = {
                 'current_video': device_data['current_video'],
-                'command_id': device_data['command_id'],
+                'command_id': normalize_command_id_for_api(device_data.get('command_id')),
                 'mode': 'auto' if len(playlist.get('videos', [])) > 1 else 'manual',
                 'last_update': device_data.get('last_seen'),
                 'loop': playlist.get('settings', {}).get('loop', True),
@@ -564,25 +609,33 @@ def get_playback_state():
         else:
             return jsonify({
                 'current_video': None,
-                'command_id': 0,
+                'command_id': '',
                 'mode': 'manual',
                 'last_update': datetime.now().isoformat(),
                 'loop': True
             })
     
-    # For Android APK - Use 9-digit connection code (preferred) or user_id (legacy)
-    from models import User
+    # Android: Bearer device JWT (preferred) or 9-digit code / legacy user_id
     user = None
+    uid, err = resolve_playback_user_id()
+    if err:
+        return err
+    if uid is not None:
+        user = User.query.get(uid)
     connection_code = params.get('code')
-
-    if connection_code:
+    if not user and connection_code:
+        if not _rate_limit_connection_code('hb:' + (request.remote_addr or 'x')):
+            return jsonify({
+                'error': 'Too many requests',
+                'message': 'Use POST /api/auth/device-token then Authorization: Bearer on this endpoint.',
+            }), 429
         user = User.get_by_connection_code(connection_code)
     if not user:
         user_id_param = params.get('user_id')
         if user_id_param:
             try:
-                user_id = int(user_id_param)
-                user = User.query.get(user_id)
+                uid_legacy = int(user_id_param)
+                user = User.query.get(uid_legacy)
             except (ValueError, TypeError):
                 pass
     
@@ -646,16 +699,14 @@ def get_playback_state():
         # clear current_video so subsequent heartbeats return to normal playlist flow.
         server_current_video = device_data.get('current_video')
         if server_current_video and reported_current_video and reported_current_video == server_current_video:
-            with device_lock:
-                devs = load_json_file('devices.json', {}, user_id)
-                row = devs.get(device_id)
-                if isinstance(row, dict) and row.get('current_video') == server_current_video:
-                    row['current_video'] = None
-                    row.pop('current_video_display_name', None)
-                    save_json_file('devices.json', devs, user_id)
-                    sync_devices_hot_state(user_id, devs, [device_id])
-                    set_current_video_display_name(user_id, device_id, None)
-                    device_data = dict(row)
+            row = TenantDisplay.query.filter_by(user_id=user_id, device_id=device_id).first()
+            if row and row.current_video == server_current_video:
+                row.current_video = None
+                row.current_video_display_name = None
+                bump_playback_state_version(row)
+                db.session.commit()
+                set_current_video_display_name(user_id, device_id, None)
+                device_data = device_row_to_dict(row)
 
         # Load playlist settings
         playlist = load_json_file('playlist.json', {
@@ -672,21 +723,19 @@ def get_playback_state():
         # If format was requested, include clear_cache and clear the flag after sending once
         clear_cache = device_data.get('clear_cache', False)
         if clear_cache:
-            with device_lock:
-                devs = load_json_file('devices.json', {}, user_id)
-                if device_id in devs:
-                    devs[device_id].pop('clear_cache', None)
-                    save_json_file('devices.json', devs, user_id)
-                    sync_devices_hot_state(user_id, devs, [device_id])
+            row_cc = TenantDisplay.query.filter_by(user_id=user_id, device_id=device_id).first()
+            if row_cc and row_cc.clear_cache:
+                row_cc.clear_cache = False
+                bump_playback_state_version(row_cc)
+                db.session.commit()
 
         pending_deletes = list(device_data.get('cache_delete_keys') or [])
         if pending_deletes:
-            with device_lock:
-                devs = load_json_file('devices.json', {}, user_id)
-                if device_id in devs:
-                    devs[device_id].pop('cache_delete_keys', None)
-                    save_json_file('devices.json', devs, user_id)
-                    sync_devices_hot_state(user_id, devs, [device_id])
+            row_del = TenantDisplay.query.filter_by(user_id=user_id, device_id=device_id).first()
+            if row_del:
+                row_del.cache_delete_keys_json = json.dumps([])
+                bump_playback_state_version(row_del)
+                db.session.commit()
         if device_data.get('current_video'):
             # Only send the single commanded video; do not push playlist to device
             cv = device_data['current_video']
@@ -698,7 +747,7 @@ def get_playback_state():
             current_video_name = get_current_video_display_name(user_id, device_id)
             response = {
                 'current_video': cv,
-                'command_id': device_data['command_id'],
+                'command_id': normalize_command_id_for_api(device_data.get('command_id')),
                 'mode': 'manual',
                 'last_update': device_data.get('last_seen'),
                 'video_url': video_url,
@@ -718,7 +767,7 @@ def get_playback_state():
         else:
             idle_response = {
                 'current_video': None,
-                'command_id': device_data.get('command_id', 0),
+                'command_id': normalize_command_id_for_api(device_data.get('command_id')),
                 'mode': 'manual',
                 'last_update': device_data.get('last_seen', datetime.now().isoformat()),
                 'device_id': device_id,
@@ -740,6 +789,63 @@ def get_playback_state():
         }), 500
 
 
+@api_bp.route('/playback/events')
+def playback_events_stream():
+    """Server-Sent Events for playback state changes. Requires Authorization: Bearer (device JWT from POST /api/auth/device-token)."""
+    uid, err = resolve_playback_user_id()
+    if err:
+        return err
+    if uid is None:
+        return jsonify({
+            'error': 'Unauthorized',
+            'message': 'Bearer device token required. Exchange your code at POST /api/auth/device-token',
+        }), 401
+    device_id = request.args.get('device_id') or request.remote_addr.replace('.', '_')
+    app = current_app._get_current_object()
+
+    def event_stream():
+        last_sig = None
+        while True:
+            with app.app_context():
+                try:
+                    row = TenantDisplay.query.filter_by(user_id=uid, device_id=device_id).first()
+                    if not row:
+                        yield 'data: ' + json.dumps({'error': 'device_not_found'}) + '\n\n'
+                        break
+                    sig = (
+                        row.state_version,
+                        normalize_command_id_for_api(row.command_id),
+                        row.current_video,
+                        bool(row.clear_cache),
+                        bool(row.screenshot_requested),
+                        row.cache_delete_keys_json or '',
+                    )
+                    if sig != last_sig:
+                        last_sig = sig
+                        payload = {
+                            'state_version': int(row.state_version or 0),
+                            'command_id': normalize_command_id_for_api(row.command_id),
+                            'current_video': row.current_video,
+                            'clear_cache': bool(row.clear_cache),
+                            'screenshot_requested': bool(row.screenshot_requested),
+                            'playback_cache_only': bool(row.playback_cache_only),
+                        }
+                        yield 'data: ' + json.dumps(payload) + '\n\n'
+                except Exception as ex:
+                    yield 'data: ' + json.dumps({'error': str(ex)}) + '\n\n'
+            time.sleep(0.35)
+
+    return Response(
+        stream_with_context(event_stream()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+        },
+    )
+
+
 @api_bp.route('/playback/play', methods=['POST'])
 @login_required
 def play_video():
@@ -756,6 +862,7 @@ def play_video():
     if not isinstance(device_ids, list):
         return jsonify({'success': False, 'error': 'device_ids must be a list'}), 400
     target_all = bool(data.get('target_all'))
+    force_broadcast = bool(data.get('force_broadcast'))
     display_name = data.get('name', '').strip() or None  # e.g. "valentines tv 1.mp4" for Drive
 
     if drive_file_id:
@@ -769,7 +876,6 @@ def play_video():
     else:
         return jsonify({'success': False, 'error': 'No filename or drive_file_id provided'}), 400
     
-    # Use tenant-scoped devices file so commands only affect current user's displays
     from flask_login import current_user as _cu
     updated_count = 0
 
@@ -779,38 +885,21 @@ def play_video():
             'error': 'Select at least one display, or set target_all to true to play on all displays.'
         }), 400
 
-    with device_lock:
-        devices = load_json_file('devices.json', {}, _cu.id)
-        if merge_registry_into_devices_dict(_cu.id, devices):
-            save_json_file('devices.json', devices, _cu.id)
-            sync_devices_hot_state(_cu.id, devices)
-        print(f"Available devices: {list(devices.keys())}")
-
-        def _apply_play(dev_id):
-            nonlocal updated_count
-            if dev_id not in devices:
-                print(f"❌ Device not found: {dev_id}")
-                return
-            devices[dev_id]['current_video'] = current_video_value
-            devices[dev_id]['command_id'] = devices[dev_id].get('command_id', 0) + 1
-            devices[dev_id].pop('active_program_id', None)
-            devices[dev_id].pop('playback_cache_only', None)
-            if display_name:
-                devices[dev_id]['current_video_display_name'] = display_name
-            else:
-                devices[dev_id].pop('current_video_display_name', None)
-            set_current_video_display_name(_cu.id, dev_id, display_name)
-            updated_count += 1
-
-        if target_all:
-            for device_id in devices:
-                _apply_play(device_id)
+    merge_registry_into_devices_dict(_cu.id, {})
+    rows = tenant_displays_play_targets(_cu.id, target_all, device_ids, force_broadcast=force_broadcast)
+    for row in rows:
+        row.current_video = current_video_value
+        row.command_id = new_playback_command_id()
+        row.active_program_id = None
+        row.playback_cache_only = False
+        if display_name:
+            row.current_video_display_name = display_name
         else:
-            for device_id in device_ids:
-                _apply_play(device_id)
-
-        save_json_file('devices.json', devices, _cu.id)
-        sync_devices_hot_state(_cu.id, devices)
+            row.current_video_display_name = None
+        set_current_video_display_name(_cu.id, row.device_id, display_name)
+        bump_playback_state_version(row)
+        updated_count += 1
+    db.session.commit()
     log_activity('video_played', {'filename': current_video_value, 'device_count': updated_count, 'target_all': target_all})
     
     return jsonify({
@@ -845,6 +934,7 @@ def play_cached_video():
     if not isinstance(device_ids, list):
         return jsonify({'success': False, 'error': 'device_ids must be a list'}), 400
     target_all = bool(data.get('target_all'))
+    force_broadcast = bool(data.get('force_broadcast'))
 
     if not cache_key:
         return jsonify({'success': False, 'error': 'cache_key is required'}), 400
@@ -860,37 +950,21 @@ def play_cached_video():
         }), 400
 
     updated_count = 0
-
-    with device_lock:
-        devices = load_json_file('devices.json', {}, _cu.id)
-        if merge_registry_into_devices_dict(_cu.id, devices):
-            save_json_file('devices.json', devices, _cu.id)
-            sync_devices_hot_state(_cu.id, devices)
-
-        def _apply(dev_id):
-            nonlocal updated_count
-            if dev_id not in devices:
-                return
-            devices[dev_id]['current_video'] = logical_video
-            devices[dev_id]['command_id'] = devices[dev_id].get('command_id', 0) + 1
-            devices[dev_id]['playback_cache_only'] = True
-            devices[dev_id].pop('active_program_id', None)
-            if display_name:
-                devices[dev_id]['current_video_display_name'] = display_name
-            else:
-                devices[dev_id].pop('current_video_display_name', None)
-            set_current_video_display_name(_cu.id, dev_id, display_name)
-            updated_count += 1
-
-        if target_all:
-            for did in devices:
-                _apply(did)
+    merge_registry_into_devices_dict(_cu.id, {})
+    rows = tenant_displays_play_targets(_cu.id, target_all, device_ids, force_broadcast=force_broadcast)
+    for row in rows:
+        row.current_video = logical_video
+        row.command_id = new_playback_command_id()
+        row.playback_cache_only = True
+        row.active_program_id = None
+        if display_name:
+            row.current_video_display_name = display_name
         else:
-            for did in device_ids:
-                _apply(did)
-
-        save_json_file('devices.json', devices, _cu.id)
-        sync_devices_hot_state(_cu.id, devices)
+            row.current_video_display_name = None
+        set_current_video_display_name(_cu.id, row.device_id, display_name)
+        bump_playback_state_version(row)
+        updated_count += 1
+    db.session.commit()
     log_activity('video_played_cache_only', {'cache_key': cache_key, 'logical': logical_video, 'device_count': updated_count})
 
     return jsonify({
@@ -911,37 +985,24 @@ def stop_playback():
     
     from flask_login import current_user as _cu
     updated_count = 0
-
-    with device_lock:
-        devices = load_json_file('devices.json', {}, _cu.id)
-        if merge_registry_into_devices_dict(_cu.id, devices):
-            save_json_file('devices.json', devices, _cu.id)
-            sync_devices_hot_state(_cu.id, devices)
-
-        if device_ids:
-            for device_id in device_ids:
-                if device_id in devices:
-                    devices[device_id]['current_video'] = None
-                    devices[device_id]['status'] = 'idle'
-                    devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
-                    devices[device_id].pop('current_video_display_name', None)
-                    devices[device_id].pop('active_program_id', None)
-                    devices[device_id].pop('playback_cache_only', None)
-                    set_current_video_display_name(_cu.id, device_id, None)
-                    updated_count += 1
-        else:
-            for device_id in devices:
-                devices[device_id]['current_video'] = None
-                devices[device_id]['status'] = 'idle'
-                devices[device_id]['command_id'] = devices[device_id].get('command_id', 0) + 1
-                devices[device_id].pop('current_video_display_name', None)
-                devices[device_id].pop('active_program_id', None)
-                devices[device_id].pop('playback_cache_only', None)
-                set_current_video_display_name(_cu.id, device_id, None)
-            updated_count = len(devices)
-
-        save_json_file('devices.json', devices, _cu.id)
-        sync_devices_hot_state(_cu.id, devices, [device_id])
+    merge_registry_into_devices_dict(_cu.id, {})
+    if device_ids:
+        rows = TenantDisplay.query.filter_by(user_id=_cu.id).filter(
+            TenantDisplay.device_id.in_(list(device_ids))
+        ).all()
+    else:
+        rows = TenantDisplay.query.filter_by(user_id=_cu.id).all()
+    for row in rows:
+        row.current_video = None
+        row.status = 'idle'
+        row.command_id = new_playback_command_id()
+        row.current_video_display_name = None
+        row.active_program_id = None
+        row.playback_cache_only = False
+        set_current_video_display_name(_cu.id, row.device_id, None)
+        bump_playback_state_version(row)
+        updated_count += 1
+    db.session.commit()
     log_activity('playback_stopped', {'device_count': updated_count})
     
     return jsonify({
@@ -955,10 +1016,15 @@ def stop_playback():
 def next_video():
     """Called when device's current video ends. Server does not auto-send next video or playlist;
     only explicit Play from dashboard sends content. Return no next so device stops or shows screensaver."""
-    from models import User
     user = None
     if current_user.is_authenticated:
         user = current_user
+    if not user:
+        uid, err = resolve_playback_user_id()
+        if err:
+            return err
+        if uid is not None:
+            user = User.query.get(uid)
     if not user:
         code_param = request.args.get('code')
         if code_param:
@@ -1009,19 +1075,16 @@ def update_device(device_id):
     """Update device information"""
     data = request.json
     from flask_login import current_user as _cu
-    with device_lock:
-        devices = load_json_file('devices.json', {}, _cu.id)
-
-        if device_id not in devices:
-            return jsonify({'success': False, 'error': 'Device not found'}), 404
-
-        if 'name' in data:
-            devices[device_id]['name'] = data['name']
-
-        save_json_file('devices.json', devices, _cu.id)
-        sync_devices_hot_state(_cu.id, devices, [device_id])
-    sync_device_registry_row(_cu.id, device_id, devices.get(device_id))
-    return jsonify({'success': True, 'device': devices[device_id]})
+    row = TenantDisplay.query.filter_by(user_id=_cu.id, device_id=device_id).first()
+    if not row:
+        return jsonify({'success': False, 'error': 'Device not found'}), 404
+    if 'name' in data:
+        row.display_name = (data['name'] or row.display_name)[:200]
+    bump_playback_state_version(row)
+    db.session.commit()
+    d = device_row_to_dict(row)
+    sync_device_registry_row(_cu.id, device_id, d)
+    return jsonify({'success': True, 'device': d})
 
 
 @api_bp.route('/devices/<device_id>/cache-delete', methods=['POST'])
@@ -1036,28 +1099,31 @@ def queue_device_cache_delete(device_id):
         return jsonify({'success': False, 'error': 'keys (non-empty list) required'}), 400
 
     from flask_login import current_user as _cu
-    with device_lock:
-        devices = load_json_file('devices.json', {}, _cu.id)
-        if device_id not in devices:
-            return jsonify({'success': False, 'error': 'Device not found'}), 404
-
-        safe = []
-        for k in keys:
-            if not isinstance(k, str):
-                continue
-            k = k.strip()
-            if not k or len(k) > 240:
-                continue
-            if any(bad in k for bad in ('..', '/', '\\')):
-                continue
-            safe.append(k)
-        if not safe:
-            return jsonify({'success': False, 'error': 'No valid keys'}), 400
-
-        existing = devices[device_id].get('cache_delete_keys') or []
-        merged = list(dict.fromkeys(existing + safe))[:80]
-        devices[device_id]['cache_delete_keys'] = merged
-        save_json_file('devices.json', devices, _cu.id)
+    row = TenantDisplay.query.filter_by(user_id=_cu.id, device_id=device_id).first()
+    if not row:
+        return jsonify({'success': False, 'error': 'Device not found'}), 404
+    safe = []
+    for k in keys:
+        if not isinstance(k, str):
+            continue
+        k = k.strip()
+        if not k or len(k) > 240:
+            continue
+        if any(bad in k for bad in ('..', '/', '\\')):
+            continue
+        safe.append(k)
+    if not safe:
+        return jsonify({'success': False, 'error': 'No valid keys'}), 400
+    try:
+        existing = json.loads(row.cache_delete_keys_json) if row.cache_delete_keys_json else []
+    except Exception:
+        existing = []
+    if not isinstance(existing, list):
+        existing = []
+    merged = list(dict.fromkeys(existing + safe))[:80]
+    row.cache_delete_keys_json = json.dumps(merged)
+    bump_playback_state_version(row)
+    db.session.commit()
     return jsonify({'success': True, 'queued': len(safe), 'pending_total': len(merged)})
 
 
@@ -1066,13 +1132,11 @@ def queue_device_cache_delete(device_id):
 def delete_device(device_id):
     """Remove a device from the panel. The APK will be told to return to setup on next heartbeat."""
     from flask_login import current_user as _cu
-    with device_lock:
-        devices = load_json_file('devices.json', {}, _cu.id)
-        if device_id in devices:
-            del devices[device_id]
-            save_json_file('devices.json', devices, _cu.id)
-            sync_devices_hot_state(_cu.id, devices, [device_id])
-            log_activity('device_deleted', {'device_id': device_id})
+    row = TenantDisplay.query.filter_by(user_id=_cu.id, device_id=device_id).first()
+    if row:
+        db.session.delete(row)
+        db.session.commit()
+        log_activity('device_deleted', {'device_id': device_id})
     add_removed_device(_cu.id, device_id)
     delete_tenant_display_registry(_cu.id, device_id)
     
@@ -1084,13 +1148,12 @@ def delete_device(device_id):
 def request_device_screenshot(device_id):
     """Set flag so the display will capture and upload a screenshot on next poll"""
     from flask_login import current_user as _cu
-    with device_lock:
-        devices = load_json_file('devices.json', {}, _cu.id)
-        if device_id not in devices:
-            return jsonify({'success': False, 'error': 'Device not found'}), 404
-        devices[device_id]['screenshot_requested'] = True
-        save_json_file('devices.json', devices, _cu.id)
-        sync_devices_hot_state(_cu.id, devices, [device_id])
+    row = TenantDisplay.query.filter_by(user_id=_cu.id, device_id=device_id).first()
+    if not row:
+        return jsonify({'success': False, 'error': 'Device not found'}), 404
+    row.screenshot_requested = True
+    bump_playback_state_version(row)
+    db.session.commit()
     return jsonify({'success': True, 'message': 'Screenshot request sent to display'})
 
 
@@ -1099,11 +1162,11 @@ def request_device_screenshot(device_id):
 def get_device_screenshot(device_id):
     """Return the latest screenshot for this device (if any)"""
     from flask_login import current_user as _cu
-    devices = load_json_file('devices.json', {}, _cu.id)
-    if device_id not in devices:
+    row = TenantDisplay.query.filter_by(user_id=_cu.id, device_id=device_id).first()
+    if not row:
         return jsonify({'success': False, 'error': 'Device not found'}), 404
-    data_url = devices[device_id].get('screenshot_data')
-    timestamp = devices[device_id].get('screenshot_timestamp')
+    data_url = row.screenshot_data
+    timestamp = row.screenshot_timestamp
     if not data_url:
         return jsonify({'success': False, 'screenshot': None})
     return jsonify({'success': True, 'screenshot': data_url, 'timestamp': timestamp})
@@ -1131,15 +1194,14 @@ def upload_device_screenshot(device_id):
         return jsonify({'success': False, 'error': 'No screenshot data'}), 400
 
     try:
-        with device_lock:
-            devices = load_json_file('devices.json', {}, user_id)
-            if device_id not in devices:
-                return jsonify({'success': False, 'error': 'Device not found'}), 404
-            devices[device_id]['screenshot_data'] = screenshot_b64
-            devices[device_id]['screenshot_timestamp'] = datetime.now().isoformat()
-            devices[device_id]['screenshot_requested'] = False
-            save_json_file('devices.json', devices, user_id)
-            sync_devices_hot_state(user_id, devices, [device_id])
+        row = TenantDisplay.query.filter_by(user_id=user_id, device_id=device_id).first()
+        if not row:
+            return jsonify({'success': False, 'error': 'Device not found'}), 404
+        row.screenshot_data = screenshot_b64
+        row.screenshot_timestamp = datetime.now().isoformat()
+        row.screenshot_requested = False
+        bump_playback_state_version(row)
+        db.session.commit()
         return jsonify({'success': True, 'message': 'Screenshot received'})
     except Exception as e:
         _log_api_error('/api/devices/screenshot/upload', e, user_id=user_id, device_id=device_id)
@@ -1158,30 +1220,20 @@ def format_devices():
     
     from flask_login import current_user as _cu
     formatted_count = 0
-    with device_lock:
-        devices = load_json_file('devices.json', {}, _cu.id)
-
-        for device_id in device_ids:
-            if device_id in devices:
-                # Keep existing name (user may have renamed the display)
-                existing_name = devices[device_id].get('name') or f'Display {device_id[-4:]}'
-                devices[device_id] = {
-                    'id': device_id,
-                    'name': existing_name,
-                    'first_seen': devices[device_id].get('first_seen', datetime.now().isoformat()),
-                    'last_seen': datetime.now().isoformat(),
-                    'current_video': None,
-                    'command_id': devices[device_id].get('command_id', 0) + 1,
-                    'status': 'idle',
-                    'info': devices[device_id].get('info', {}),
-                    'online': devices[device_id].get('online', False),
-                    'clear_cache': True,  # APK will clear cache and stop; we clear this flag after sending once
-                }
-                formatted_count += 1
-                log_activity('device_formatted', {'device_id': device_id})
-
-        save_json_file('devices.json', devices, _cu.id)
-        sync_devices_hot_state(_cu.id, devices)
+    for device_id in device_ids:
+        row = TenantDisplay.query.filter_by(user_id=_cu.id, device_id=device_id).first()
+        if not row:
+            continue
+        row.current_video = None
+        row.status = 'idle'
+        row.command_id = new_playback_command_id()
+        row.clear_cache = True
+        row.active_program_id = None
+        row.playback_cache_only = False
+        bump_playback_state_version(row)
+        formatted_count += 1
+        log_activity('device_formatted', {'device_id': device_id})
+    db.session.commit()
     
     return jsonify({
         'success': True,

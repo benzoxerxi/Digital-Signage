@@ -254,8 +254,9 @@ class MainActivity : AppCompatActivity() {
         val serverSection = findViewById<View>(R.id.server_section)
         val serverInput = findViewById<android.widget.EditText>(R.id.server_input)
         val codeInput = findViewById<android.widget.EditText>(R.id.connection_code_input)
+        val nameInput = findViewById<android.widget.EditText>(R.id.device_name_input)
         val connectButton = findViewById<android.widget.Button>(R.id.connect_button)
-        val logoView = findViewById<ImageView>(R.id.logo_view)
+        val logoView = findViewById<ImageView?>(R.id.logo_view)
 
         // Default server URL shown in the setup screen
         if (serverUrl.isEmpty()) {
@@ -264,10 +265,13 @@ class MainActivity : AppCompatActivity() {
         serverSection?.visibility = View.VISIBLE
         serverInput.setText(serverUrl)
         if (connectionCode.isNotEmpty()) codeInput.setText(connectionCode)
+        if (deviceName.isNotEmpty()) nameInput?.setText(deviceName)
 
-        val imageLoader = ImageLoader.Builder(this).build()
-        val request = ImageRequest.Builder(this).data(LOGO_URL).target(logoView).build()
-        imageLoader.enqueue(request)
+        logoView?.let {
+            val imageLoader = ImageLoader.Builder(this).build()
+            val request = ImageRequest.Builder(this).data(LOGO_URL).target(it).build()
+            imageLoader.enqueue(request)
+        }
 
         connectButton.setOnClickListener {
             val code = codeInput.text.toString().trim().replace(Regex("[^0-9]"), "")
@@ -277,11 +281,14 @@ class MainActivity : AppCompatActivity() {
                 // Use the server URL from the input, or fall back to default
                 val inputUrl = serverInput.text.toString().trim()
                 serverUrl = if (inputUrl.isNotEmpty()) inputUrl else DEFAULT_SERVER_URL
+                val inputName = nameInput?.text?.toString()?.trim().orEmpty()
+                deviceName = if (inputName.isNotEmpty()) inputName else "Android-${Build.MODEL}"
 
                 connectionCode = code
                 getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
                     .putString(KEY_SERVER_URL, serverUrl)
                     .putString(KEY_CONNECTION_CODE, connectionCode)
+                    .putString(KEY_DEVICE_NAME, deviceName)
                     .remove(KEY_ACCESS_TOKEN)
                     .apply()
                 apiClient.setBaseUrl(serverUrl)

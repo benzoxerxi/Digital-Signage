@@ -25,28 +25,28 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:gravity="center_horizontal"
+        android:gravity="top|center_horizontal"
         android:paddingStart="24dp"
         android:paddingEnd="24dp"
-        android:paddingTop="20dp"
+        android:paddingTop="10dp"
         android:paddingBottom="24dp">
 
     <ImageView
         android:id="@+id/logo_view"
         android:layout_width="match_parent"
-        android:layout_height="100dp"
-        android:layout_marginTop="20dp"
-        android:layout_marginBottom="20dp"
+        android:layout_height="72dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="10dp"
         android:scaleType="fitCenter"/>
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Digital Signage Player"
-        android:textSize="32sp"
+        android:textSize="28sp"
         android:textColor="#000000"
         android:textStyle="bold"
-        android:layout_marginBottom="10dp"
+        android:layout_marginBottom="6dp"
         android:gravity="center" />
 
     <TextView
@@ -55,12 +55,12 @@
         android:text="Configure your connection"
         android:textSize="16sp"
         android:textColor="#000000"
-        android:layout_marginBottom="40dp" />
+        android:layout_marginBottom="18dp" />
 
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="20dp"
+        android:layout_marginBottom="12dp"
         app:cardCornerRadius="12dp"
         app:cardElevation="8dp">
 
@@ -68,7 +68,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:padding="18dp">
 
             <LinearLayout
                 android:id="@+id/server_section"
@@ -116,7 +116,7 @@
                 android:textSize="14sp"
                 android:textColor="#666666"
                 android:textStyle="bold"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="16dp"
                 android:layout_marginBottom="8dp"
                 android:gravity="center" />
 
@@ -162,7 +162,7 @@
         android:text="Connected to cloud. Get your code from Account on the website."
         android:textSize="12sp"
         android:textColor="#000000"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="12dp"
         android:gravity="center" />
 
     </LinearLayout>

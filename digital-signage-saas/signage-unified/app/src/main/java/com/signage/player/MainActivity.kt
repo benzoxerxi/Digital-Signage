@@ -247,6 +247,7 @@ class MainActivity : AppCompatActivity() {
         notificationHeader = findViewById(R.id.notification_header_container)
         connectionStatus = findViewById(R.id.connection_status)
         closeButton = findViewById(R.id.close_button)
+        notificationHeader.visibility = View.GONE
         connectionStatus.text = "Setup"
         closeButton.setOnClickListener { unpinAndClose() }
 

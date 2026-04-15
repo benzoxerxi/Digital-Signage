@@ -2,6 +2,54 @@
 from sqlalchemy import text, inspect
 
 
+def migrate_users_after_create_all(db, app):
+    """Best-effort add of missing users columns for legacy installs without Alembic history."""
+    engine = db.engine
+    insp = inspect(engine)
+    if not insp.has_table('users'):
+        return
+
+    cols = {c['name']: c for c in insp.get_columns('users')}
+
+    def _add_column(sql):
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(sql))
+        except Exception as e:
+            msg = str(e).lower()
+            if 'duplicate' in msg or 'already exists' in msg or ('column' in msg and 'exists' in msg):
+                return
+            app.logger.warning('users migration note: %s', e)
+
+    if 'connection_code' not in cols:
+        _add_column("ALTER TABLE users ADD COLUMN connection_code VARCHAR(9)")
+    if 'is_admin' not in cols:
+        _add_column("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0")
+    if 'email_verified' not in cols:
+        _add_column("ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT 0")
+    if 'email_verify_token' not in cols:
+        _add_column("ALTER TABLE users ADD COLUMN email_verify_token VARCHAR(64)")
+    if 'email_verify_expires' not in cols:
+        _add_column("ALTER TABLE users ADD COLUMN email_verify_expires TIMESTAMP")
+    if 'plan' not in cols:
+        _add_column("ALTER TABLE users ADD COLUMN plan VARCHAR(50) DEFAULT 'free'")
+    if 'trial_ends_at' not in cols:
+        _add_column("ALTER TABLE users ADD COLUMN trial_ends_at TIMESTAMP")
+    if 'subscription_status' not in cols:
+        _add_column("ALTER TABLE users ADD COLUMN subscription_status VARCHAR(50) DEFAULT 'trial'")
+    if 'stripe_customer_id' not in cols:
+        _add_column("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(100)")
+    if 'stripe_subscription_id' not in cols:
+        _add_column("ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(100)")
+
+    # Optional indexes/constraints (best effort only)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_users_connection_code ON users (connection_code)"))
+    except Exception:
+        pass
+
+
 def migrate_tenant_displays_after_create_all(db, app):
     """Add new columns and migrate command_id to string (Postgres). SQLite may rebuild table."""
     engine = db.engine

@@ -11,7 +11,7 @@ except Exception:
     Migrate = None
 from sqlalchemy import text
 from models import db, User, ActivityLog, PaymentHistory, TenantDisplay
-from schema_migrations import migrate_tenant_displays_after_create_all
+from schema_migrations import migrate_tenant_displays_after_create_all, migrate_users_after_create_all
 from config import Config
 import os
 import json
@@ -360,6 +360,7 @@ def init_db():
     """Initialize database and create tables"""
     with app.app_context():
         db.create_all()
+        migrate_users_after_create_all(db, app)
         
         # Migration: add connection_code column if upgrading from older version
         try:

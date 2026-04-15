@@ -74,6 +74,22 @@ jobs:
                 "${bindir}/pip" install -r "${APP}/requirements.txt" -q
               fi
             done
+            APP_PY=""
+            if [ -x "${APP}/.venv/bin/python" ]; then
+              APP_PY="${APP}/.venv/bin/python"
+            elif [ -x "${APP}/venv/bin/python" ]; then
+              APP_PY="${APP}/venv/bin/python"
+            fi
+            if [ -n "${APP_PY}" ]; then
+              echo "==> Running init_db() via ${APP_PY}"
+              APP_PATH="${APP}" "${APP_PY}" - <<'PY'
+import os
+os.chdir(os.environ["APP_PATH"])
+from app import init_db
+init_db()
+print("init_db completed")
+PY
+            fi
             if [ -f "${APP}/manage.py" ]; then
               echo "==> Running DB migrations"
               cd "${APP}"

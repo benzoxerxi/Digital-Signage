@@ -70,10 +70,36 @@ def migrate_tenant_displays_after_create_all(db, app):
                 return
             app.logger.warning('tenant_displays migration note: %s', e)
 
+    if 'current_video' not in cols:
+        _add_column('ALTER TABLE tenant_displays ADD COLUMN current_video VARCHAR(500)')
+    if 'command_id' not in cols:
+        _add_column("ALTER TABLE tenant_displays ADD COLUMN command_id VARCHAR(40) NOT NULL DEFAULT ''")
+    if 'status' not in cols:
+        _add_column("ALTER TABLE tenant_displays ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'idle'")
+    if 'device_info_json' not in cols:
+        _add_column('ALTER TABLE tenant_displays ADD COLUMN device_info_json TEXT')
+    if 'screenshot_requested' not in cols:
+        _add_column('ALTER TABLE tenant_displays ADD COLUMN screenshot_requested BOOLEAN NOT NULL DEFAULT 0')
+    if 'clear_cache' not in cols:
+        _add_column('ALTER TABLE tenant_displays ADD COLUMN clear_cache BOOLEAN NOT NULL DEFAULT 0')
+    if 'playback_cache_only' not in cols:
+        _add_column('ALTER TABLE tenant_displays ADD COLUMN playback_cache_only BOOLEAN NOT NULL DEFAULT 0')
     if 'state_version' not in cols:
         _add_column('ALTER TABLE tenant_displays ADD COLUMN state_version INTEGER NOT NULL DEFAULT 0')
     if 'active_program_id' not in cols:
         _add_column('ALTER TABLE tenant_displays ADD COLUMN active_program_id VARCHAR(64)')
+    if 'cache_manifest_json' not in cols:
+        _add_column('ALTER TABLE tenant_displays ADD COLUMN cache_manifest_json TEXT')
+    if 'cache_manifest_file_count' not in cols:
+        _add_column('ALTER TABLE tenant_displays ADD COLUMN cache_manifest_file_count INTEGER')
+    if 'cache_manifest_total_bytes' not in cols:
+        _add_column('ALTER TABLE tenant_displays ADD COLUMN cache_manifest_total_bytes BIGINT')
+    if 'cache_manifest_updated_at' not in cols:
+        _add_column('ALTER TABLE tenant_displays ADD COLUMN cache_manifest_updated_at VARCHAR(40)')
+    if 'cache_delete_keys_json' not in cols:
+        _add_column('ALTER TABLE tenant_displays ADD COLUMN cache_delete_keys_json TEXT')
+    if 'current_video_display_name' not in cols:
+        _add_column('ALTER TABLE tenant_displays ADD COLUMN current_video_display_name VARCHAR(250)')
     if 'screenshot_data' not in cols:
         _add_column('ALTER TABLE tenant_displays ADD COLUMN screenshot_data TEXT')
     if 'screenshot_timestamp' not in cols:

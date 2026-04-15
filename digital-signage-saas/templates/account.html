@@ -270,7 +270,7 @@
                 <div class="dl-updated">File date: <time datetime="{{ player_apk_mtime.isoformat() }}">{{ player_apk_mtime.strftime('%Y-%m-%d %H:%M') }}</time> <span style="opacity:0.75">(server time)</span></div>
                 {% endif %}
             </div>
-            <a href="{{ url_for('static', filename='apk/Signage Player.apk') }}" class="dl-btn">Download</a>
+            <a href="{{ url_for('static', filename='apk/Signage Player.apk', v=(player_apk_mtime.timestamp()|int if player_apk_mtime else '')) }}" class="dl-btn">Download</a>
         </div>
         <div class="dl-row">
             <div>
@@ -280,7 +280,7 @@
                 <div class="dl-updated">File date: <time datetime="{{ watchdog_apk_mtime.isoformat() }}">{{ watchdog_apk_mtime.strftime('%Y-%m-%d %H:%M') }}</time> <span style="opacity:0.75">(server time)</span></div>
                 {% endif %}
             </div>
-            <a href="{{ url_for('static', filename='apk/watchdog.apk') }}" class="dl-btn">Download</a>
+            <a href="{{ url_for('static', filename='apk/watchdog.apk', v=(watchdog_apk_mtime.timestamp()|int if watchdog_apk_mtime else '')) }}" class="dl-btn">Download</a>
         </div>
         <p style="margin-top: 0.75rem; font-size: 0.8rem; color: #6b7280;">
             Place your APK files on the server at <code style="color:#9ca3af">static/apk/Signage Player.apk</code> and <code style="color:#9ca3af">static/apk/watchdog.apk</code>. Shown date is the file’s last modification time on the server (when it was last replaced).

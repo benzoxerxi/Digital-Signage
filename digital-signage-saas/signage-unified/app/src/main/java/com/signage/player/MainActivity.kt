@@ -68,6 +68,7 @@ class MainActivity : AppCompatActivity() {
     private var deviceName = ""
     private var lastCommandId = ""
     private var currentLogicalVideo: String? = null
+    private var cacheOnlyLoopActive = false
     private var sseJob: Job? = null
     private var currentProgramId: String? = null
     private var inLayoutMode = false
@@ -362,7 +363,9 @@ class MainActivity : AppCompatActivity() {
                 exoPlayer.addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         showScreensaver(playbackState == Player.STATE_IDLE)
-                        if (playbackState == Player.STATE_ENDED) handler.post { playNextVideo() }
+                        if (playbackState == Player.STATE_ENDED && !cacheOnlyLoopActive) {
+                            handler.post { playNextVideo() }
+                        }
                     }
                 })
             }
@@ -411,6 +414,7 @@ class MainActivity : AppCompatActivity() {
             if (cacheOnly) {
                 playCachedLoop(cv, cmd)
             } else {
+                cacheOnlyLoopActive = false
                 playSpecificVideo(cv, cmd)
             }
         } else {
@@ -420,6 +424,7 @@ class MainActivity : AppCompatActivity() {
             currentPlaylist = emptyList()
             currentVideoIndex = 0
             currentLogicalVideo = null
+            cacheOnlyLoopActive = false
         }
     }
 
@@ -464,6 +469,7 @@ class MainActivity : AppCompatActivity() {
                         currentPlaylist = emptyList()
                         currentVideoIndex = 0
                         currentLogicalVideo = null
+                        cacheOnlyLoopActive = false
                     }
                     if (playbackState.cache_delete_keys.isNotEmpty()) {
                         playbackState.cache_delete_keys.forEach { k -> videoCache.deleteByCacheKey(k) }
@@ -511,6 +517,8 @@ class MainActivity : AppCompatActivity() {
                 currentPlaylist = emptyList()
                 currentVideoIndex = 0
                 currentLogicalVideo = filename
+                cacheOnlyLoopActive = false
+                player?.repeatMode = Player.REPEAT_MODE_OFF
                 if (!videoCache.isCached(filename)) {
                     showScreensaver(true)
                     val videoData = withContext(Dispatchers.IO) { apiClient.downloadVideo(filename) }
@@ -536,15 +544,34 @@ class MainActivity : AppCompatActivity() {
             currentPlaylist = emptyList()
             currentVideoIndex = 0
             currentLogicalVideo = null
+            cacheOnlyLoopActive = false
             return
         }
-        currentPlaylist = cached.map { Video(filename = it, name = it, url = "") }
+        val videoEntries = cached.map { Video(filename = it, name = it, url = "") }
+        currentPlaylist = videoEntries
         playlistSettings = PlaylistSettings(interval = 30, loop = true)
         val idx = cached.indexOf(startLogicalVideo)
         currentVideoIndex = if (idx >= 0) idx else 0
         lastCommandId = commandId
         currentLogicalVideo = currentPlaylist[currentVideoIndex].filename
-        playCurrentVideo()
+        val mediaItems = videoEntries.mapNotNull { v ->
+            val f = videoCache.getCachedFile(v.filename)
+            if (f?.exists() == true) MediaItem.fromUri(Uri.fromFile(f)) else null
+        }
+        if (mediaItems.isEmpty()) {
+            player?.stop()
+            showScreensaver(true)
+            currentPlaylist = emptyList()
+            currentLogicalVideo = null
+            cacheOnlyLoopActive = false
+            return
+        }
+        cacheOnlyLoopActive = true
+        player?.repeatMode = Player.REPEAT_MODE_ALL
+        player?.setMediaItems(mediaItems, currentVideoIndex.coerceIn(0, mediaItems.size - 1), 0L)
+        player?.prepare()
+        player?.play()
+        showScreensaver(false)
     }
 
     private fun updatePlaylist() {
@@ -589,6 +616,8 @@ class MainActivity : AppCompatActivity() {
             showScreensaver(true)
             return
         }
+        cacheOnlyLoopActive = false
+        player?.repeatMode = Player.REPEAT_MODE_OFF
         showScreensaver(false)
         val video = currentPlaylist[currentVideoIndex]
         val cachedFile = videoCache.getCachedFile(video.filename)

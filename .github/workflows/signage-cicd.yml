@@ -82,13 +82,9 @@ jobs:
             fi
             if [ -n "${APP_PY}" ]; then
               echo "==> Running init_db() via ${APP_PY}"
-              APP_PATH="${APP}" "${APP_PY}" - <<'PY'
-import os
-os.chdir(os.environ["APP_PATH"])
-from app import init_db
-init_db()
-print("init_db completed")
-PY
+              cd "${APP}"
+              "${APP_PY}" -c "from app import init_db; init_db(); print('init_db completed')"
+              cd "${REPO}"
             fi
             if [ -f "${APP}/manage.py" ]; then
               echo "==> Running DB migrations"

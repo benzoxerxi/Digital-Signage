@@ -61,17 +61,27 @@ jobs:
             echo "==> Repo: $(pwd)"
             git fetch origin main
             git pull --ff-only origin main
-            if [ ! -x "${APP}/venv/bin/python" ]; then
-              echo "==> Creating missing venv at ${APP}/venv"
+            # systemd on some hosts uses .venv while older docs/scripts use venv — install into every venv that exists.
+            if [ ! -x "${APP}/.venv/bin/python" ] && [ ! -x "${APP}/venv/bin/python" ]; then
+              echo "==> Creating venv at ${APP}/venv"
               python3 -m venv "${APP}/venv"
             fi
-            echo "==> pip install (venv)"
-            "${APP}/venv/bin/pip" install --upgrade pip -q
-            "${APP}/venv/bin/pip" install -r "${APP}/requirements.txt" -q
+            for py in "${APP}/.venv/bin/python" "${APP}/venv/bin/python"; do
+              if [ -x "$py" ]; then
+                bindir="$(dirname "$py")"
+                echo "==> pip install (${bindir})"
+                "${bindir}/pip" install --upgrade pip -q
+                "${bindir}/pip" install -r "${APP}/requirements.txt" -q
+              fi
+            done
             if [ -f "${APP}/manage.py" ]; then
               echo "==> Running DB migrations"
               cd "${APP}"
-              "${APP}/venv/bin/flask" db upgrade || true
+              if [ -x "${APP}/.venv/bin/flask" ]; then
+                "${APP}/.venv/bin/flask" db upgrade || true
+              elif [ -x "${APP}/venv/bin/flask" ]; then
+                "${APP}/venv/bin/flask" db upgrade || true
+              fi
               cd "${REPO}"
             fi
             systemctl restart signage

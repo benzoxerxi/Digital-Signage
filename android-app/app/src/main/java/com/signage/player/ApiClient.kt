@@ -41,6 +41,8 @@ data class PlaybackState(
     val current_video_name: String? = null,  // Display name (e.g. Drive file name) for dashboard
     val playback_cache_only: Boolean = false,  // Do not download; play local file only
     val cache_delete_keys: List<String> = emptyList(),  // Server asks to remove these local files
+    val post_command_behavior: String = "stop",  // stop | resume_playlist | loop
+    val program: ProgramLayout? = null,
 )
 
 data class ServerStatus(
@@ -142,7 +144,7 @@ class ApiClient {
                         val elJson = elementsArray.getJSONObject(i)
                         elements.add(
                             LayoutElement(
-                                id = if (elJson.isNull("id")) null else elJson.optString("id", null),
+                                id = if (elJson.isNull("id")) null else elJson.optString("id"),
                                 type = elJson.optString("type", "unknown"),
                                 x = elJson.optDouble("x", 0.0).toFloat(),
                                 y = elJson.optDouble("y", 0.0).toFloat(),
@@ -157,7 +159,7 @@ class ApiClient {
 
                 val program = ProgramLayout(
                     id = programJson.getString("id"),
-                    name = programJson.optString("name", null),
+                    name = if (programJson.isNull("name")) null else programJson.optString("name"),
                     width = programJson.optInt("width", 1920),
                     height = programJson.optInt("height", 1080),
                     elements = elements
@@ -191,6 +193,60 @@ class ApiClient {
                 connected_devices = json.optInt("connected_devices", 0)
             )
         }
+    }
+
+
+    suspend fun verifyDeviceConnection(connectionCode: String, deviceId: String, deviceName: String): Boolean = withContext(Dispatchers.IO) {
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val bodyJson = JSONObject().apply {
+            put("code", connectionCode)
+            put("device_id", deviceId)
+            put("device_name", deviceName)
+        }
+        val request = Request.Builder()
+            .url("$baseUrl/api/devices/verify")
+            .post(bodyJson.toString().toRequestBody(mediaType))
+            .build()
+        return@withContext try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use false
+                val json = JSONObject(response.body?.string() ?: "{}")
+                json.optBoolean("success", false)
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun parseProgramLayout(json: JSONObject?, fallbackDeviceId: String): ProgramLayout? {
+        if (json == null || json.isNull("program")) return null
+        val programJson = json.optJSONObject("program") ?: return null
+        val elementsArray = programJson.optJSONArray("elements")
+        val elements = mutableListOf<LayoutElement>()
+        if (elementsArray != null) {
+            for (i in 0 until elementsArray.length()) {
+                val elJson = elementsArray.optJSONObject(i) ?: continue
+                elements.add(
+                    LayoutElement(
+                        id = if (elJson.isNull("id")) null else elJson.optString("id"),
+                        type = elJson.optString("type", "unknown"),
+                        x = elJson.optDouble("x", 0.0).toFloat(),
+                        y = elJson.optDouble("y", 0.0).toFloat(),
+                        width = elJson.optDouble("width", 0.0).toFloat(),
+                        height = elJson.optDouble("height", 0.0).toFloat(),
+                        zIndex = elJson.optInt("zIndex", 0),
+                        props = elJson.optJSONObject("props") ?: JSONObject()
+                    )
+                )
+            }
+        }
+        return ProgramLayout(
+            id = programJson.optString("id", fallbackDeviceId),
+            name = if (programJson.isNull("name")) null else programJson.optString("name"),
+            width = programJson.optInt("width", 1920),
+            height = programJson.optInt("height", 1080),
+            elements = elements
+        )
     }
 
     suspend fun getPlaybackState(
@@ -250,11 +306,14 @@ class ApiClient {
                         video_url = null,
                         current_video_name = null,
                         playback_cache_only = false,
-                        cache_delete_keys = emptyList()
+                        cache_delete_keys = emptyList(),
+                        post_command_behavior = "stop",
+                        program = null,
                     )
                 }
-                val videoUrl = json.optString("video_url", null).takeIf { !it.isNullOrEmpty() }
-                val currentVideoName = json.optString("current_video_name", null).takeIf { !it.isNullOrEmpty() }
+                val videoUrl = json.optString("video_url").takeIf { it.isNotBlank() }
+                val currentVideoName = json.optString("current_video_name").takeIf { it.isNotBlank() }
+                val program = parseProgramLayout(json, deviceId)
                 val delKeys = mutableListOf<String>()
                 json.optJSONArray("cache_delete_keys")?.let { arr ->
                     for (i in 0 until arr.length()) {
@@ -267,12 +326,14 @@ class ApiClient {
                     command_id = json.optInt("command_id", 0),
                     screenshot_requested = json.optBoolean("screenshot_requested", false),
                     clear_cache = json.optBoolean("clear_cache", false),
-                    device_name = json.optString("device_name", null),
+                    device_name = json.optString("device_name").takeIf { it.isNotBlank() },
                     removed = false,
                     video_url = videoUrl,
                     current_video_name = currentVideoName,
                     playback_cache_only = json.optBoolean("playback_cache_only", false),
-                    cache_delete_keys = delKeys
+                    cache_delete_keys = delKeys,
+                    post_command_behavior = json.optString("post_command_behavior", "stop"),
+                    program = program,
                 )
             }
         }

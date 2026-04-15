@@ -305,9 +305,12 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this@MainActivity, "Server not responding", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
-                // Validate 9-digit code with playback state (from_setup=1 so server allows re-add if device was removed)
-                withContext(Dispatchers.IO) {
-                    apiClient.getPlaybackState(connectionCode, deviceId, deviceName, fromSetup = true)
+                // Validate 9-digit code with lightweight endpoint (no playback side effects).
+                val verifyOk = withContext(Dispatchers.IO) {
+                    apiClient.verifyDeviceConnection(connectionCode, deviceId, deviceName)
+                }
+                if (!verifyOk) {
+                    throw IllegalStateException("Invalid 9-digit code or inactive subscription")
                 }
 
                 Toast.makeText(this@MainActivity, "Connected successfully!", Toast.LENGTH_SHORT).show()
@@ -431,8 +434,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Heartbeat: fetch playback state (updates server last_seen) and layout in parallel when possible,
-     * skip overlapping ticks, and throttle playlist polling so HTTP does not compete with video.
+     * Heartbeat: one playback-state call per cycle to reduce request count and payload duplication.
      */
     private fun sendHeartbeatAndCheckCommands() {
         if (connectionCode.isEmpty()) return
@@ -446,24 +448,18 @@ class MainActivity : AppCompatActivity() {
                 val cachedVideo = prefs.getString(KEY_CACHED_VIDEO_FILENAME, null) ?: ""
                 val cachedVideoName = prefs.getString(KEY_CACHED_VIDEO_DISPLAY_NAME, null) ?: ""
 
-                val (playbackState, layoutResponse) = coroutineScope {
-                    val manifestJson = buildCacheManifestForHeartbeat()
-                    val playbackDeferred = async(Dispatchers.IO) {
-                        apiClient.getPlaybackState(
-                            connectionCode,
-                            deviceId,
-                            deviceName,
-                            fromSetup = false,
-                            currentVideoFromCache = cachedVideo,
-                            currentVideoNameFromCache = cachedVideoName,
-                            cacheManifestJson = manifestJson,
-                            downloadProgressJson = downloadProgressHeartbeatJson
-                        )
-                    }
-                    val layoutDeferred = async(Dispatchers.IO) {
-                        apiClient.getDeviceLayout(deviceId)
-                    }
-                    Pair(playbackDeferred.await(), layoutDeferred.await())
+                val manifestJson = buildCacheManifestForHeartbeat()
+                val playbackState = withContext(Dispatchers.IO) {
+                    apiClient.getPlaybackState(
+                        connectionCode,
+                        deviceId,
+                        deviceName,
+                        fromSetup = false,
+                        currentVideoFromCache = cachedVideo,
+                        currentVideoNameFromCache = cachedVideoName,
+                        cacheManifestJson = manifestJson,
+                        downloadProgressJson = downloadProgressHeartbeatJson
+                    )
                 }
 
                 if (playbackState.removed == true) {
@@ -516,7 +512,7 @@ class MainActivity : AppCompatActivity() {
                     return@launch
                 }
 
-                val activeProgram = layoutResponse?.program?.takeIf { it.elements.isNotEmpty() }
+                val activeProgram = playbackState.program?.takeIf { it.elements.isNotEmpty() }
                 if (activeProgram != null) {
                     if (activeProgram.id != currentProgramId) {
                         exitLayoutMode()
@@ -541,8 +537,11 @@ class MainActivity : AppCompatActivity() {
                     lastPlaylistRefreshAt = 0L
 
                     if (playbackState.current_video != null) {
-                        Log.d(TAG, "Server commanded to play: ${playbackState.current_video} cacheOnly=${playbackState.playback_cache_only}")
-                        doNotResumeFromPlaylist = false
+                        Log.d(
+                            TAG,
+                            "Server commanded to play: ${playbackState.current_video} cacheOnly=${playbackState.playback_cache_only} behavior=${playbackState.post_command_behavior}"
+                        )
+                        doNotResumeFromPlaylist = playbackState.post_command_behavior != "resume_playlist"
                         // Explicit per-device play command should not be interrupted by background playlist refresh.
                         currentPlaylist = emptyList()
                         currentVideoIndex = 0

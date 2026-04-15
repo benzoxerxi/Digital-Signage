@@ -152,6 +152,31 @@ def issue_device_token():
     })
 
 
+
+@api_bp.route('/devices/verify', methods=['POST'])
+def verify_device_connection():
+    """Lightweight setup-time validation for 9-digit code + account state."""
+    data = request.get_json(silent=True) or {}
+    code = (data.get('code') or data.get('connection_code') or '').strip()
+    if not code or len(code) != 9 or not code.isdigit():
+        return jsonify({'success': False, 'error': 'Valid 9-digit code is required'}), 400
+    if not _rate_limit_connection_code('verify:' + (request.remote_addr or 'x')):
+        return jsonify({'success': False, 'error': 'Too many requests'}), 429
+
+    user = User.get_by_connection_code(code)
+    if not user or not user.is_active:
+        return jsonify({'success': False, 'error': 'Invalid code'}), 403
+    if not user.is_subscription_active():
+        return jsonify({'success': False, 'error': 'Subscription inactive'}), 403
+
+    return jsonify({
+        'success': True,
+        'user_id': user.id,
+        'device_id': data.get('device_id'),
+        'device_name': data.get('device_name'),
+    })
+
+
 def _ensure_video_metadata(video, content_folder):
     """Populate hash/size once and persist in playlist instead of hashing every request."""
     if video.get('drive_file_id'):
@@ -235,6 +260,64 @@ def get_playlist():
 # DEVICE LAYOUT (APK can request layout; no program feature – return program: null)
 # ============================================================================
 
+
+def _resolve_program_payload_for_device(user, device_id, code_param=None):
+    """Return active layout program payload for a device, or None."""
+    row = TenantDisplay.query.filter_by(user_id=user.id, device_id=device_id).first()
+    active_prog_id = row.active_program_id if row else None
+    if not active_prog_id:
+        return None
+
+    programs = load_json_file('programs.json', {'programs': []}, user.id)
+    prog = next((p for p in programs['programs'] if p['id'] == active_prog_id), None)
+    if not prog:
+        return None
+
+    code_suffix = f'?code={code_param}' if code_param else ''
+    base_url = request.host_url.rstrip('/')
+
+    elements_out = []
+    for el in prog.get('elements', []):
+        src = el.get('src', '') or ''
+        el_type = el.get('type', 'video')
+
+        if el_type in ('video', 'image'):
+            if not src:
+                continue
+            if src.startswith('drive:'):
+                url = f'{base_url}/api/video/{src}{code_suffix}'
+            elif src.startswith('http'):
+                url = src
+            else:
+                url = f'{base_url}/api/video/{src}{code_suffix}'
+            props = {'url': url}
+        elif el_type == 'text':
+            props = {'content': el.get('name', ''), 'fontSize': 24, 'color': '#FFFFFF', 'alignment': 'left'}
+        elif el_type == 'webview':
+            if not src:
+                continue
+            props = {'url': src}
+        else:
+            continue
+
+        elements_out.append({
+            'id': el.get('id'),
+            'type': el_type,
+            'x': el.get('x', 0),
+            'y': el.get('y', 0),
+            'width': el.get('width', 200),
+            'height': el.get('height', 200),
+            'zIndex': el.get('zIndex', 0),
+            'props': props,
+        })
+
+    return {
+        'id': prog['id'],
+        'name': prog.get('name', ''),
+        'width': prog.get('width', 1920),
+        'height': prog.get('height', 1080),
+        'elements': elements_out,
+    }
 @api_bp.route('/device_layout')
 def get_device_layout():
     """Return active program layout for a device (polled by APK)."""
@@ -577,16 +660,16 @@ def get_playback_state():
             'user_agent': request.headers.get('User-Agent', ''),
             'ip': request.remote_addr
         }
-        
+
         device_data = update_device_heartbeat(device_id, device_name, device_info)
-        
+
         # Load playlist settings
         playlist = load_json_file('playlist.json', {
-            'videos': [], 
+            'videos': [],
             'settings': {'interval': 30, 'loop': True},
             'active_playlist_id': None
         })
-        
+
         if device_data.get('current_video'):
             response = {
                 'current_video': device_data['current_video'],
@@ -596,15 +679,15 @@ def get_playback_state():
                 'loop': playlist.get('settings', {}).get('loop', True),
                 'interval': playlist.get('settings', {}).get('interval', 30)
             }
-            
+
             # If there's an active playlist with multiple videos, include the playlist
             if len(playlist.get('videos', [])) > 1:
                 response['playlist'] = {
                     'videos': [v['filename'] for v in playlist['videos']],
-                    'current_index': next((i for i, v in enumerate(playlist['videos']) 
+                    'current_index': next((i for i, v in enumerate(playlist['videos'])
                                           if v['filename'] == device_data['current_video']), 0)
                 }
-            
+
             return jsonify(response)
         else:
             return jsonify({
@@ -614,7 +697,7 @@ def get_playback_state():
                 'last_update': datetime.now().isoformat(),
                 'loop': True
             })
-    
+
     # Android: Bearer device JWT (preferred) or 9-digit code / legacy user_id
     user = None
     uid, err = resolve_playback_user_id()
@@ -638,21 +721,21 @@ def get_playback_state():
                 user = User.query.get(uid_legacy)
             except (ValueError, TypeError):
                 pass
-    
+
     # Verify user exists and is active
     try:
         if not user:
             return jsonify({
-                'error': 'User not found', 
+                'error': 'User not found',
                 'message': 'Invalid connection code or user_id. Check your 9-digit code in Account settings.'
             }), 404
-        
+
         if not user.is_active:
             return jsonify({
                 'error': 'User inactive',
                 'message': 'Account has been deactivated'
             }), 404
-        
+
         if not user.is_subscription_active():
             return jsonify({
                 'error': 'Subscription expired',
@@ -664,7 +747,7 @@ def get_playback_state():
             'error': 'Database error',
             'message': str(e)
         }), 500
-    
+
     user_id = user.id
     fs = params.get('from_setup')
     from_setup = fs is True or str(fs) == '1'
@@ -710,13 +793,14 @@ def get_playback_state():
 
         # Load playlist settings
         playlist = load_json_file('playlist.json', {
-            'videos': [], 
+            'videos': [],
             'settings': {'interval': 30, 'loop': True},
             'active_playlist_id': None
         }, user_id)
-        
+
         # Prefer code param for video URL (cleaner for APK)
         video_param = f'code={user.connection_code}' if user.connection_code else f'user_id={user_id}'
+        program_payload = _resolve_program_payload_for_device(user, device_id, code_param=connection_code)
         # Include screenshot_requested and device_name so display can respond
         screenshot_requested = device_data.get('screenshot_requested', False)
         device_name_from_server = device_data.get('name')
@@ -758,6 +842,8 @@ def get_playback_state():
                 'device_name': device_name_from_server,
                 'clear_cache': clear_cache,
                 'playback_cache_only': bool(device_data.get('playback_cache_only')),
+                'post_command_behavior': 'stop',
+                'program': program_payload,
             }
             if current_video_name:
                 response['current_video_name'] = current_video_name
@@ -777,6 +863,8 @@ def get_playback_state():
                 'device_name': device_name_from_server,
                 'clear_cache': clear_cache,
                 'playback_cache_only': bool(device_data.get('playback_cache_only')),
+                'post_command_behavior': 'resume_playlist',
+                'program': program_payload,
             }
             if pending_deletes:
                 idle_response['cache_delete_keys'] = pending_deletes

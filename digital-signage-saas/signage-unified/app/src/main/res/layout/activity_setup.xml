@@ -14,13 +14,22 @@
         android:layout_height="wrap_content"
         android:visibility="visible" />
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:fillViewport="true"
+        android:overScrollMode="ifContentScrolls">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center_horizontal"
-        android:padding="40dp">
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="24dp">
 
     <ImageView
         android:id="@+id/logo_view"
@@ -157,5 +166,7 @@
         android:gravity="center" />
 
     </LinearLayout>
+
+    </ScrollView>
 
 </LinearLayout>

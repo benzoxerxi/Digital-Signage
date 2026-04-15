@@ -403,8 +403,16 @@ def init_db():
 # RUN APPLICATION
 # ============================================================================
 
+# Ensure schema is initialized when app is loaded by WSGI servers (gunicorn/systemd),
+# not only when running `python app.py`.
+if os.environ.get('AUTO_INIT_DB_ON_IMPORT', '1') == '1':
+    try:
+        init_db()
+    except Exception as e:
+        # Keep import alive so service logs the root error instead of crashing silently.
+        print(f"⚠️ init_db on import failed: {e}")
+
 if __name__ == '__main__':
-    init_db()
     threading.Thread(target=schedule_checker, daemon=True).start()
     threading.Thread(target=cleanup_worker, daemon=True).start()
     

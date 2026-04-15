@@ -397,12 +397,16 @@ class MainActivity : AppCompatActivity() {
         if (inLayoutMode) return
         if (cmd == lastCommandId) return
         if (cv != null) {
+            // Explicit remote play should not continue local auto-playlist.
+            currentPlaylist = emptyList()
+            currentVideoIndex = 0
             playSpecificVideo(cv, cmd)
         } else {
             lastCommandId = cmd
             player?.stop()
             showScreensaver(true)
             currentPlaylist = emptyList()
+            currentVideoIndex = 0
         }
     }
 
@@ -434,6 +438,13 @@ class MainActivity : AppCompatActivity() {
                         apiClient.getPlaybackState(connectionCode, deviceId, deviceName)
                     }
                     connectionStatus.text = "Connected"
+                    if (playbackState.clear_cache == true) {
+                        videoCache.clearCache()
+                        player?.stop()
+                        showScreensaver(true)
+                        currentPlaylist = emptyList()
+                        currentVideoIndex = 0
+                    }
                     if (playbackState.screenshot_requested == true) captureAndUploadScreenshot()
                     if (playbackState.command_id != lastCommandId) {
                         if (playbackState.current_video != null) {
@@ -443,8 +454,9 @@ class MainActivity : AppCompatActivity() {
                             player?.stop()
                             showScreensaver(true)
                             currentPlaylist = emptyList()
+                            currentVideoIndex = 0
                         }
-                    } else if (currentPlaylist.isNotEmpty() || playbackState.current_video != null) {
+                    } else if (playbackState.mode == "auto" && (currentPlaylist.isNotEmpty() || playbackState.current_video != null)) {
                         updatePlaylist()
                     }
                 }
@@ -468,6 +480,8 @@ class MainActivity : AppCompatActivity() {
     private fun playSpecificVideo(filename: String, commandId: String) {
         scope.launch {
             try {
+                currentPlaylist = emptyList()
+                currentVideoIndex = 0
                 if (!videoCache.isCached(filename)) {
                     showScreensaver(true)
                     val videoData = withContext(Dispatchers.IO) { apiClient.downloadVideo(filename) }

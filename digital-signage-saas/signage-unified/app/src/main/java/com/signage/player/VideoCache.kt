@@ -8,7 +8,8 @@ class VideoCache(private val context: Context) {
     
     private val cacheDir: File by lazy {
         try {
-            val dir = File(context.cacheDir, "videos")
+            // Keep playback cache in filesDir so Android doesn't evict it like cacheDir.
+            val dir = File(context.filesDir, "videos")
             if (!dir.exists()) {
                 dir.mkdirs()
             }
@@ -16,7 +17,7 @@ class VideoCache(private val context: Context) {
             dir
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create cache directory", e)
-            context.cacheDir // Fallback to default cache dir
+            context.filesDir // Fallback to default app files dir
         }
     }
     

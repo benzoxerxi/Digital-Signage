@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.net.URLEncoder
@@ -33,7 +34,9 @@ data class PlaybackState(
     val command_id: String,
     val screenshot_requested: Boolean? = false,
     val clear_cache: Boolean? = false,
-    val device_name: String? = null  // Server's name for this device
+    val device_name: String? = null,  // Server's name for this device
+    val playback_cache_only: Boolean = false,
+    val cache_delete_keys: List<String> = emptyList()
 )
 
 data class ServerStatus(
@@ -298,28 +301,48 @@ class ApiClient {
         }
     }
 
-    suspend fun getPlaybackState(connectionCode: String, deviceId: String, deviceName: String): PlaybackState = 
+    suspend fun getPlaybackState(
+        connectionCode: String,
+        deviceId: String,
+        deviceName: String,
+        currentVideo: String? = null,
+        cacheManifest: List<Map<String, Any>> = emptyList()
+    ): PlaybackState =
         withContext(Dispatchers.IO) {
-            val codeParam = if (connectionCode.isNotEmpty()) "code=${connectionCode}" else ""
-            val deviceParams = "device_id=${deviceId}&device_name=${deviceName}"
-            val url = "$baseUrl/api/playback/state?$deviceParams${if (codeParam.isNotEmpty()) "&$codeParam" else ""}"
+            val url = "$baseUrl/api/playback/state"
+            val bodyJson = JSONObject()
+                .put("device_id", deviceId)
+                .put("device_name", deviceName)
+            if (connectionCode.isNotEmpty()) bodyJson.put("code", connectionCode)
+            if (!currentVideo.isNullOrBlank()) bodyJson.put("current_video", currentVideo)
+            bodyJson.put("cache_manifest", JSONArray(cacheManifest))
+            val mediaType = "application/json; charset=utf-8".toMediaType()
             val request = Request.Builder()
                 .url(url)
-                .get()
-                .headers(authHeaders().build())
+                .post(bodyJson.toString().toRequestBody(mediaType))
+                .headers(authHeaders().add("Content-Type", "application/json").build())
                 .build()
 
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) throw IOException("Unexpected code $response")
 
                 val json = JSONObject(response.body!!.string())
+                val deleteKeys = mutableListOf<String>()
+                val arr = json.optJSONArray("cache_delete_keys")
+                if (arr != null) {
+                    for (i in 0 until arr.length()) {
+                        deleteKeys.add(arr.optString(i))
+                    }
+                }
                 PlaybackState(
                     current_video = if (json.isNull("current_video")) null else json.getString("current_video"),
                     mode = json.optString("mode", "manual"),
                     command_id = json.optString("command_id", ""),
                     screenshot_requested = json.optBoolean("screenshot_requested", false),
                     clear_cache = json.optBoolean("clear_cache", false),
-                    device_name = json.optString("device_name", null)
+                    device_name = json.optString("device_name", null),
+                    playback_cache_only = json.optBoolean("playback_cache_only", false),
+                    cache_delete_keys = deleteKeys
                 )
             }
         }

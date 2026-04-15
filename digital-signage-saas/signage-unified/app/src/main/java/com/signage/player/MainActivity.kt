@@ -67,6 +67,7 @@ class MainActivity : AppCompatActivity() {
     private var deviceId = ""
     private var deviceName = ""
     private var lastCommandId = ""
+    private var currentLogicalVideo: String? = null
     private var sseJob: Job? = null
     private var currentProgramId: String? = null
     private var inLayoutMode = false
@@ -311,7 +312,13 @@ class MainActivity : AppCompatActivity() {
                     connectionStatus.text = "Connected"
                 }
                 withContext(Dispatchers.IO) {
-                    apiClient.getPlaybackState(connectionCode, deviceId, deviceName)
+                    apiClient.getPlaybackState(
+                        connectionCode,
+                        deviceId,
+                        deviceName,
+                        currentVideo = currentLogicalVideo,
+                        cacheManifest = videoCache.listManifest()
+                    )
                 }
                 val tokOk = withContext(Dispatchers.IO) { apiClient.fetchDeviceToken(connectionCode) }
                 if (tokOk) {
@@ -383,8 +390,9 @@ class MainActivity : AppCompatActivity() {
                         val cmd = json.optString("command_id", "")
                         if (cmd.isEmpty()) return@consumePlaybackEvents
                         val cv = if (json.isNull("current_video")) null else json.optString("current_video", null)
+                        val cacheOnly = json.optBoolean("playback_cache_only", false)
                         scope.launch(Dispatchers.Main) {
-                            handleRemotePlaybackCommand(cmd, cv)
+                            handleRemotePlaybackCommand(cmd, cv, cacheOnly)
                         }
                     }
                 } catch (_: Exception) { }
@@ -393,20 +401,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleRemotePlaybackCommand(cmd: String, cv: String?) {
+    private fun handleRemotePlaybackCommand(cmd: String, cv: String?, cacheOnly: Boolean = false) {
         if (inLayoutMode) return
         if (cmd == lastCommandId) return
         if (cv != null) {
             // Explicit remote play should not continue local auto-playlist.
             currentPlaylist = emptyList()
             currentVideoIndex = 0
-            playSpecificVideo(cv, cmd)
+            if (cacheOnly) {
+                playCachedLoop(cv, cmd)
+            } else {
+                playSpecificVideo(cv, cmd)
+            }
         } else {
             lastCommandId = cmd
             player?.stop()
             showScreensaver(true)
             currentPlaylist = emptyList()
             currentVideoIndex = 0
+            currentLogicalVideo = null
         }
     }
 
@@ -435,7 +448,13 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     val playbackState = withContext(Dispatchers.IO) {
-                        apiClient.getPlaybackState(connectionCode, deviceId, deviceName)
+                        apiClient.getPlaybackState(
+                            connectionCode,
+                            deviceId,
+                            deviceName,
+                            currentVideo = currentLogicalVideo,
+                            cacheManifest = videoCache.listManifest()
+                        )
                     }
                     connectionStatus.text = "Connected"
                     if (playbackState.clear_cache == true) {
@@ -444,17 +463,26 @@ class MainActivity : AppCompatActivity() {
                         showScreensaver(true)
                         currentPlaylist = emptyList()
                         currentVideoIndex = 0
+                        currentLogicalVideo = null
+                    }
+                    if (playbackState.cache_delete_keys.isNotEmpty()) {
+                        playbackState.cache_delete_keys.forEach { k -> videoCache.deleteByCacheKey(k) }
                     }
                     if (playbackState.screenshot_requested == true) captureAndUploadScreenshot()
                     if (playbackState.command_id != lastCommandId) {
                         if (playbackState.current_video != null) {
-                            playSpecificVideo(playbackState.current_video!!, playbackState.command_id)
+                            handleRemotePlaybackCommand(
+                                playbackState.command_id,
+                                playbackState.current_video,
+                                playbackState.playback_cache_only
+                            )
                         } else {
                             lastCommandId = playbackState.command_id
                             player?.stop()
                             showScreensaver(true)
                             currentPlaylist = emptyList()
                             currentVideoIndex = 0
+                            currentLogicalVideo = null
                         }
                     } else if (playbackState.mode == "auto" && (currentPlaylist.isNotEmpty() || playbackState.current_video != null)) {
                         updatePlaylist()
@@ -482,6 +510,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 currentPlaylist = emptyList()
                 currentVideoIndex = 0
+                currentLogicalVideo = filename
                 if (!videoCache.isCached(filename)) {
                     showScreensaver(true)
                     val videoData = withContext(Dispatchers.IO) { apiClient.downloadVideo(filename) }
@@ -497,6 +526,25 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (_: Exception) {}
         }
+    }
+
+    private fun playCachedLoop(startLogicalVideo: String, commandId: String) {
+        val cached = videoCache.listLogicalVideos()
+        if (cached.isEmpty()) {
+            player?.stop()
+            showScreensaver(true)
+            currentPlaylist = emptyList()
+            currentVideoIndex = 0
+            currentLogicalVideo = null
+            return
+        }
+        currentPlaylist = cached.map { Video(filename = it, name = it, url = "") }
+        playlistSettings = PlaylistSettings(interval = 30, loop = true)
+        val idx = cached.indexOf(startLogicalVideo)
+        currentVideoIndex = if (idx >= 0) idx else 0
+        lastCommandId = commandId
+        currentLogicalVideo = currentPlaylist[currentVideoIndex].filename
+        playCurrentVideo()
     }
 
     private fun updatePlaylist() {
@@ -545,6 +593,7 @@ class MainActivity : AppCompatActivity() {
         val video = currentPlaylist[currentVideoIndex]
         val cachedFile = videoCache.getCachedFile(video.filename)
         if (cachedFile?.exists() == true) {
+            currentLogicalVideo = video.filename
             player?.setMediaItem(MediaItem.fromUri(Uri.fromFile(cachedFile)))
             player?.prepare()
             player?.play()

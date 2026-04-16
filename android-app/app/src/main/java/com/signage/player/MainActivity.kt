@@ -90,8 +90,8 @@ class MainActivity : AppCompatActivity() {
     private val heartbeatTickRunnable = Runnable { sendHeartbeatAndCheckCommands() }
     private var lastCachedResumeAttemptAtMs = 0L
     private var currentPlayingCacheKey: String? = null
-    /** When true, do not resume from playlist (set by format/clear_cache; cleared when server sends explicit play). */
-    private var doNotResumeFromPlaylist = false
+    /** Cache-only mode: never auto-resume playlists without explicit server command. */
+    private var doNotResumeFromPlaylist = true
 
     companion object {
         private const val TAG = "SignagePlayer"
@@ -394,7 +394,12 @@ class MainActivity : AppCompatActivity() {
                             }
                             Player.STATE_ENDED -> {
                                 clearBufferWatchdog()
-                                handler.post { playNextVideo() }
+                                Log.d(TAG, "Playback ended; keeping same media in cache-only mode")
+                                exoPlayer.currentMediaItem?.let { item ->
+                                    exoPlayer.setMediaItem(item, 0L)
+                                    exoPlayer.prepare()
+                                    exoPlayer.play()
+                                }
                             }
                             Player.STATE_READY -> {
                                 clearBufferWatchdog()
@@ -411,8 +416,12 @@ class MainActivity : AppCompatActivity() {
                     override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                         clearBufferWatchdog()
                         Log.e(TAG, "Playback error", error)
-                        Toast.makeText(this@MainActivity, "Playback error. Skipping.", Toast.LENGTH_SHORT).show()
-                        handler.post { playNextVideo() }
+                        Toast.makeText(this@MainActivity, "Playback error. Retrying current cached media.", Toast.LENGTH_SHORT).show()
+                        exoPlayer.currentMediaItem?.let { item ->
+                            exoPlayer.setMediaItem(item, 0L)
+                            exoPlayer.prepare()
+                            exoPlayer.play()
+                        }
                     }
                 })
             }
@@ -526,20 +535,8 @@ class MainActivity : AppCompatActivity() {
                     return@launch
                 }
 
-                val activeProgram = playbackState.program?.takeIf { it.elements.isNotEmpty() }
-                if (activeProgram != null) {
-                    if (activeProgram.id != currentProgramId) {
-                        exitLayoutMode()
-                        currentProgramId = activeProgram.id
-                        inLayoutMode = true
-                        Log.d(TAG, "Entering layout mode: ${activeProgram.name} (${activeProgram.id})")
-                        renderProgramLayout(activeProgram)
-                    }
-                    return@launch
-                }
-
                 if (inLayoutMode) {
-                    Log.d(TAG, "Exiting layout mode, returning to legacy playback")
+                    Log.d(TAG, "Exiting layout mode; cache-only playback is active")
                     exitLayoutMode()
                 }
 
@@ -555,8 +552,8 @@ class MainActivity : AppCompatActivity() {
                             TAG,
                             "Server commanded to play: ${playbackState.current_video} cacheOnly=${playbackState.playback_cache_only} behavior=${playbackState.post_command_behavior}"
                         )
-                        doNotResumeFromPlaylist = playbackState.post_command_behavior != "resume_playlist"
-                        // Explicit per-device play command should not be interrupted by background playlist refresh.
+                        doNotResumeFromPlaylist = true
+                        // Explicit command only: keep current media running until replacement is fully cached.
                         currentPlaylist = emptyList()
                         currentVideoIndex = 0
                         val explicitKey = cacheKey(playbackState.current_video)
@@ -589,22 +586,10 @@ class MainActivity : AppCompatActivity() {
                         currentPlaylist = emptyList()
                         currentVideoIndex = 0
                     } else {
-                        Log.d(TAG, "Server state reset; keeping cached playback")
-                    }
-                } else {
-                    val shouldRefreshPlaylist =
-                        !doNotResumeFromPlaylist &&
-                            !inLayoutMode &&
-                            playbackState.current_video == null
-                    if (shouldRefreshPlaylist) {
-                        fastHeartbeatUntilMs = SystemClock.elapsedRealtime() + 20_000L
-                        val now = SystemClock.elapsedRealtime()
-                        if (now - lastPlaylistRefreshAt >= PLAYLIST_REFRESH_MS) {
-                            lastPlaylistRefreshAt = now
-                            updatePlaylist()
-                        }
+                        Log.d(TAG, "No explicit command change; continuing current cached loop")
                     }
                 }
+                ensureCurrentCachedLoop()
             } catch (e: Exception) {
                 Log.w(TAG, "Heartbeat failed (server may be restarting); keeping playback", e)
                 heartbeatFailureCount = (heartbeatFailureCount + 1).coerceAtMost(10)
@@ -958,6 +943,10 @@ class MainActivity : AppCompatActivity() {
                         (exo?.isPlaying == true || exoState == Player.STATE_READY || exoState == Player.STATE_BUFFERING)
                 if (alreadyPlayingSame) {
                     Log.d(TAG, "Ignoring replay command for already active media: $filename")
+                    exo?.apply {
+                        repeatMode = Player.REPEAT_MODE_ONE
+                        if (!isPlaying) play()
+                    }
                     return@launch
                 }
                 if (!videoCache.isCached(key)) {
@@ -994,8 +983,8 @@ class MainActivity : AppCompatActivity() {
                     val mediaItem = MediaItem.fromUri(Uri.fromFile(cachedFile))
                     player?.apply {
                         setMediaItem(mediaItem)
-                        // One-shot explicit command: after end, continue normal playlist flow.
-                        repeatMode = Player.REPEAT_MODE_OFF
+                        // Cache-only: loop the selected media indefinitely until next explicit command.
+                        repeatMode = Player.REPEAT_MODE_ONE
                         prepare()
                         play()
                     }
@@ -1005,6 +994,11 @@ class MainActivity : AppCompatActivity() {
                         .putString(KEY_CACHED_VIDEO_FILENAME, key)
                         .apply()
                     Log.d(TAG, "Playing commanded video: $filename")
+                }
+                if (cacheOnly) {
+                    Log.w(TAG, "Cache-only command for $filename but file not found in local cache; keeping current playback")
+                    hideDownloadOverlay()
+                    return@launch
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to play commanded video: $filename", e)
@@ -1030,6 +1024,26 @@ class MainActivity : AppCompatActivity() {
             }
             Log.d(TAG, "Playing cached video on startup (loop): $filename")
         }
+    }
+
+    /**
+     * Recover commanded cached playback if it stalls/stops unexpectedly.
+     * Stop/clear commands set [currentPlayingCacheKey] to null, so this won't restart those.
+     */
+    private fun ensureCurrentCachedLoop() {
+        val key = currentPlayingCacheKey ?: return
+        val exo = player ?: return
+        if (exo.isPlaying || exo.playbackState == Player.STATE_BUFFERING) return
+        val cachedFile = videoCache.getCachedFile(key) ?: return
+        if (!cachedFile.exists()) return
+
+        Log.w(TAG, "Recovering playback for cached key: $key")
+        showScreensaver(false)
+        val mediaItem = MediaItem.fromUri(Uri.fromFile(cachedFile))
+        exo.setMediaItem(mediaItem)
+        exo.repeatMode = Player.REPEAT_MODE_ONE
+        exo.prepare()
+        exo.play()
     }
 
     private fun updatePlaylist() {
@@ -1153,7 +1167,7 @@ class MainActivity : AppCompatActivity() {
             val mediaItem = MediaItem.fromUri(Uri.fromFile(cachedFile))
             player?.apply {
                 setMediaItem(mediaItem)
-                repeatMode = Player.REPEAT_MODE_OFF
+                repeatMode = Player.REPEAT_MODE_ONE
                 prepare()
                 play()
             }
@@ -1167,27 +1181,7 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "Playing: ${video.name} (${currentVideoIndex + 1}/${currentPlaylist.size})")
             prefetchNextPlaylistVideo()
         } else {
-            Log.w(TAG, "Video not cached, downloading with progress: ${video.filename}")
-            scope.launch {
-                try {
-                    val ok = ensureVideoCached(
-                        key = key,
-                        logicalFilename = video.filename,
-                        downloadUrl = video.url,
-                        labelForCache = video.name,
-                        showOverlay = true
-                    )
-                    if (!ok) {
-                        handler.postDelayed({ playNextVideo() }, 1500)
-                        return@launch
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to download ${video.filename}", e)
-                    handler.postDelayed({ playNextVideo() }, 1500)
-                    return@launch
-                }
-                playCurrentVideo()
-            }
+            Log.w(TAG, "Video not cached for playlist fallback (${video.filename}); keeping current cached playback")
         }
     }
 
@@ -1238,11 +1232,7 @@ class MainActivity : AppCompatActivity() {
             exo.play()
         } catch (e: Exception) {
             Log.e(TAG, "Buffer recovery failed", e)
-            if (currentPlaylist.size > 1) {
-                handler.post { playNextVideo() }
-            } else {
-                showScreensaver(true)
-            }
+            showScreensaver(true)
         }
     }
 
@@ -1642,6 +1632,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        ensureCurrentCachedLoop()
         if (currentPlaylist.isNotEmpty()) {
             player?.play()
         }
